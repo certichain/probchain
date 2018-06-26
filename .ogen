@@ -1,0 +1,10 @@
+{
+  "name": "probchain",
+  "version": "1.0.0",
+  "license": "MIT",
+  "author": { "username": "_", "email": "_" },
+  "homepage": "_",
+  "synopsis": "_",
+  "package_type": [ "Lib", [] ],
+  "dependencies": []
+}
