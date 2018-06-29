@@ -1,0 +1,22 @@
+
+
+
+Definition Hashed := nat.
+
+Variable hash : 
+  RndGen -> (Hashed * seq Transaction * nat) -> OracleState -> (OracleState, Hashed).
+
+
+
+
+Record Block := Bl {
+  block_link: Hashed;
+  blocK_records: seq Transaction;
+  block_proof_of_work: nat;
+  
+  (* extra information *)
+  block_is_adversarial: bool;
+  block_hash_round: nat;
+}.
+
+Inductive BlockChain := seq Block.
