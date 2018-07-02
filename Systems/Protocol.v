@@ -1,24 +1,22 @@
-From mathcomp.ssreflect
-Require Import ssreflect ssrbool ssrnat seq ssrfun.
 
 Require Import FMapAVL.
 Require Import Coq.Structures.OrderedTypeEx.
 Require Import OrderedType.
 (* Implementation of Bitcoin Protocol *)
 (* Does not compile yet - as probability issues have not been resolved. *)
+From Probchain
+Require Import BlockChain OracleState.
 
-Definition Addr := nat.
-Definition RndGen := nat.
+From mathcomp.ssreflect
+Require Import ssreflect ssrbool ssrnat seq ssrfun.
+Set Implicit Arguments.
+Unset Strict Implicit.
+Unset Printing Implicit Defensive.
 
 
-Inductive Transaction := valid | invalid.
 
-Definition TransactionPool := seq (Transaction * (seq Addr)).
-
-Inductive Message := 
-  | NormalMsg (addr : Addr) (bc : BlockChain) 
-  | BroadcastMsg (bc : BlockChain).
-
+Variable hash : 
+RndGen -> (Hashed * seq Transaction * nat) -> OracleState -> (OracleState * Hashed).
 
 
 
@@ -46,5 +44,5 @@ Record World := mkWorld {
   world_transaction_pool: TransactionPool;
   world_inflight_pool: MessagePool;
   world_message_pool: MessagePool;
-  world_hash: (Hashed * seq Transaction * nat) -> OracleComp (Hashed * seq Transaction * nat) Hashed Hashed;
+  world_hash: RndGen -> (Hashed * seq Transaction * nat) -> OracleState -> (OracleState * Hashed)
 }.

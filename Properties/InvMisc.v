@@ -1,6 +1,11 @@
-Require Import FMapAVL.
+From mathcomp.ssreflect
+Require Import ssreflect ssrbool ssrnat seq ssrfun.
+
 Require Import Coq.Structures.OrderedTypeEx.
 Require Import OrderedType.
+
+From Probchain
+Require Import BlockChain.
 
 Module Seq_as_OT <: OrderedType.
 
@@ -26,6 +31,7 @@ Module Seq_as_OT <: OrderedType.
        
      Definition eq_dec : forall n m : list Transaction, {n = m} + {n <> m}.
      Proof.
+
      Admitted.
      
 End Seq_as_OT.
@@ -59,19 +65,4 @@ Module Hash_Triple_as_OT <: OrderedType.
      Definition eq_dec : forall n m : (Hashed * list Transaction * nat), {eq n m} + {not (eq n m)}. Proof. Admitted.
 
 End Hash_Triple_as_OT.
-
-
-
-
-Module M := FMapAVL.Make(Hash_Triple_as_OT).
-Definition OracleState : Type := M.t nat.
-Definition OracleState_find k (m : OracleState) := M.find k m.
-
-Definition OracleState_put (p: (Hashed * list Transaction * nat) * nat) (m: OracleState) :=
-  M.add (fst p) (snd p) m.
-
-Notation "k |-> v" := (pair k v) (at level 60).
-Notation "[ ]" := (M.empty nat).
-Notation "[ p1 , .. , pn ]" := (update p1 .. (update pn (M.empty nat)) .. ).
-
 
