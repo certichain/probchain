@@ -14,7 +14,7 @@ Definition TransactionPool := seq (Transaction * (seq Addr)).
 
 Record Block := Bl {
   block_link: Hashed;
-  blocK_records: seq Transaction;
+  block_records: seq Transaction;
   block_proof_of_work: nat;
   
   (* extra information *)

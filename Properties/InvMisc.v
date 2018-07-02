@@ -1,8 +1,9 @@
 From mathcomp.ssreflect
-Require Import ssreflect ssrbool ssrnat seq ssrfun.
+Require Import ssreflect ssrbool ssrnat seq ssrfun eqtype.
 
 Require Import Coq.Structures.OrderedTypeEx.
 Require Import OrderedType.
+Require Import Eqdep.
 
 From Probchain
 Require Import BlockChain.
@@ -65,4 +66,46 @@ Module Hash_Triple_as_OT <: OrderedType.
      Definition eq_dec : forall n m : (Hashed * list Transaction * nat), {eq n m} + {not (eq n m)}. Proof. Admitted.
 
 End Hash_Triple_as_OT.
+
+
+Module BlockEq.
+
+    Lemma eqb_refl   : true = (true == true).
+    Proof.
+      by [].
+    Qed.
+
+
+    Definition eq_transaction (t1 t2 : Transaction) := 
+      match t1 with
+        | valid => if t2 is valid then true else false
+        | invalid => if t2 is invalid then true else false
+      end.
+    Lemma eq_transactionP : Equality.axiom eq_transaction.
+    Proof.
+      case => [[|] | [|]] ; rewrite /eq_transaction//=; [ by constructor 1 | by constructor 2 | by constructor 2 | by constructor 1].
+    Qed.
+    Canonical Transaction_eqMixin := Eval hnf in EqMixin eq_transactionP.
+    Canonical Transaction_eqType := Eval hnf in EqType Transaction Transaction_eqMixin.
+
+
+
+      Definition eq_block (bc1 bc2 : Block) := 
+      ((block_link bc1) == (block_link bc2)) &&
+      ((block_records bc1) == (block_records bc2)) &&
+      ((block_proof_of_work bc1) == (block_proof_of_work bc2)).
+
+      Lemma eq_blockP : Equality.axiom eq_block.
+      Proof.
+        case => [bl br bpow bia bhr b]; rewrite /eq_block//=.
+        (* TODO(Kiran): Complete this proof *)
+      Admitted.
+      
+
+    Canonical Block_eqMixin := Eval hnf in EqMixin eq_blockP.
+    Canonical Block_eqType := Eval hnf in EqType Block Block_eqMixin.
+
+
+End BlockEq.
+Export BlockEq.
 
