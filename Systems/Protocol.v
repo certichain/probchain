@@ -15,17 +15,30 @@ Unset Printing Implicit Defensive.
 
 
 
+(* delay between activation and succes *)
+Variable delta : nat.
+(* given a random generator, a block and the oracle, updates the oracle state and returns a new hashed value *)
 Variable hash : 
 RndGen -> (Hashed * seq Transaction * nat) -> OracleState -> (OracleState * Hashed).
 
 
 
+(*
+  An adversary's state consists of
+  1. all transactions it has been delivered.
+  2. All chains it has ever seen
+  3. an extra parameter to persist proof of work calculations between rounds. *)
 Record Adversary := mkAdvrs {
   adversary_local_transaction_pool: seq Transaction;
   adversary_local_message_pool: seq BlockChain;
   adversary_proof_of_work: nat;
 }.
 
+(* A node's local state consists of 
+    1. it's currently held chain
+    2. all transactions it has been delivered 
+    3. all chains that it has been sent since it's last activation
+    4. an extra parameter to persist proof of work calculations between rounds. *)
 Record LocalState := mkLclSt {
   honest_current_chain: BlockChain;
   honest_local_transaction_pool: seq Transaction;
@@ -46,10 +59,16 @@ Definition GlobalState := ((seq (LocalState * bool)) * Addr * nat)%type.
 Definition MessagePool := seq Message.
 
 Record World := mkWorld {
-  world_global_state: GlobalState;
-  world_transaction_pool: TransactionPool;
+  world_global_state: GlobalState; 
+  (* the transaction pools contains all sent transactions *)
+  world_transaction_pool: TransactionPool; 
+  (* the inflight pool contains all messages sent in the round *)
   world_inflight_pool: MessagePool;
-  world_message_pool: MessagePool;
+  (* the world message pool is a queue of messages sent in the past round - once
+  the length exceeds delta, the last entry is removed, and all messages delivered *)
+  (* thus this achieves the simulation of a delta delay *)
+  world_message_pool: seq MessagePool;
+  (* represents the shared oracle state *)
   world_hash: OracleState
 }.
 
@@ -67,7 +86,12 @@ Definition update_round (state : GlobalState) : GlobalState := let: (actors, act
 
 
 Inductive world_step (w w' : World) (random : RndGen) : Prop :=
-   RoundChange of round_ended w &
-  let: new_state := update_round (world_global_state w) in
-  w' = mkWorld new_state (world_transaction_pool w) (world_inflight_pool w) (world_message_pool w) (world_hash w)
+  (* when a round changes... *)
+   RoundChange of 
+        round_ended w &
+        (*  - we need to reset the currently active node to the start (round-robin) *)
+        let: new_state := update_round (world_global_state w) in
+        (*  - we need to add the current rounds inflight messages to the message pool *)
+        (*  - we need to deliver messages older than delta rounds *)
+        w' = mkWorld new_state (world_transaction_pool w) (world_inflight_pool w) (world_message_pool w) (world_hash w)
 .    
