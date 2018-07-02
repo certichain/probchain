@@ -7,6 +7,10 @@ Require Import OrderedType.
 From Probchain
 Require Import BlockChain OracleState.
 
+
+Require Coq.Program.Tactics.
+Require Coq.Program.Wf.
+
 From mathcomp.ssreflect
 Require Import ssreflect ssrbool ssrnat seq ssrfun.
 Set Implicit Arguments.
@@ -53,7 +57,7 @@ Record LocalState := mkLclSt {
          the round is complete
       3. A number representing the current round
 *)
-Definition GlobalState := ((seq (LocalState * bool)) * Addr * nat)%type.
+Definition GlobalState := ((seq (LocalState * bool) * Adversary) * Addr * nat)%type.
 
 
 Definition MessagePool := seq Message.
@@ -74,15 +78,92 @@ Record World := mkWorld {
 
 (* A round is complete if the currently_active index is one greater than the length of the actors array *)
 Definition round_ended (w: World) :=
-(world_global_state w).1.2 = ((length (world_global_state w).1.1) + 1)
+(world_global_state w).1.2 = ((length (world_global_state w).1.1.1) + 1)
 . 
 
 
 (* Implements the round robin - each actor activated once a round mechanism *)
-Definition update_round (state : GlobalState) : GlobalState := let: (actors, active, round) := state in 
+Definition update_round (state : GlobalState) : GlobalState := let: ((actors, adversary), active, round) := state in 
   if (eqn active (length actors).+1) 
-  then (actors, 0, round.+1) 
-  else (actors, active.+1, round).
+  then ((actors, adversary), 0, round.+1) 
+  else ((actors,adversary), active.+1, round).
+
+ 
+
+
+
+(* insert the corresponding message into the recipient's message pool *)
+Definition insert_message 
+  (addr: Addr) 
+  (bc: BlockChain) 
+  (state: GlobalState) : GlobalState := 
+  let: ((actors, adversary), active, round) := state in 
+  let: default := (mkLclSt nil nil nil 0, false) in
+  let: (actor, corrupted) := nth default actors addr in 
+  if corrupted 
+  then
+    let: local_transaction_pool := adversary_local_transaction_pool adversary in 
+    (* TODO(Kiran): Check whether the blockchain is already in the pool *)
+    let: local_message_pool := bc :: (adversary_local_message_pool adversary) in
+    let: proof_of_work := adversary_proof_of_work adversary in
+    let: new_adversary := mkAdvrs local_transaction_pool local_message_pool proof_of_work  in
+    ((actors, new_adversary), active, round)
+  else
+    let: current_chain := honest_current_chain actor in
+    let: local_transaction_pool := honest_local_transaction_pool actor in
+    let: message_pool := (honest_local_message_pool actor) in
+    (* TODO(Kiran): Check whether the blockchain is already in the pool *)
+    let: message_pool := bc :: message_pool in
+    let: proof_of_work := honest_proof_of_work actor in 
+    let: new_actor := mkLclSt current_chain local_transaction_pool message_pool proof_of_work in
+    let: new_actors := set_nth default actors addr (new_actor, false) in
+    ((new_actors, adversary), active, round)
+  .
+
+
+
+
+(* insert the corresponding message into every actor's message pool *)
+Definition broadcast_message (bc : BlockChain) (state: GlobalState) : GlobalState := state.
+
+(* for each message in messages, send to corresponding actor *)
+Fixpoint deliver_messages_internal
+  (messages : seq Message) 
+  (state : GlobalState) :  GlobalState :=
+  if messages is h :: t'
+  then match h with
+    | NormalMsg addr bc => 
+      let new_state := insert_message addr bc state in
+        deliver_messages_internal t' new_state
+    | BroadcastMsg bc => 
+      let new_state := broadcast_message bc state in
+        deliver_messages_internal t' new_state
+  end
+  else state. 
+
+
+
+(* deliver messages older than delta rounds *)
+Program Fixpoint deliver_messages 
+  (message_pool : seq (seq Message)) 
+  (state : GlobalState) {measure (size message_pool)} : (seq (seq Message) * GlobalState)  :=
+  if message_pool is h :: t' 
+  then if  (size message_pool >= delta) 
+        then 
+          let: oldest_set := last h t' in
+          let remaining := belast h t' in
+          let new_state := deliver_messages_internal oldest_set state in
+          deliver_messages remaining new_state
+        else (message_pool, state)
+  else (message_pool, state).
+Next Obligation.
+Proof. by rewrite size_belast. Qed.
+
+
+
+
+
+
 
 
 Inductive world_step (w w' : World) (random : RndGen) : Prop :=
@@ -90,8 +171,18 @@ Inductive world_step (w w' : World) (random : RndGen) : Prop :=
    RoundChange of 
         round_ended w &
         (*  - we need to reset the currently active node to the start (round-robin) *)
-        let: new_state := update_round (world_global_state w) in
+        let: updated_state := update_round (world_global_state w) in
         (*  - we need to add the current rounds inflight messages to the message pool *)
+        let: new_inflight_pool := nil in
+        let: old_message_pool := (world_inflight_pool w) :: (world_message_pool w) in
         (*  - we need to deliver messages older than delta rounds *)
-        w' = mkWorld new_state (world_transaction_pool w) (world_inflight_pool w) (world_message_pool w) (world_hash w)
+        let: (new_message_pool, new_state) := deliver_messages old_message_pool updated_state in
+        w' = 
+          mkWorld 
+            new_state 
+            (world_transaction_pool w) 
+            new_inflight_pool
+            new_message_pool
+            (world_hash w)
 .    
+
