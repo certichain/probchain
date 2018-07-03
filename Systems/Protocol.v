@@ -168,7 +168,7 @@ Definition deliver_messages
   foldr 
     (fun (msg : Message) (st: GlobalState) => 
       match msg with
-      | NormalMsg addr bc => insert_message addr bc st 
+      | MulticastMsg addr bc => insert_message addr bc st 
       | BroadcastMsg bc => broadcast_message bc st 
       end) 
     state 
@@ -272,9 +272,21 @@ Inductive world_step (w w' : World) (random : RndGen) : Prop :=
               (new_message ++ (world_inflight_pool w))
               (world_message_pool w)
               new_oracle
-    | AdversaryTransaction
-        (* assert that random is of form TransactionGen
-           that the currently active node is an corrupted node *)
+    | AdversaryTransaction (transaction: Transaction) (recipients : seq nat) of
+        (* assert that random is of form TransactionGen *)
+          random = AdvTransactionGen (transaction, recipients) &
+           (* that the currently active node is a corrupted node  *)
+           adversary_activation (world_global_state w)  &
+           (* Note: No guarantees of validity here *)
+           let: ((actors, adversary), active, round) := (world_global_state w) in 
+           let: new_transaction_pool := (MulticastTransaction (transaction, recipients)) :: (world_transaction_pool w) in
+           w' = 
+            mkWorld
+              (world_global_state w)
+              new_transaction_pool
+              (world_inflight_pool w)
+              (world_message_pool w)
+              (world_hash w)
     | AdversaryMint
         (* assert that random is of form MintBlock
            that the currently active node is a corrupted node, increment proof of work

@@ -15,7 +15,7 @@ Parameter Transaction_valid : Transaction -> seq Transaction -> bool.
 
 Inductive TransactionMessage := 
   | BroadcastTransaction of Transaction
-  | DirectedTransaction of (Transaction * (seq Addr)).
+  | MulticastTransaction of (Transaction * (seq Addr)).
 
 Definition TransactionPool := seq (TransactionMessage).
 
@@ -67,7 +67,7 @@ Definition BlockChain_unwrap (b : BlockChain) := flatten (map (fun bchain => blo
 
 
 Inductive Message := 
-  | NormalMsg (addr : Addr) (bc : BlockChain)  
+  | MulticastMsg (addr : Addr) (bc : BlockChain)  
   | BroadcastMsg (bc : BlockChain).
 
 
