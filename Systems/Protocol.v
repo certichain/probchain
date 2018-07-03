@@ -136,20 +136,21 @@ Definition insert_message
 (* insert the corresponding message into every actor's message pool *)
 Definition broadcast_message (bc : BlockChain) (state: GlobalState) : GlobalState := state.
 
+About foldr.
+
 (* for each message in messages, send to corresponding actor *)
-Fixpoint deliver_messages_internal
+Definition deliver_messages_internal
   (messages : seq Message) 
   (state : GlobalState) :  GlobalState :=
-  if messages is h :: t'
-  then match h with
-    | NormalMsg addr bc => 
-      let new_state := insert_message addr bc state in
-        deliver_messages_internal t' new_state
-    | BroadcastMsg bc => 
-      let new_state := broadcast_message bc state in
-        deliver_messages_internal t' new_state
-  end
-  else state. 
+  foldr 
+  (fun (msg : Message) (st: GlobalState) => 
+     match msg with
+    | NormalMsg addr bc => insert_message addr bc st 
+    | BroadcastMsg bc => broadcast_message bc st 
+    end
+  ) 
+  state 
+  messages.
 
 
 
