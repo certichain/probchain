@@ -20,6 +20,7 @@ Unset Printing Implicit Defensive.
 
 
 (* delay between activation and succes *)
+Parameter t : nat.
 Parameter delta : nat.
 
 (* given a random generator, a block and the oracle, 
@@ -104,7 +105,9 @@ Definition honest_activation (state: GlobalState) :=
 
 (* A given world step is an adversarial activation if the current address
    is to a node which has been corrupted, or the current address is equal to
-   the length of the list (as defined in the bitcoin paper)*)
+   the length of the list 
+   this is based on the fact that the bitcoin paper states that in the round
+   robin scheduling, once all nodes have activated, the adversary activates *)
 Definition adversary_activation (state: GlobalState) :=
     let: ((actors, adversary), active, round) := state in 
     let: default := (mkLclSt nil nil nil 0, false) in
@@ -135,8 +138,7 @@ Definition insert_message
   if corrupted 
   then
     let: local_transaction_pool := adversary_local_transaction_pool adversary in 
-    (* TODO(Kiran): Check whether the blockchain is already in the pool *)
-    let: local_message_pool := bc :: (adversary_local_message_pool adversary) in
+    (* TODO(Kiran): Check whether the blockchain is already in the pool *) let: local_message_pool := bc :: (adversary_local_message_pool adversary) in
     let: proof_of_work := adversary_proof_of_work adversary in
     let: new_adversary := mkAdvrs local_transaction_pool local_message_pool proof_of_work  in
     ((actors, new_adversary), active, round)
@@ -164,14 +166,13 @@ Definition deliver_messages
   (messages : seq Message) 
   (state : GlobalState) :  GlobalState :=
   foldr 
-  (fun (msg : Message) (st: GlobalState) => 
-     match msg with
-    | NormalMsg addr bc => insert_message addr bc st 
-    | BroadcastMsg bc => broadcast_message bc st 
-    end
-  ) 
-  state 
-  messages.
+    (fun (msg : Message) (st: GlobalState) => 
+      match msg with
+      | NormalMsg addr bc => insert_message addr bc st 
+      | BroadcastMsg bc => broadcast_message bc st 
+      end) 
+    state 
+    messages.
 
 
 Definition update_message_pool_queue (message_list_queue: seq (seq Message)) (new_message_list : seq Message) : (seq Message * seq (seq Message)) :=
@@ -189,6 +190,7 @@ Definition update_message_pool_queue (message_list_queue: seq (seq Message)) (ne
 
 
 
+Variable attempt_hash : (nat * OracleState) -> (LocalState) -> (LocalState * seq Message * OracleState). 
 
 
 Inductive world_step (w w' : World) (random : RndGen) : Prop :=
@@ -247,11 +249,29 @@ Inductive world_step (w w' : World) (random : RndGen) : Prop :=
               (world_inflight_pool w)
               (world_message_pool w)
               (world_hash w)
-    | HonestMint
-        (* assert that random is of form MintBlock 
-           that the currently active is an uncorrupted node
-           broadcast if successful - increment proof of work
-           then increment the currently active and perform bookkeeping *)
+    | HonestMint (random_value : nat) of
+        (* assert that random is of form MintBlock *)
+           random = MintBlock random_value &
+           (* that the currently active is an uncorrupted node *)
+           honest_activation (world_global_state w) &
+           let: ((actors, adversary), active, round) := (world_global_state w) in 
+           let: default := (mkLclSt nil nil nil 0, false) in
+           let: oracle := (world_hash w) in
+           let: (actor, is_corrupt) := nth default actors active in 
+           (* broadcast if successful - else increment proof of work *)
+           (* an actor attempts a hash with a random value *)
+           let: (updated_actor, new_message, new_oracle) := attempt_hash (random_value, oracle) actor in
+           let: new_actors := set_nth default actors active (updated_actor, is_corrupt) in 
+           (* then increment the currently active and perform bookkeeping *) 
+           (* TODO(Kiran): Update transactions of newly activated node *)
+           let: updated_state := update_round ((new_actors, adversary), active, round) in
+           w' = 
+             mkWorld
+              updated_state 
+              (world_transaction_pool w)
+              (new_message ++ (world_inflight_pool w))
+              (world_message_pool w)
+              new_oracle
     | AdversaryTransaction
         (* assert that random is of form TransactionGen
            that the currently active node is an corrupted node *)
