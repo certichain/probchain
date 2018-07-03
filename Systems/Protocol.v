@@ -20,10 +20,20 @@ Unset Printing Implicit Defensive.
 
 
 (* delay between activation and succes *)
-Variable delta : nat.
-(* given a random generator, a block and the oracle, updates the oracle state and returns a new hashed value *)
-Variable hash : 
-RndGen -> (Hashed * seq Transaction * nat) -> OracleState -> (OracleState * Hashed).
+Parameter delta : nat.
+
+(* given a random generator, a block and the oracle, 
+   updates the oracle state and returns a new hashed value *)
+Definition hash 
+  (rnd : RndGen) 
+  (blk : (Hashed * seq Transaction * nat))
+  (oracle : OracleState) : (OracleState * Hashed) :=
+ match OracleState_find blk oracle with
+  | Some(value) => (oracle, value)
+  | None => let new_oracle := OracleState_put (blk, rnd) oracle in
+          (new_oracle, rnd)
+ end.
+
 
 
 
