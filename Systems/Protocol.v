@@ -12,7 +12,7 @@ Require Coq.Program.Tactics.
 Require Coq.Program.Wf.
 
 From mathcomp.ssreflect
-Require Import ssreflect ssrbool ssrnat seq ssrfun.
+Require Import ssreflect ssrbool ssrnat seq ssrfun eqtype.
 Set Implicit Arguments.
 Unset Strict Implicit.
 Unset Printing Implicit Defensive.
