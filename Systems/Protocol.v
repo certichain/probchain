@@ -25,7 +25,7 @@ Parameter delta : nat.
 (* given a random generator, a block and the oracle, 
    updates the oracle state and returns a new hashed value *)
 Definition hash 
-  (rnd : RndGen) 
+  (rnd : nat) 
   (blk : (Hashed * seq Transaction * nat))
   (oracle : OracleState) : (OracleState * Hashed) :=
  match OracleState_find blk oracle with
@@ -171,7 +171,7 @@ Definition update_message_pool_queue (message_list_queue: seq (seq Message)) (ne
 
 Inductive world_step (w w' : World) (random : RndGen) : Prop :=
   (* when a round changes... *)
-   RoundChange of 
+   | RoundChange of 
         round_ended w &
         (*  - we need to reset the currently active node to the start (round-robin) *)
         let: updated_state := update_round (world_global_state w) in
@@ -190,5 +190,33 @@ Inductive world_step (w w' : World) (random : RndGen) : Prop :=
             new_inflight_pool
             new_message_pool
             (world_hash w)
+    | TransactionDrop
+        (* assert that random is of form TransactionDrop
+           and index is actually an index into the transaction pool 
+           then remove that entry*)
+    | HonestTransaction
+        (* assert that random is of form TransactionGen
+            that the currently active is an uncorrupted node
+           and that the transaction is valid with respect to the chain 
+           of currently active*)
+    | HonestMint
+        (* assert that random is of form MintBlock 
+           that the currently active is an uncorrupted node
+           broadcast if successful - increment proof of work
+           then increment the currently active and perform bookkeeping *)
+    | AdversaryTransaction
+        (* assert that random is of form TransactionGen
+           that the currently active node is an corrupted node *)
+    | AdversaryMint
+        (* assert that random is of form MintBlock
+           that the currently active node is a corrupted node, increment proof of work
+           then increment the currently active and perform bookkeeping *)
+    | AdversaryBroadcast
+        (* assert that random is of form AdversaryBroadcast
+           that the index is valid
+           that the currently active node is a corrupted one *)
+    | AdversaryCorrupt
+        (* assert that random is of form AdvCorrupt
+          that the index is valid, and to a uncorrupt node
+          and that the number of corrupt nodes is less than t *)
 .    
-
