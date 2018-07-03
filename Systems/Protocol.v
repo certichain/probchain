@@ -155,6 +155,15 @@ Definition insert_message
   .
 
 
+Definition insert_multicast_message 
+  (addresses: seq Addr) 
+  (bc: BlockChain) 
+  (initial_state: GlobalState) : GlobalState := 
+      foldr
+        (fun addr state => insert_message addr bc state)
+        initial_state
+        addresses.
+ 
 
 
 (* insert the corresponding message into every actor's message pool *)
@@ -168,7 +177,7 @@ Definition deliver_messages
   foldr 
     (fun (msg : Message) (st: GlobalState) => 
       match msg with
-      | MulticastMsg addr bc => insert_message addr bc st 
+      | MulticastMsg addr bc => insert_multicast_message addr bc st 
       | BroadcastMsg bc => broadcast_message bc st 
       end) 
     state 
@@ -288,13 +297,30 @@ Inductive world_step (w w' : World) (random : RndGen) : Prop :=
               (world_message_pool w)
               (world_hash w)
     | AdversaryMint
-        (* assert that random is of form MintBlock
+        (* TODO(kiran): assert that random is of form MintBlock
            that the currently active node is a corrupted node, increment proof of work
            then increment the currently active and perform bookkeeping *)
-    | AdversaryBroadcast
-        (* assert that random is of form AdversaryBroadcast
-           that the index is valid
-           that the currently active node is a corrupted one *)
+    | AdversaryBroadcast (chain_no : nat) (recipients : seq nat) of
+        (* assert that random is of form AdversaryBroadcast *)
+        random = AdvBroadcast (chain_no, recipients) &
+        (* that the currently active node is a corrupted one  *)
+        adversary_activation (world_global_state w)  &
+           (* that the index is valid *)
+          let: ((actors, adversary), active, round) := (world_global_state w) in 
+          let: blockchain_cache := adversary_local_message_pool adversary in
+          (length blockchain_cache) < chain_no &
+          let: ((actors, adversary), active, round) := (world_global_state w) in 
+          let: blockchain_cache := adversary_local_message_pool adversary in
+          let: chain := nth [::] blockchain_cache chain_no in
+           w' = 
+            mkWorld
+              (world_global_state w)
+              (world_transaction_pool w)
+              ((MulticastMsg  recipients chain) :: (world_inflight_pool w))
+              (world_message_pool w)
+              (world_hash w)
+
+
     | AdversaryCorrupt
         (* assert that random is of form AdvCorrupt
           that the index is valid, and to a uncorrupt node

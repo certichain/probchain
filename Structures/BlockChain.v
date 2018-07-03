@@ -44,7 +44,7 @@ Inductive RndGen  :=
     | AdvCorrupt of nat
     (* used by adversary parties to broadcast chains - nat is an index into 
        the adversaries local blockchain pool*)
-    | AdvBroadcast of nat
+    | AdvBroadcast of (nat * list nat)
     | AdvTransactionGen of (Transaction * (list nat))
     | AdvTarget of  seq nat.
 
@@ -67,7 +67,7 @@ Definition BlockChain_unwrap (b : BlockChain) := flatten (map (fun bchain => blo
 
 
 Inductive Message := 
-  | MulticastMsg (addr : Addr) (bc : BlockChain)  
+  | MulticastMsg (addr : seq Addr) (bc : BlockChain)  
   | BroadcastMsg (bc : BlockChain).
 
 
