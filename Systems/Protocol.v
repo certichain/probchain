@@ -136,10 +136,9 @@ Definition insert_message
 (* insert the corresponding message into every actor's message pool *)
 Definition broadcast_message (bc : BlockChain) (state: GlobalState) : GlobalState := state.
 
-About foldr.
 
 (* for each message in messages, send to corresponding actor *)
-Definition deliver_messages_internal
+Definition deliver_messages
   (messages : seq Message) 
   (state : GlobalState) :  GlobalState :=
   foldr 
@@ -153,22 +152,15 @@ Definition deliver_messages_internal
   messages.
 
 
-
-(* deliver messages older than delta rounds *)
-Program Fixpoint deliver_messages 
-  (message_pool : seq (seq Message)) 
-  (state : GlobalState) {measure (size message_pool)} : (seq (seq Message) * GlobalState)  :=
-  if message_pool is h :: t' 
-  then if  (size message_pool >= delta) 
-        then 
-          let: oldest_set := last h t' in
-          let remaining := belast h t' in
-          let new_state := deliver_messages_internal oldest_set state in
-          deliver_messages remaining new_state
-        else (message_pool, state)
-  else (message_pool, state).
-Next Obligation.
-Proof. by rewrite size_belast. Qed.
+Definition update_message_pool_queue (message_list_queue: seq (seq Message)) (new_message_list : seq Message) : (seq Message * seq (seq Message)) :=
+  if message_list_queue is h :: t
+      (* remove the last message_list *)
+  then let oldest_message_list := last h t in 
+       let removed_message_queue := belast h t in
+       (* insert the new message_list at the start of the queue *)
+       (oldest_message_list, new_message_list :: removed_message_queue)
+      (* else branch shouldn't be called, as the queue should always be at a fixed size *)
+  else ([::], new_message_list :: nil).
 
 
 
@@ -185,9 +177,12 @@ Inductive world_step (w w' : World) (random : RndGen) : Prop :=
         let: updated_state := update_round (world_global_state w) in
         (*  - we need to add the current rounds inflight messages to the message pool *)
         let: new_inflight_pool := nil in
-        let: old_message_pool := (world_inflight_pool w) :: (world_message_pool w) in
+        let: old_inflight_pool := (world_inflight_pool w) in
+        (* this will pop off the oldest message list, and insert the old inflight pool *)
+        let: (messages_to_be_delivered, new_message_pool) := 
+                update_message_pool_queue (world_message_pool w) old_inflight_pool in
         (*  - we need to deliver messages older than delta rounds *)
-        let: (new_message_pool, new_state) := deliver_messages old_message_pool updated_state in
+        let: new_state := deliver_messages messages_to_be_delivered updated_state in
         w' = 
           mkWorld 
             new_state 
