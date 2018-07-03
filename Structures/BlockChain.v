@@ -13,7 +13,11 @@ Parameter Transaction : eqType.
 (* determines whether a transaction is valid or not with respect to another sequence of transactions*)
 Parameter Transaction_valid : Transaction -> seq Transaction -> bool. 
 
-Definition TransactionPool := seq (Transaction * (seq Addr)).
+Inductive TransactionMessage := 
+  | BroadcastTransaction of Transaction
+  | DirectedTransaction of (Transaction * (seq Addr)).
+
+Definition TransactionPool := seq (TransactionMessage).
 
 
 (* RndGen will be passed down from the probabilistic component and used to simulate any probabilistic components *)
@@ -29,7 +33,7 @@ Definition TransactionPool := seq (Transaction * (seq Addr)).
    sequences of actions can be considered *)
 Inductive RndGen  := 
     (* used by both Honest and Adversary Parties to generate transactions *)
-    | TransactionGen of Transaction 
+    | HonestTransactionGen of Transaction 
     | TransactionDrop of nat
     (* used by both Honest and Adversary Parties to mint blocks*)
     (* The nat represents the return value of the random oracle if the block is new*)
@@ -41,6 +45,7 @@ Inductive RndGen  :=
     (* used by adversary parties to broadcast chains - nat is an index into 
        the adversaries local blockchain pool*)
     | AdvBroadcast of nat
+    | AdvTransactionGen of (Transaction * (list nat))
     | AdvTarget of  seq nat.
 
 

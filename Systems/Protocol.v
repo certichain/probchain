@@ -5,7 +5,7 @@ Require Import OrderedType.
 (* Implementation of Bitcoin Protocol *)
 (* Does not compile yet - as probability issues have not been resolved. *)
 From Probchain
-Require Import BlockChain OracleState.
+Require Import BlockChain OracleState InvMisc.
 
 
 Require Coq.Program.Tactics.
@@ -43,7 +43,7 @@ Definition hash
   2. All chains it has ever seen
   3. an extra parameter to persist proof of work calculations between rounds. *)
 Record Adversary := mkAdvrs {
-  adversary_local_transaction_pool: seq Transaction;
+  adversary_local_transaction_pool: TransactionPool;
   adversary_local_message_pool: seq BlockChain;
   adversary_proof_of_work: nat;
 }.
@@ -90,6 +90,28 @@ Record World := mkWorld {
 Definition round_ended (w: World) :=
 (world_global_state w).1.2 = ((length (world_global_state w).1.1.1) + 1)
 . 
+
+About nth.
+
+(* A given world step is an honest activation if the current address
+   is to a node which has not been corrupted *)
+Definition honest_activation (state: GlobalState) :=
+    let: ((actors, adversary), active, round) := state in 
+    let: default := (mkLclSt nil nil nil 0, false) in
+    (length actors) > active /\
+    let: (actor, is_corrupt) := nth default  actors active in
+      is_corrupt.
+
+(* A given world step is an adversarial activation if the current address
+   is to a node which has been corrupted, or the current address is equal to
+   the length of the list (as defined in the bitcoin paper)*)
+Definition adversary_activation (state: GlobalState) :=
+    let: ((actors, adversary), active, round) := state in 
+    let: default := (mkLclSt nil nil nil 0, false) in
+    ((length actors) > active /\
+    let: (actor, is_corrupt) := nth default  actors active in
+      is_corrupt = false) \/ (length actors = active).
+
 
 
 (* Implements the round robin - each actor activated once a round mechanism *)
@@ -190,15 +212,41 @@ Inductive world_step (w w' : World) (random : RndGen) : Prop :=
             new_inflight_pool
             new_message_pool
             (world_hash w)
-    | TransactionDrop
+    | TransactionDrop (n : nat) of
         (* assert that random is of form TransactionDrop
            and index is actually an index into the transaction pool 
            then remove that entry*)
-    | HonestTransaction
+           random = TransactionDrop n &
+           let: transaction_pool := world_transaction_pool w in
+           n < length transaction_pool &
+           let: new_transaction_pool := rem_nth n (world_transaction_pool w) in
+           w' = 
+            mkWorld
+              (world_global_state w)
+              new_transaction_pool
+              (world_inflight_pool w)
+              (world_message_pool w)
+              (world_hash w)
+    | HonestTransaction (transaction : Transaction) of
         (* assert that random is of form TransactionGen
             that the currently active is an uncorrupted node
            and that the transaction is valid with respect to the chain 
            of currently active*)
+           random = HonestTransactionGen transaction &
+           honest_activation (world_global_state w) &
+           let: ((actors, adversary), active, round) := (world_global_state w) in 
+           let: default := (mkLclSt nil nil nil 0, false) in
+           let: (actor, _) := nth default actors active in 
+           let: transactions := BlockChain_unwrap (honest_current_chain actor) in
+           Transaction_valid transaction transactions &
+           let: new_transaction_pool := (BroadcastTransaction transaction) :: (world_transaction_pool w) in
+           w' = 
+            mkWorld
+              (world_global_state w)
+              new_transaction_pool
+              (world_inflight_pool w)
+              (world_message_pool w)
+              (world_hash w)
     | HonestMint
         (* assert that random is of form MintBlock 
            that the currently active is an uncorrupted node

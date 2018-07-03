@@ -62,3 +62,23 @@ End BlockEq.
 Export BlockEq.
 
 
+(* Couldn't find a remove_nth function in stdlib or ssreflect*)
+Fixpoint rem_nth {A:Type} (n : nat) (ls : list A) : list A := 
+    match n with
+      | 0 => if ls is h::t then t else nil
+      | S n' => if ls is h :: t 
+            then h :: (rem_nth n' t)
+            else ls
+      end.
+
+(*
+Example rem_nth_test_1 : rem_nth 0 [:: 1; 2; 3] = [:: 2; 3].
+Proof. by []. Qed.
+
+Example rem_nth_test_2 : rem_nth 1 [:: 1; 2; 3] = [:: 1; 3].
+Proof. by []. Qed.
+
+
+Example rem_nth_test_3 : rem_nth 2 [:: 1; 2; 3] = [:: 1; 2].
+Proof. by []. Qed.
+*)
