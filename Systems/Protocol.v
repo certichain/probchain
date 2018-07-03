@@ -19,8 +19,12 @@ Unset Printing Implicit Defensive.
 
 
 
-(* delay between activation and succes *)
-Parameter t : nat.
+(* Should these have different names from the proof for legibility? *)
+(* maximum number of nodes that can be corrupted *)
+Parameter t_max_corrupted : nat.
+(* a hash is valid iff hash(block) < T*)
+Parameter T_Hashing_Difficulty : nat.
+(* delay between activation and success *)
 Parameter delta : nat.
 
 (* given a random generator, a block and the oracle, 
@@ -92,7 +96,11 @@ Definition round_ended (w: World) :=
 (world_global_state w).1.2 = ((length (world_global_state w).1.1.1) + 1)
 . 
 
-About nth.
+
+Definition no_corrupted_players (state: GlobalState) :=
+    let: ((actors, adversary), active, round) := state in 
+      length (filter (fun actor => actor.2) actors).
+
 
 (* A given world step is an honest activation if the current address
    is to a node which has not been corrupted *)
@@ -319,10 +327,24 @@ Inductive world_step (w w' : World) (random : RndGen) : Prop :=
               ((MulticastMsg  recipients chain) :: (world_inflight_pool w))
               (world_message_pool w)
               (world_hash w)
-
-
-    | AdversaryCorrupt
-        (* assert that random is of form AdvCorrupt
-          that the index is valid, and to a uncorrupt node
-          and that the number of corrupt nodes is less than t *)
+    | AdversaryCorrupt (addr : Addr) of
+        (* assert that random is of form AdvCorrupt *)
+        random = AdvCorrupt addr &
+        (* that the index is valid, and to a uncorrupt node *)
+        let: ((actors, _), _, _) := (world_global_state w) in 
+        addr < length actors  &
+        (* and that the number of corrupt nodes is less than t  *)
+        no_corrupted_players (world_global_state w) < t_max_corrupted  &
+        let: ((actors, adversary), active, round) := (world_global_state w) in 
+        let: default := (mkLclSt nil nil nil 0, false) in
+        let: (actor, is_corrupt) := nth default actors addr in 
+        let: new_actors := set_nth default actors addr (actor, true) in 
+        let: new_global_state := ((new_actors, adversary), active, round) in
+           w' = 
+            mkWorld
+              new_global_state
+              (world_transaction_pool w)
+              (world_inflight_pool w)
+              (world_message_pool w)
+              (world_hash w)
 .    

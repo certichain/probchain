@@ -3,7 +3,7 @@ Require Import ssreflect ssrbool ssrnat eqtype ssrfun seq path.
 
 
 
-(* Hashed can not be a paremter, as it has to be comparable to a numerical T *)
+(* Hashed can not be a parameter, as it has to be comparable to a numerical T *)
 Definition Hashed := nat.
 (* Simmilarly, Addr must be an index into the honest actors, thus not a parameter*)
 Definition Addr := nat.
@@ -41,11 +41,11 @@ Inductive RndGen  :=
     | MintBlock of nat  
     (* Used to represent the adversary corrupting players - nat is an index into
        which player to corrupt*)
-    | AdvCorrupt of nat
+    | AdvCorrupt of Addr
     (* used by adversary parties to broadcast chains - nat is an index into 
        the adversaries local blockchain pool*)
     | AdvBroadcast of (nat * list nat)
-    | AdvTransactionGen of (Transaction * (list nat))
+    | AdvTransactionGen of (Transaction * (list Addr))
     | AdvTarget of  seq nat.
 
 
