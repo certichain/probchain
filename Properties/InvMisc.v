@@ -82,3 +82,30 @@ Proof. by []. Qed.
 Example rem_nth_test_3 : rem_nth 2 [:: 1; 2; 3] = [:: 1; 2].
 Proof. by []. Qed.
 *)
+
+(* Also couldn't find any utilities for dealing with option types *)
+Definition option_cons 
+  {A : Type} 
+  (self : option A) 
+  (list : seq.seq A) : seq.seq A := match self with 
+    | Some value => value :: list
+    | None => list
+  end.
+
+(*Example option_cons_test_1 : option_cons (Some 1) [:: 2; 3] = [:: 1; 2; 3].
+Proof. by []. Qed.
+
+
+Example option_cons_test_2 : option_cons None [:: 2; 3] = [:: 2; 3].
+Proof. by []. Qed.*)
+
+Lemma options_cons_some_eq_cons : forall (A : Type) (x : A) (xs : seq.seq A), option_cons (Some x) xs = cons x xs.
+Proof.
+  by [].
+Qed.
+
+Lemma options_cons_none_ident : forall (A : Type) (xs : seq.seq A), option_cons None xs = xs.
+Proof.
+  by [].
+Qed.
+

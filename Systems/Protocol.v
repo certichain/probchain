@@ -204,7 +204,8 @@ Definition update_message_pool_queue (message_list_queue: seq (seq Message)) (ne
 
 
 
-Variable attempt_hash : (Hashed * OracleState) -> Nonce -> (LocalState) -> (LocalState * seq Message * OracleState). 
+Variable attempt_hash : (Hashed * OracleState) -> Nonce -> (LocalState) -> (LocalState * option Message * OracleState). 
+(* Variable adversary_hash : (Hashed * OracleState) -> Nonce -> () *)
 
 
 Inductive world_step (w w' : World) (random : RndGen) : Prop :=
@@ -283,7 +284,7 @@ Inductive world_step (w w' : World) (random : RndGen) : Prop :=
              mkWorld
               updated_state 
               (world_transaction_pool w)
-              (new_message ++ (world_inflight_pool w))
+              (option_cons new_message (world_inflight_pool w))
               (world_message_pool w)
               new_oracle
     | AdversaryTransaction (transaction: Transaction) (recipients : seq nat) of
@@ -301,10 +302,10 @@ Inductive world_step (w w' : World) (random : RndGen) : Prop :=
               (world_inflight_pool w)
               (world_message_pool w)
               (world_hash w)
-    | AdversaryMint
-        (* TODO(kiran): assert that random is of form MintBlock
-           that the currently active node is a corrupted node, increment proof of work
-           then increment the currently active and perform bookkeeping *)
+    | AdversaryMint 
+        (* assert that random is of form MintBlock *)
+           (* that the currently active node is a corrupted node, increment proof of work *)
+           (* then increment the currently active  *)
     | AdversaryBroadcast (chain_no : nat) (recipients : seq nat) of
         (* assert that random is of form AdversaryBroadcast *)
         random = AdvBroadcast (chain_no, recipients) &
