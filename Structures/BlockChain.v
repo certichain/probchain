@@ -32,11 +32,14 @@ Inductive RndGen  :=
     (* used by both Honest and Adversary Parties to generate transactions *)
     | HonestTransactionGen of Transaction 
     | TransactionDrop of nat
-    (* used by both Honest and Adversary Parties to mint blocks*)
+    (* used by both Honest Parties to mint blocks*)
     (* Hashed represents the return value of the random oracle if the block is new*)
     (* Nonce represents the nonce used to create the block*)
     (* Both parameters will be probabilistically generated *)
-    | MintBlock of (Hashed * Nonce)
+    | HonestMintBlock of (Hashed * Nonce)
+    (* the adversary gets an additional parameter specifying which chain
+       in it's pool it should mint onto *)
+    | AdvMintBlock of (Hashed * Nonce * nat)
     (* Used to represent the adversary corrupting players - nat is an index into
        which player to corrupt*)
     | AdvCorrupt of Addr

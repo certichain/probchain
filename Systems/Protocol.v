@@ -43,11 +43,16 @@ Definition hash
   An adversary's state consists of
   1. all transactions it has been delivered.
   2. All chains it has ever seen
-  3. an extra parameter to persist proof of work calculations between rounds. *)
+  3. an extra parameter to persist proof of work calculations between rounds. 
+  4. the last round it attempted a hash - it can only attempt hashing 
+     if this value is less than the current round*)
 Record Adversary := mkAdvrs {
   adversary_local_transaction_pool: TransactionPool;
   adversary_local_message_pool: seq BlockChain;
+
+  (* Additional info *)
   adversary_proof_of_work: nat;
+  adversary_last_hashed_round: nat;
 }.
 
 (* A node's local state consists of 
@@ -122,13 +127,20 @@ Definition adversary_activation (state: GlobalState) :=
 
 
 
-(* Implements the round robin - each actor activated once a round mechanism *)
+(* Implements the round robin - each actor activated once a round mechanism 
+   Once the last actor, and then the adversary has activated, the function does
+   not do anything else *)
 Definition update_round (state : GlobalState) : GlobalState := let: ((actors, adversary), active, round) := state in 
   if (eqn active (length actors).+1) 
-  then ((actors, adversary), 0, round.+1) 
+  then state
   else ((actors,adversary), active.+1, round).
 
- 
+Definition next_round  (state : GlobalState) : GlobalState := let: ((actors, adversary), active, round) := state in 
+  if (eqn active (length actors).+1) 
+  then ((actors, adversary), 0, round.+1)
+  else state.
+
+
 
 
 
@@ -145,7 +157,8 @@ Definition insert_message
     let: local_transaction_pool := adversary_local_transaction_pool adversary in 
     (* TODO(Kiran): Check whether the blockchain is already in the pool *) let: local_message_pool := bc :: (adversary_local_message_pool adversary) in
     let: proof_of_work := adversary_proof_of_work adversary in
-    let: new_adversary := mkAdvrs local_transaction_pool local_message_pool proof_of_work  in
+    let: last_hashed_round := adversary_last_hashed_round adversary in
+    let: new_adversary := mkAdvrs local_transaction_pool local_message_pool proof_of_work last_hashed_round in
     ((actors, new_adversary), active, round)
   else
     let: current_chain := honest_current_chain actor in
@@ -205,7 +218,7 @@ Definition update_message_pool_queue (message_list_queue: seq (seq Message)) (ne
 
 
 Variable attempt_hash : (Hashed * OracleState) -> Nonce -> (LocalState) -> (LocalState * option Message * OracleState). 
-(* Variable adversary_hash : (Hashed * OracleState) -> Nonce -> () *)
+Variable adversary_hash : (Hashed * OracleState) -> Nonce -> nat -> (Adversary) -> (Adversary * OracleState).
 
 
 Inductive world_step (w w' : World) (random : RndGen) : Prop :=
@@ -213,7 +226,7 @@ Inductive world_step (w w' : World) (random : RndGen) : Prop :=
    | RoundChange of 
         round_ended w &
         (*  - we need to reset the currently active node to the start (round-robin) *)
-        let: updated_state := update_round (world_global_state w) in
+        let: updated_state := next_round (world_global_state w) in
         (*  - we need to add the current rounds inflight messages to the message pool *)
         let: new_inflight_pool := nil in
         let: old_inflight_pool := (world_inflight_pool w) in
@@ -266,7 +279,7 @@ Inductive world_step (w w' : World) (random : RndGen) : Prop :=
               (world_hash w)
     | HonestMint (random_value : Hashed) (nonce: Nonce) of
         (* assert that random is of form MintBlock *)
-           random = MintBlock (random_value, nonce) &
+           random = HonestMintBlock (random_value, nonce) &
            (* that the currently active is an uncorrupted node *)
            honest_activation (world_global_state w) &
            let: ((actors, adversary), active, round) := (world_global_state w) in 
@@ -302,10 +315,11 @@ Inductive world_step (w w' : World) (random : RndGen) : Prop :=
               (world_inflight_pool w)
               (world_message_pool w)
               (world_hash w)
-    | AdversaryMint 
+    | AdversaryMint  (random_value : Hashed) (nonce: Nonce) (index : nat) of
         (* assert that random is of form MintBlock *)
+          random = AdvMintBlock (random_value, nonce, index)
            (* that the currently active node is a corrupted node, increment proof of work *)
-           (* then increment the currently active  *)
+           (* assert that last_hashed_round is less than current_round *)
     | AdversaryBroadcast (chain_no : nat) (recipients : seq nat) of
         (* assert that random is of form AdversaryBroadcast *)
         random = AdvBroadcast (chain_no, recipients) &
@@ -345,4 +359,5 @@ Inductive world_step (w w' : World) (random : RndGen) : Prop :=
               (world_inflight_pool w)
               (world_message_pool w)
               (world_hash w)
+      | AdversaryResign
 .    
