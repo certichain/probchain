@@ -29,8 +29,8 @@ Definition TransactionPool := seq (TransactionMessage).
 (* together with the restrictions imposed by world step, all valid
    sequences of actions can be considered *)
 Inductive RndGen  := 
-    (* used by both Honest and Adversary Parties to generate transactions *)
-    | HonestTransactionGen of Transaction 
+    (* used by Honest Parties to generate transactions - nat specifies which actor *)
+    | HonestTransactionGen of (Transaction * Addr)
     | TransactionDrop of nat
     (* used by both Honest Parties to mint blocks*)
     (* Hashed represents the return value of the random oracle if the block is new*)
@@ -45,7 +45,8 @@ Inductive RndGen  :=
     | AdvCorrupt of Addr
     (* used by adversary parties to broadcast chains - nat is an index into 
        the adversaries local blockchain pool*)
-    | AdvBroadcast of (nat * list nat)
+    | AdvBroadcast of (nat * list Addr)
+    (* Used by adversary parties to create transactions at any round *)
     | AdvTransactionGen of (Transaction * (list Addr))
     .
 

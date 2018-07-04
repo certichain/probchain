@@ -262,16 +262,20 @@ Inductive world_step (w w' : World) (random : RndGen) : Prop :=
               (world_inflight_pool w)
               (world_message_pool w)
               (world_hash w)
-    | HonestTransaction (transaction : Transaction) of
-        (* assert that random is of form TransactionGen
-            that the currently active is an uncorrupted node
-           and that the transaction is valid with respect to the chain 
-           of currently active*)
-           random = HonestTransactionGen transaction &
-           honest_activation (world_global_state w) &
+    | HonestTransaction (transaction : Transaction) (addr : Addr) of
+          (* assert that random is of form TransactionGen , round*)
+           random = HonestTransactionGen (transaction, addr) &
+          (* that the address is a valid uncorrupted one *)
+           let: ((actors, _), _, _) := (world_global_state w) in 
+           addr < length actors  &
+           let: ((actors, _), _, _) := (world_global_state w) in 
+           let: default := (mkLclSt nil nil nil 0, false) in
+           let: (actor, is_corrupt) := nth default actors addr in 
+           is_corrupt == false &
+           (* that the transaction is valid with respect to the chain of the actor  *)
            let: ((actors, adversary), active, round) := (world_global_state w) in 
            let: default := (mkLclSt nil nil nil 0, false) in
-           let: (actor, _) := nth default actors active in 
+           let: (actor, _) := nth default actors addr in 
            let: transactions := BlockChain_unwrap (honest_current_chain actor) in
            Transaction_valid transaction transactions &
            let: new_transaction_pool := (BroadcastTransaction transaction) :: (world_transaction_pool w) in
@@ -308,8 +312,7 @@ Inductive world_step (w w' : World) (random : RndGen) : Prop :=
     | AdversaryTransaction (transaction: Transaction) (recipients : seq nat) of
         (* assert that random is of form TransactionGen *)
           random = AdvTransactionGen (transaction, recipients) &
-           (* that the currently active node is a corrupted node  *)
-           adversary_activation (world_global_state w)  &
+          (* Note: Like honest actors, Adversaries can send transactions at any time *)
            (* Note: No guarantees of validity here *)
            let: ((actors, adversary), active, round) := (world_global_state w) in 
            let: new_transaction_pool := (MulticastTransaction (transaction, recipients)) :: (world_transaction_pool w) in
@@ -370,6 +373,10 @@ Inductive world_step (w w' : World) (random : RndGen) : Prop :=
         (* that the index is valid, and to a uncorrupt node *)
         let: ((actors, _), _, _) := (world_global_state w) in 
         addr < length actors  &
+        let: ((actors, _), _, _) := (world_global_state w) in 
+        let: default := (mkLclSt nil nil nil 0, false) in
+        let: (actor, is_corrupt) := nth default actors addr in 
+        is_corrupt == false &
         (* and that the number of corrupt nodes is less than t  *)
         no_corrupted_players (world_global_state w) < t_max_corrupted  &
         let: ((actors, adversary), active, round) := (world_global_state w) in 
