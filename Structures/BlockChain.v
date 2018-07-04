@@ -11,7 +11,26 @@ Definition Addr := nat.
 
 Parameter Transaction : eqType.
 (* determines whether a transaction is valid or not with respect to another sequence of transactions*)
-Parameter Transaction_valid : Transaction -> seq Transaction -> bool. Inductive TransactionMessage := | BroadcastTransaction of Transaction
+Parameter Transaction_valid : Transaction -> seq Transaction -> bool. 
+
+(* Ensures that valid sequences of transactions are well formed *)
+Axiom transaction_valid_consistent : forall (x y : Transaction) (ys : seq Transaction), 
+    Transaction_valid x (y :: ys) -> Transaction_valid y ys.
+
+(*
+  Transactions can be wrong for two reasons:
+    1. signed incorrectly
+    2. conflict with prior records
+  If signed incorrectly:
+    1. a transaction would be invalid even with an empty list of transactions
+    2. the transaction would be invalid for any at all
+*)
+Axiom transaction_inherently_invalid : forall (x : Transaction) (ys : seq Transaction), 
+  not (Transaction_valid x [::]) -> not (Transaction_valid x ys).
+
+
+Inductive TransactionMessage := 
+  | BroadcastTransaction of Transaction
   | MulticastTransaction of (Transaction * (seq Addr)).
 
 Definition TransactionPool := seq (TransactionMessage).
