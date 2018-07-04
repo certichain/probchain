@@ -328,6 +328,9 @@ Inductive world_step (w w' : World) (random : RndGen) : Prop :=
            (* assert that last_hashed_round is less than current_round *)
            let: ((_, adversary), _, round) := (world_global_state w) in 
            adversary_last_hashed_round adversary < round &
+           let: ((_, adversary), _, _) := (world_global_state w) in 
+           let: blockchain_cache := adversary_local_message_pool adversary in
+           (length blockchain_cache) < index &            
            let: ((actors, adversary), active, round) := (world_global_state w) in 
            let: oracle := (world_hash w) in
            let: (new_adversary, new_oracle) := adversary_attempt_hash (random_value, oracle) nonce index adversary in
