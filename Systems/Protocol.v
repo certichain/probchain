@@ -365,6 +365,8 @@ Inductive world_step (w w' : World) (random : RndGen) : Prop :=
     | AdversaryCorrupt (addr : Addr) of
         (* assert that random is of form AdvCorrupt *)
         random = AdvCorrupt addr &
+        (* That the current active node is a corrupted one *)
+        adversary_activation (world_global_state w)  &
         (* that the index is valid, and to a uncorrupt node *)
         let: ((actors, _), _, _) := (world_global_state w) in 
         addr < length actors  &
@@ -382,5 +384,15 @@ Inductive world_step (w w' : World) (random : RndGen) : Prop :=
               (world_inflight_pool w)
               (world_message_pool w)
               (world_hash w)
-      | AdversaryResign
+      | AdversaryResign of 
+       adversary_activation (world_global_state w)  &
+       (* increment round *)
+       let: updated_state := update_round (world_global_state w) in
+           w' = 
+            mkWorld
+              (world_global_state w)
+              (world_transaction_pool w)
+              (world_inflight_pool w)
+              (world_message_pool w)
+              (world_hash w)
 .    
