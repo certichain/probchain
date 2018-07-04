@@ -212,13 +212,18 @@ Definition update_message_pool_queue (message_list_queue: seq (seq Message)) (ne
       (* else branch shouldn't be called, as the queue should always be at a fixed size *)
   else ([::], new_message_list :: nil).
 
+Definition update_adversary_round (adversary : Adversary) (round : nat) : Adversary :=
+  mkAdvrs  
+    (adversary_local_transaction_pool adversary)
+    (adversary_local_message_pool adversary)
+    (adversary_proof_of_work adversary)
+    round .
 
 
 
 
-
-Variable attempt_hash : (Hashed * OracleState) -> Nonce -> (LocalState) -> (LocalState * option Message * OracleState). 
-Variable adversary_hash : (Hashed * OracleState) -> Nonce -> nat -> (Adversary) -> (Adversary * OracleState).
+Variable honest_attempt_hash : (Hashed * OracleState) -> Nonce -> (LocalState) -> (LocalState * option Message * OracleState). 
+Variable adversary_attempt_hash : (Hashed * OracleState) -> Nonce -> nat -> (Adversary) -> (Adversary * OracleState).
 
 
 Inductive world_step (w w' : World) (random : RndGen) : Prop :=
@@ -288,7 +293,7 @@ Inductive world_step (w w' : World) (random : RndGen) : Prop :=
            let: (actor, is_corrupt) := nth default actors active in 
            (* broadcast if successful - else increment proof of work *)
            (* an actor attempts a hash with a random value *)
-           let: (updated_actor, new_message, new_oracle) := attempt_hash (random_value, oracle) nonce actor in
+           let: (updated_actor, new_message, new_oracle) := honest_attempt_hash (random_value, oracle) nonce actor in
            let: new_actors := set_nth default actors active (updated_actor, is_corrupt) in 
            (* then increment the currently active and perform bookkeeping *) 
            (* TODO(Kiran): Update transactions of newly activated node *)
@@ -317,9 +322,24 @@ Inductive world_step (w w' : World) (random : RndGen) : Prop :=
               (world_hash w)
     | AdversaryMint  (random_value : Hashed) (nonce: Nonce) (index : nat) of
         (* assert that random is of form MintBlock *)
-          random = AdvMintBlock (random_value, nonce, index)
+          random = AdvMintBlock (random_value, nonce, index)  &
            (* that the currently active node is a corrupted node, increment proof of work *)
+           adversary_activation (world_global_state w)  &
            (* assert that last_hashed_round is less than current_round *)
+           let: ((_, adversary), _, round) := (world_global_state w) in 
+           adversary_last_hashed_round adversary < round &
+           let: ((actors, adversary), active, round) := (world_global_state w) in 
+           let: oracle := (world_hash w) in
+           let: (new_adversary, new_oracle) := adversary_attempt_hash (random_value, oracle) nonce index adversary in
+           let: updated_adversary := update_adversary_round new_adversary round in
+           let: updated_state := update_round ((actors, updated_adversary), active, round) in
+           w' = 
+             mkWorld
+              updated_state 
+              (world_transaction_pool w)
+              (world_inflight_pool w)
+              (world_message_pool w)
+              new_oracle
     | AdversaryBroadcast (chain_no : nat) (recipients : seq nat) of
         (* assert that random is of form AdversaryBroadcast *)
         random = AdvBroadcast (chain_no, recipients) &
