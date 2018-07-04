@@ -58,7 +58,7 @@ Inductive RndGen  :=
     | HonestMintBlock of (Hashed * Nonce)
     (* the adversary gets an additional parameter specifying which chain
        in it's pool it should mint onto *)
-    | AdvMintBlock of (Hashed * Nonce * nat)
+    | AdvMintBlock of (Hashed * nat)
     (* Used to represent the adversary corrupting players - nat is an index into
        which player to corrupt*)
     | AdvCorrupt of Addr

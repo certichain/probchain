@@ -231,8 +231,37 @@ Definition update_adversary_round (adversary : Adversary) (round : nat) : Advers
 
 
 
-Variable honest_attempt_hash : (Hashed * OracleState) -> Nonce -> (LocalState) -> (LocalState * option Message * OracleState). 
-Variable adversary_attempt_hash : (Hashed * OracleState) -> Nonce -> nat -> (Adversary) -> (Adversary * OracleState).
+Variable honest_attempt_hash : (Hashed * OracleState) -> Nonce -> (LocalState) -> nat -> (LocalState * option Message * OracleState). 
+
+(* Represents an arbitrary adversary strategy *)
+Variable adversary_generate_block : Adversary -> MessagePool -> (Nonce * Hashed * seq Transaction * nat).
+
+
+
+(* Small wrapper around arbitrary adversary strategy function*)
+Definition adversary_attempt_hash (adv: Adversary) (inflight_messages : MessagePool) (hash_state : Hashed * OracleState)  (chain_no : nat) (round: nat) : (Adversary * OracleState) :=
+  let: (new_hash, oracle_state) := hash_state in
+  (* Adversary can generate the block however they want *)
+  let: (nonce, hashed, transactions, pow) := adversary_generate_block adv inflight_messages in
+  let: (new_oracle_state, result) := hash nonce (hashed, transactions, pow) oracle_state in
+  if result < T_Hashing_Difficulty 
+    then 
+      let: block := Bl nonce hashed transactions pow true round in
+      let: new_chain :=  block :: (nth [::] (adversary_local_message_pool adv) chain_no) in
+      let: new_message_pool :=  set_nth [::] (adversary_local_message_pool adv) chain_no new_chain in
+      let: new_adv :=  mkAdvrs  
+          (adversary_local_transaction_pool adv)
+          new_message_pool 
+          (adversary_proof_of_work adv)
+          (adversary_last_hashed_round adv) in
+          (new_adv, new_oracle_state)
+    else 
+      let: new_adv :=  mkAdvrs 
+          (adversary_local_transaction_pool adv)
+          (adversary_local_message_pool adv)
+          (adversary_proof_of_work adv)
+          (adversary_last_hashed_round adv) in
+          (new_adv, new_oracle_state).
 
 
 Definition update_transaction_pool (addr : Addr) (initial_state : LocalState) (transaction_pool: TransactionPool) : LocalState :=
@@ -318,8 +347,7 @@ Inductive world_step (w w' : World) (random : RndGen) : Prop :=
            then remove that entry*)
            random = TransactionDrop n &
            let: transaction_pool := world_transaction_pool w in
-           n < length transaction_pool &
-           let: new_transaction_pool := rem_nth n (world_transaction_pool w) in
+           n < length transaction_pool & let: new_transaction_pool := rem_nth n (world_transaction_pool w) in
            w' = 
             mkWorld
               (world_global_state w)
@@ -364,7 +392,7 @@ Inductive world_step (w w' : World) (random : RndGen) : Prop :=
            let: actor := update_transaction_pool active dated_actor (world_transaction_pool w) in
            (* broadcast if successful - else increment proof of work *)
            (* an actor attempts a hash with a random value *)
-           let: (updated_actor, new_message, new_oracle) := honest_attempt_hash (random_value, oracle) nonce actor in
+           let: (updated_actor, new_message, new_oracle) := honest_attempt_hash (random_value, oracle) nonce actor round in
            let: new_actors := set_nth default actors active (updated_actor, is_corrupt) in 
            (* then increment the currently active and perform bookkeeping *) 
            let: updated_state := update_round ((new_actors, adversary), active, round) in
@@ -389,9 +417,9 @@ Inductive world_step (w w' : World) (random : RndGen) : Prop :=
               (world_inflight_pool w)
               (world_message_pool w)
               (world_hash w)
-    | AdversaryMint  (random_value : Hashed) (nonce: Nonce) (index : nat) of
+    | AdversaryMint  (random_value : Hashed) (index : nat) of
         (* assert that random is of form MintBlock *)
-          random = AdvMintBlock (random_value, nonce, index)  &
+          random = AdvMintBlock (random_value, index)  &
            (* that the currently active node is a corrupted node, increment proof of work *)
            adversary_activation (world_global_state w)  &
            (* assert that last_hashed_round is less than current_round *)
@@ -403,13 +431,12 @@ Inductive world_step (w w' : World) (random : RndGen) : Prop :=
            let: ((actors, dated_adversary), active, round) := (world_global_state w) in 
            let: oracle := (world_hash w) in
            let: adversary := update_adversary_transaction_pool dated_adversary (world_transaction_pool w) in
-           let: (new_adversary, new_oracle) := adversary_attempt_hash (random_value, oracle) nonce index adversary in
+           let: (new_adversary, new_oracle) := adversary_attempt_hash adversary (world_inflight_pool w) (random_value, oracle) index round in
            let: updated_adversary := update_adversary_round new_adversary round in
            let: updated_state := update_round ((actors, updated_adversary), active, round) in
            w' = 
              mkWorld
-              updated_state 
-              (world_transaction_pool w)
+              updated_state (world_transaction_pool w)
               (world_inflight_pool w)
               (world_message_pool w)
               new_oracle
