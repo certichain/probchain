@@ -1,8 +1,8 @@
 From mathcomp.ssreflect
 Require Import ssreflect ssrbool ssrnat eqtype ssrfun seq path.
 
-
-
+(* To ensure that all blocks are unqiue, each block contains a random nonce *)
+Definition Nonce := nat.
 (* Hashed can not be a parameter, as it has to be comparable to a numerical T *)
 Definition Hashed := nat.
 (* Simmilarly, Addr must be an index into the honest actors, thus not a parameter*)
@@ -11,10 +11,7 @@ Definition Addr := nat.
 
 Parameter Transaction : eqType.
 (* determines whether a transaction is valid or not with respect to another sequence of transactions*)
-Parameter Transaction_valid : Transaction -> seq Transaction -> bool. 
-
-Inductive TransactionMessage := 
-  | BroadcastTransaction of Transaction
+Parameter Transaction_valid : Transaction -> seq Transaction -> bool. Inductive TransactionMessage := | BroadcastTransaction of Transaction
   | MulticastTransaction of (Transaction * (seq Addr)).
 
 Definition TransactionPool := seq (TransactionMessage).
@@ -36,9 +33,10 @@ Inductive RndGen  :=
     | HonestTransactionGen of Transaction 
     | TransactionDrop of nat
     (* used by both Honest and Adversary Parties to mint blocks*)
-    (* The nat represents the return value of the random oracle if the block is new*)
-    (* this nat will be probabilistically analyzed*)
-    | MintBlock of nat  
+    (* Hashed represents the return value of the random oracle if the block is new*)
+    (* Nonce represents the nonce used to create the block*)
+    (* Both parameters will be probabilistically generated *)
+    | MintBlock of (Hashed * Nonce)
     (* Used to represent the adversary corrupting players - nat is an index into
        which player to corrupt*)
     | AdvCorrupt of Addr
@@ -46,10 +44,11 @@ Inductive RndGen  :=
        the adversaries local blockchain pool*)
     | AdvBroadcast of (nat * list nat)
     | AdvTransactionGen of (Transaction * (list Addr))
-    | AdvTarget of  seq nat.
+    .
 
 
 Record Block := Bl {
+  block_nonce: Nonce;
   block_link: Hashed;
   block_records: seq Transaction;
   block_proof_of_work: nat;

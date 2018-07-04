@@ -10,10 +10,7 @@ Require Import BlockChain OracleState InvMisc.
 
 Require Coq.Program.Tactics.
 Require Coq.Program.Wf.
-
-From mathcomp.ssreflect
-Require Import ssreflect ssrbool ssrnat seq ssrfun eqtype.
-Set Implicit Arguments.
+From mathcomp.ssreflect Require Import ssreflect ssrbool ssrnat seq ssrfun eqtype. Set Implicit Arguments.
 Unset Strict Implicit.
 Unset Printing Implicit Defensive.
 
@@ -207,7 +204,7 @@ Definition update_message_pool_queue (message_list_queue: seq (seq Message)) (ne
 
 
 
-Variable attempt_hash : (nat * OracleState) -> (LocalState) -> (LocalState * seq Message * OracleState). 
+Variable attempt_hash : (Hashed * OracleState) -> Nonce -> (LocalState) -> (LocalState * seq Message * OracleState). 
 
 
 Inductive world_step (w w' : World) (random : RndGen) : Prop :=
@@ -266,9 +263,9 @@ Inductive world_step (w w' : World) (random : RndGen) : Prop :=
               (world_inflight_pool w)
               (world_message_pool w)
               (world_hash w)
-    | HonestMint (random_value : nat) of
+    | HonestMint (random_value : Hashed) (nonce: Nonce) of
         (* assert that random is of form MintBlock *)
-           random = MintBlock random_value &
+           random = MintBlock (random_value, nonce) &
            (* that the currently active is an uncorrupted node *)
            honest_activation (world_global_state w) &
            let: ((actors, adversary), active, round) := (world_global_state w) in 
@@ -277,7 +274,7 @@ Inductive world_step (w w' : World) (random : RndGen) : Prop :=
            let: (actor, is_corrupt) := nth default actors active in 
            (* broadcast if successful - else increment proof of work *)
            (* an actor attempts a hash with a random value *)
-           let: (updated_actor, new_message, new_oracle) := attempt_hash (random_value, oracle) actor in
+           let: (updated_actor, new_message, new_oracle) := attempt_hash (random_value, oracle) nonce actor in
            let: new_actors := set_nth default actors active (updated_actor, is_corrupt) in 
            (* then increment the currently active and perform bookkeeping *) 
            (* TODO(Kiran): Update transactions of newly activated node *)
