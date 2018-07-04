@@ -47,7 +47,7 @@ Definition hash
   4. the last round it attempted a hash - it can only attempt hashing 
      if this value is less than the current round*)
 Record Adversary := mkAdvrs {
-  adversary_local_transaction_pool: TransactionPool;
+  adversary_local_transaction_pool: seq Transaction;
   adversary_local_message_pool: seq BlockChain;
 
   (* Additional info *)
@@ -232,8 +232,62 @@ Definition update_adversary_round (adversary : Adversary) (round : nat) : Advers
 
 Variable honest_attempt_hash : (Hashed * OracleState) -> Nonce -> (LocalState) -> (LocalState * option Message * OracleState). 
 Variable adversary_attempt_hash : (Hashed * OracleState) -> Nonce -> nat -> (Adversary) -> (Adversary * OracleState).
-Variable update_transaction_pool : LocalState -> TransactionPool -> LocalState.
-Variable update_adversary_transaction_pool : Adversary -> TransactionPool -> Adversary.
+
+
+Definition update_transaction_pool (addr : Addr) (initial_state : LocalState) (transaction_pool: TransactionPool) : LocalState :=
+  foldr
+  (fun (txMsg : TransactionMessage) state => 
+      match txMsg with
+        | BroadcastTransaction tx => 
+             if tx \in (honest_local_transaction_pool state) 
+              then state
+              else 
+                mkLclSt 
+                  (honest_current_chain state)
+                  (tx :: (honest_local_transaction_pool state))
+                  (honest_local_message_pool state)
+                  (honest_proof_of_work state)
+        | MulticastTransaction (tx, recipients) =>
+          if addr \in recipients 
+            then if tx \in (honest_local_transaction_pool state) 
+              then state
+              else 
+                mkLclSt 
+                  (honest_current_chain state)
+                  (tx :: (honest_local_transaction_pool state))
+                  (honest_local_message_pool state)
+                  (honest_proof_of_work state)
+            else state
+      end)
+  initial_state
+  transaction_pool.
+
+Definition update_adversary_transaction_pool  (initial_adv: Adversary) (transaction_pool: TransactionPool) : Adversary :=
+    foldr 
+      (fun (txMsg : TransactionMessage) adv => 
+        match txMsg with
+          | BroadcastTransaction tx => 
+            if tx \in (adversary_local_transaction_pool adv) 
+              then adv
+              else 
+                mkAdvrs 
+                  (tx :: (adversary_local_transaction_pool adv))
+                  (adversary_local_message_pool adv)
+                  (adversary_proof_of_work adv)
+                  (adversary_last_hashed_round adv)
+          | MulticastTransaction (tx, _) =>
+            if tx \in (adversary_local_transaction_pool adv) 
+              then adv
+              else 
+                mkAdvrs 
+                  (tx :: (adversary_local_transaction_pool adv))
+                  (adversary_local_message_pool adv)
+                  (adversary_proof_of_work adv)
+                  (adversary_last_hashed_round adv)
+        end)
+      initial_adv
+      transaction_pool.
+
 
 
 Inductive world_step (w w' : World) (random : RndGen) : Prop :=
@@ -306,7 +360,7 @@ Inductive world_step (w w' : World) (random : RndGen) : Prop :=
            let: oracle := (world_hash w) in
            let: (dated_actor, is_corrupt) := nth default actors active in 
            (* Update transactions of activated node - we only read transactions upon minting *)
-           let: actor := update_transaction_pool dated_actor (world_transaction_pool w) in
+           let: actor := update_transaction_pool active dated_actor (world_transaction_pool w) in
            (* broadcast if successful - else increment proof of work *)
            (* an actor attempts a hash with a random value *)
            let: (updated_actor, new_message, new_oracle) := honest_attempt_hash (random_value, oracle) nonce actor in
