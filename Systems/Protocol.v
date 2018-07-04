@@ -104,6 +104,7 @@ Definition no_corrupted_players (state: GlobalState) :=
       length (filter (fun actor => actor.2) actors).
 
 
+
 (* A given world step is an honest activation if the current address
    is to a node which has not been corrupted *)
 Definition honest_activation (state: GlobalState) :=
@@ -469,3 +470,25 @@ Inductive world_step (w w' : World) (random : RndGen) : Prop :=
               (world_message_pool w)
               (world_hash w)
 .    
+
+
+Fixpoint reachable_internal (w w' : World) (schedule : seq RndGen) : Prop :=
+  match schedule with
+    | [::] => w = w'
+    | h :: t' => exists (y : World), world_step w y h /\ reachable_internal y w' t'
+    end.
+
+(* Clone of function from toychain *)
+Definition reachable (w w' : World) : Prop :=
+  exists (schedule : seq RndGen), reachable_internal w w' schedule.
+
+Definition adversarial_minority (w : World) :=
+  no_corrupted_players (world_global_state w) <= t_max_corrupted.
+
+(* Trivial lemma to ensure that steps work *)
+Lemma adversarial_minority_induction : forall (w w' : World), reachable w w' -> adversarial_minority w -> adversarial_minority w'.
+Proof.
+  move=> w w' is_reachable is_adversarial_minority.
+  case: is_reachable.
+  (* TODO(kiran): Complete this proof*)
+Admitted.
