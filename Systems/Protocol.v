@@ -155,21 +155,29 @@ Definition insert_message
   if corrupted 
   then
     let: local_transaction_pool := adversary_local_transaction_pool adversary in 
-    (* TODO(Kiran): Check whether the blockchain is already in the pool *) let: local_message_pool := bc :: (adversary_local_message_pool adversary) in
-    let: proof_of_work := adversary_proof_of_work adversary in
-    let: last_hashed_round := adversary_last_hashed_round adversary in
-    let: new_adversary := mkAdvrs local_transaction_pool local_message_pool proof_of_work last_hashed_round in
-    ((actors, new_adversary), active, round)
+    (* Check whether the blockchain is already in the pool *) 
+      let: local_message_pool := (adversary_local_message_pool adversary) in
+    if bc \in local_message_pool then
+      state
+    else 
+      let: new_message_pool := bc :: local_message_pool in
+      let: proof_of_work := adversary_proof_of_work adversary in
+      let: last_hashed_round := adversary_last_hashed_round adversary in
+      let: new_adversary := mkAdvrs local_transaction_pool new_message_pool proof_of_work last_hashed_round in
+      ((actors, new_adversary), active, round)
   else
     let: current_chain := honest_current_chain actor in
     let: local_transaction_pool := honest_local_transaction_pool actor in
+    (* Check whether the blockchain is already in the pool *)
     let: message_pool := (honest_local_message_pool actor) in
-    (* TODO(Kiran): Check whether the blockchain is already in the pool *)
-    let: message_pool := bc :: message_pool in
-    let: proof_of_work := honest_proof_of_work actor in 
-    let: new_actor := mkLclSt current_chain local_transaction_pool message_pool proof_of_work in
-    let: new_actors := set_nth default actors addr (new_actor, false) in
-    ((new_actors, adversary), active, round)
+    if bc \in message_pool then
+      state
+    else
+      let: new_message_pool := bc :: message_pool in
+      let: proof_of_work := honest_proof_of_work actor in 
+      let: new_actor := mkLclSt current_chain local_transaction_pool new_message_pool proof_of_work in
+      let: new_actors := set_nth default actors addr (new_actor, false) in
+      ((new_actors, adversary), active, round)
   .
 
 
@@ -224,6 +232,8 @@ Definition update_adversary_round (adversary : Adversary) (round : nat) : Advers
 
 Variable honest_attempt_hash : (Hashed * OracleState) -> Nonce -> (LocalState) -> (LocalState * option Message * OracleState). 
 Variable adversary_attempt_hash : (Hashed * OracleState) -> Nonce -> nat -> (Adversary) -> (Adversary * OracleState).
+Variable update_transaction_pool : LocalState -> TransactionPool -> LocalState.
+Variable update_adversary_transaction_pool : Adversary -> TransactionPool -> Adversary.
 
 
 Inductive world_step (w w' : World) (random : RndGen) : Prop :=
@@ -271,7 +281,7 @@ Inductive world_step (w w' : World) (random : RndGen) : Prop :=
            let: ((actors, _), _, _) := (world_global_state w) in 
            let: default := (mkLclSt nil nil nil 0, false) in
            let: (actor, is_corrupt) := nth default actors addr in 
-           is_corrupt == false &
+           is_corrupt = false &
            (* that the transaction is valid with respect to the chain of the actor  *)
            let: ((actors, adversary), active, round) := (world_global_state w) in 
            let: default := (mkLclSt nil nil nil 0, false) in
@@ -287,20 +297,21 @@ Inductive world_step (w w' : World) (random : RndGen) : Prop :=
               (world_message_pool w)
               (world_hash w)
     | HonestMint (random_value : Hashed) (nonce: Nonce) of
-        (* assert that random is of form MintBlock *)
+           (* assert that random is of form MintBlock *)
            random = HonestMintBlock (random_value, nonce) &
            (* that the currently active is an uncorrupted node *)
            honest_activation (world_global_state w) &
            let: ((actors, adversary), active, round) := (world_global_state w) in 
            let: default := (mkLclSt nil nil nil 0, false) in
            let: oracle := (world_hash w) in
-           let: (actor, is_corrupt) := nth default actors active in 
+           let: (dated_actor, is_corrupt) := nth default actors active in 
+           (* Update transactions of activated node - we only read transactions upon minting *)
+           let: actor := update_transaction_pool dated_actor (world_transaction_pool w) in
            (* broadcast if successful - else increment proof of work *)
            (* an actor attempts a hash with a random value *)
            let: (updated_actor, new_message, new_oracle) := honest_attempt_hash (random_value, oracle) nonce actor in
            let: new_actors := set_nth default actors active (updated_actor, is_corrupt) in 
            (* then increment the currently active and perform bookkeeping *) 
-           (* TODO(Kiran): Update transactions of newly activated node *)
            let: updated_state := update_round ((new_actors, adversary), active, round) in
            w' = 
              mkWorld
@@ -334,8 +345,9 @@ Inductive world_step (w w' : World) (random : RndGen) : Prop :=
            let: ((_, adversary), _, _) := (world_global_state w) in 
            let: blockchain_cache := adversary_local_message_pool adversary in
            (length blockchain_cache) < index &            
-           let: ((actors, adversary), active, round) := (world_global_state w) in 
+           let: ((actors, dated_adversary), active, round) := (world_global_state w) in 
            let: oracle := (world_hash w) in
+           let: adversary := update_adversary_transaction_pool dated_adversary (world_transaction_pool w) in
            let: (new_adversary, new_oracle) := adversary_attempt_hash (random_value, oracle) nonce index adversary in
            let: updated_adversary := update_adversary_round new_adversary round in
            let: updated_state := update_round ((actors, updated_adversary), active, round) in
@@ -376,7 +388,7 @@ Inductive world_step (w w' : World) (random : RndGen) : Prop :=
         let: ((actors, _), _, _) := (world_global_state w) in 
         let: default := (mkLclSt nil nil nil 0, false) in
         let: (actor, is_corrupt) := nth default actors addr in 
-        is_corrupt == false &
+        is_corrupt = false &
         (* and that the number of corrupt nodes is less than t  *)
         no_corrupted_players (world_global_state w) < t_max_corrupted  &
         let: ((actors, adversary), active, round) := (world_global_state w) in 
