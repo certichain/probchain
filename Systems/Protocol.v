@@ -723,4 +723,26 @@ Definition uniquely_successful_round (w : World) (r : nat) :=
 Definition bounded_successful_round (w : World) (r : nat) :=
   (forall (r' : nat), (r' < r) && (r' >= r - delta) -> unsuccessful_round w r') /\
     successful_round w r.
-  
+
+  Locate "!=".
+
+Definition bounded_uniquely_successful_round (w : World) (r : nat) :=
+  (forall (r' : nat), ((r' <= r + delta) && (r' >= r - delta) && (r' != r)) -> unsuccessful_round w r') /\
+    (uniquely_successful_round w r).
+
+
+Definition adversarial_block_count (w : World) (r : nat) :=
+  foldr
+    (fun a b => a + b)
+    0
+    (map
+      (fun pair => 
+        if (pair.2 == false) 
+          then 
+            length (filter
+                (fun block => ((block_hash_round block) == r) && ((block_is_adversarial block)))
+                (honest_current_chain pair.1))
+          else 0
+      )
+      ((world_global_state w).1.1.1)
+    ).
