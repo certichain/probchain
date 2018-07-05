@@ -317,7 +317,20 @@ Definition honest_max_valid (state: LocalState) (oracle_state: OracleState) : Bl
   (honest_local_message_pool state).
 
 
-Variable find_maximal_valid_subset : seq Transaction -> BlockChain -> (seq Transaction * seq Transaction).
+Definition find_maximal_valid_subset  (transactions : seq Transaction) (blk: BlockChain) : (seq Transaction * seq Transaction) :=
+(* naive approach - iterate through transactions and only include those that are valid 
+   specifically it's naive because it assumes that all transactions are delivered in order
+    (i.e if invalid, reordering the sequence won't change whether it's valid or not)
+   but I believe this is a correct assumption as transactions are delivered immediately *)
+   let chain_transactions := BlockChain_unwrap blk in
+   foldr
+      (fun transaction prev_pair => 
+            let: (already_included, remaining) := prev_pair in
+            if Transaction_valid transaction (already_included ++ chain_transactions)
+              then (transaction :: already_included, remaining)
+              else (already_included, transaction :: remaining))
+      ([::], [::])
+      transactions.
 
 Definition retrieve_head_link (b : BlockChain) (oracle_state : OracleState) : option Hashed :=
   match b with
