@@ -665,3 +665,18 @@ Lemma adversarial_minority_induction : forall (w w' : World),
 Proof.
   (* TODO(kiran): Complete this proof*)
 Admitted.
+
+Lemma initWorld_adversarial_minority : adversarial_minority initWorld.
+Proof.
+  rewrite /initWorld  /adversarial_minority /=.
+  case: n_max_actors =>//=.
+  suff filter_maintain (A : Type) (P : A -> bool) (x:A) (n:nat) : 
+      (~~ P x) -> length (filter (fun actor => P actor) (repeat x n)) = 0.
+  move=> n.
+  by rewrite filter_maintain.
+  move=> f_px.
+  elim n.
+    by [].
+  move=> n0 IHn /=.
+  by rewrite ifN.
+Qed.
