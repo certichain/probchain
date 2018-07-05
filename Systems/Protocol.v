@@ -36,9 +36,9 @@ Definition hash
           (new_oracle, rnd)
  end.
 
-
-
-
+  
+Definition verify_hash (blk : Block) (oracle : OracleState) : option Hashed := 
+   OracleState_find (block_link blk, block_records blk, block_proof_of_work blk) oracle.
 (*
   An adversary's state consists of
   1. all transactions it has been delivered.
@@ -231,11 +231,11 @@ Definition update_adversary_round (adversary : Adversary) (round : nat) : Advers
 
 
 
-Variable honest_attempt_hash : (Hashed * OracleState) -> Nonce -> (LocalState) -> nat -> (LocalState * option Message * OracleState). 
 
+    
 (* Represents an arbitrary adversary strategy *)
 Variable adversary_generate_block : Adversary -> MessagePool -> (Nonce * Hashed * seq Transaction * nat).
-
+Variable chain_comparison_operation :  BlockChain -> BlockChain -> bool.
 
 
 (* Small wrapper around arbitrary adversary strategy function*)
@@ -263,6 +263,117 @@ Definition adversary_attempt_hash (adv: Adversary) (inflight_messages : MessageP
           (adversary_last_hashed_round adv) in
           (new_adv, new_oracle_state).
 
+About foldr.
+
+Definition validate_blockchain_links (bc : BlockChain) (oracle_state : OracleState) : bool :=
+  match bc with
+    | [::] => true (* Vacuously true *)
+    | h :: t =>
+        let: (_, result) := 
+        foldr
+          (fun pred_block last_pair  => 
+            let: (block, has_failed) := last_pair in
+            if has_failed
+              then (pred_block, has_failed)
+              else
+                match verify_hash pred_block oracle_state with
+                  | None => (pred_block, true)
+                  | Some(hash_value) => 
+                      if block_link block == hash_value 
+                        then (pred_block, false)
+                        else (pred_block, true)
+                end
+          )
+          (h, false)  
+          t
+          in result
+  end.
+
+Definition validate_blockchain (bc : BlockChain) (oracle_state: OracleState) : bool :=
+  (* a blockchain is valid if the links are well formed *)
+  validate_blockchain_links bc oracle_state && 
+  (* and all transactions are valid *)
+  validate_transactions (BlockChain_unwrap bc).
+  
+(* finds the longest valid chain for a node *)
+Definition honest_max_valid (state: LocalState) (oracle_state: OracleState) : BlockChain :=
+  foldr 
+  (fun new_chain best_chain => 
+    (* First check whether the chain is valid *)
+    if validate_blockchain new_chain oracle_state
+      (* If it's longer, adopt it *)
+      then if length new_chain > length best_chain
+          then new_chain
+          (* in cases where the lengths are equal... *)
+          else if length new_chain == length best_chain
+            (* Use the equiv of FCR to conclude *)
+            then if BlockChain_compare_lt best_chain new_chain 
+              then new_chain
+              else best_chain
+            else best_chain
+      else best_chain 
+  )
+  (honest_current_chain state)
+  (honest_local_message_pool state).
+
+
+Variable find_maximal_valid_subset : seq Transaction -> BlockChain -> (seq Transaction * seq Transaction).
+
+Definition retrieve_head_link (b : BlockChain) (oracle_state : OracleState) : option Hashed :=
+  match b with
+    | [::] => Some(0)
+    | h :: t => verify_hash h oracle_state
+  end.
+
+(* Implementation of the bitcoin backbone protocol *)
+Definition honest_attempt_hash  
+      (hash_state: Hashed * OracleState) 
+      (nonce : Nonce) (state : LocalState) 
+      (round : nat) : (LocalState * option Message * OracleState) :=
+      let: (random_value, oracle_state) := hash_state in
+      let: best_chain := honest_max_valid state oracle_state in
+      if retrieve_head_link best_chain oracle_state is Some(value)
+        then
+          let: transaction_pool := honest_local_transaction_pool state in
+          let: (selected_transactions, remaining) := find_maximal_valid_subset transaction_pool best_chain in
+          let: proof_of_work := honest_proof_of_work state in
+          let: (new_oracle_state, hash) := hash random_value (value, selected_transactions, proof_of_work) oracle_state in
+          if hash < T_Hashing_Difficulty then
+            (* New block has been minted *)
+            let: new_block := Bl nonce value selected_transactions proof_of_work false round in
+            let: new_chain := new_block :: best_chain in
+            let: new_state :=
+                  mkLclSt 
+                    new_chain
+                    remaining
+                    (rem best_chain (honest_local_message_pool state))
+                    0 in
+            (new_state, Some(BroadcastMsg new_chain), new_oracle_state)
+          else
+          if best_chain == (honest_current_chain state)
+            then (state, None, new_oracle_state)
+          else 
+            let: new_state := 
+                  mkLclSt 
+                    best_chain 
+                    (honest_local_transaction_pool state)
+                    (rem best_chain (honest_local_message_pool state))
+                    (honest_proof_of_work state) in
+            (new_state, Some(BroadcastMsg best_chain), new_oracle_state)
+        else 
+          if best_chain == (honest_current_chain state)
+            then (state, None, oracle_state)
+          else 
+            let: new_state := 
+                  mkLclSt 
+                    best_chain 
+                    (honest_local_transaction_pool state)
+                    (rem best_chain (honest_local_message_pool state))
+                    (honest_proof_of_work state) in
+            (new_state, Some(BroadcastMsg best_chain), oracle_state)
+    .
+
+    
 
 Definition update_transaction_pool (addr : Addr) (initial_state : LocalState) (transaction_pool: TransactionPool) : LocalState :=
   foldr

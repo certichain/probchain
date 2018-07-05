@@ -9,6 +9,7 @@ Definition Hashed := nat.
 Definition Addr := nat.
 
 
+
 Parameter Transaction : eqType.
 (* determines whether a transaction is valid or not with respect to another sequence of transactions*)
 Parameter Transaction_valid : Transaction -> seq Transaction -> bool. 
@@ -28,6 +29,11 @@ Axiom transaction_valid_consistent : forall (x y : Transaction) (ys : seq Transa
 Axiom transaction_inherently_invalid : forall (x : Transaction) (ys : seq Transaction), 
   not (Transaction_valid x [::]) -> not (Transaction_valid x ys).
 
+Definition validate_transactions (xs : seq Transaction) : bool :=
+  match xs with 
+    | [::] => true (* Vacously true *)
+    | h :: t => Transaction_valid h t (* Thank's to the consistency axiom *)
+  end.
 
 Inductive TransactionMessage := 
   | BroadcastTransaction of Transaction
@@ -87,6 +93,7 @@ Definition BlockChain := seq Block.
 (* converts a blockchain into a transaction sequence *)
 Definition BlockChain_unwrap (b : BlockChain) := flatten (map (fun bchain => block_records bchain)  b) .
 
+Parameter BlockChain_compare_lt : BlockChain -> BlockChain -> bool.
 
 Inductive Message := 
   | MulticastMsg (addr : seq Addr) (bc : BlockChain)  
