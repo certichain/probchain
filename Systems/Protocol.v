@@ -657,14 +657,22 @@ Definition reachable (w w' : World) : Prop :=
 Definition adversarial_minority (w : World) :=
   no_corrupted_players (world_global_state w) <= t_max_corrupted.
 
-About world_step_ind.
 
 (* Trivial lemma to ensure that steps work *)
-Lemma adversarial_minority_induction : forall (w w' : World), 
-  (exists (q : RndGen), world_step w w' q) -> adversarial_minority w -> adversarial_minority w'.
+Lemma adversarial_minority_induction  (w w' : World) (q : RndGen) :
+   world_step w w' q -> adversarial_minority w -> adversarial_minority w'.
 Proof.
+
   (* TODO(kiran): Complete this proof*)
+  move=> S.
+  case (S) => w_end dest_w.
+  destruct (update_message_pool_queue _ _).
+  rewrite dest_w /adversarial_minority => //=.
+  rewrite /next_round.
+  destruct (world_global_state w).
+  case l => //=.
 Admitted.
+
 
 Lemma initWorld_adversarial_minority : adversarial_minority initWorld.
 Proof.
@@ -680,3 +688,35 @@ Proof.
   move=> n0 IHn /=.
   by rewrite ifN.
 Qed.
+
+
+About filter.
+
+Definition successful_round (w : World) (r : nat) :=
+  filter 
+    (fun pair => 
+      (pair.2 == false) && 
+      (length (filter
+                (fun block => ((block_hash_round block) == r) && (~~ (block_is_adversarial block)))
+                (honest_current_chain pair.1)) > 0))
+      ((world_global_state w).1.1.1).
+
+Definition unsuccessful_round (w : World) (r : nat) :=
+  filter 
+    (fun pair => 
+      (pair.2 == false) && 
+      (length (filter
+                (fun block => ((block_hash_round block) == r) && (~~ (block_is_adversarial block)))
+                (honest_current_chain pair.1)) == 0))
+      ((world_global_state w).1.1.1).
+
+
+Definition uniquely_successful_round (w : World) (r : nat) :=
+  filter 
+    (fun pair => 
+      (pair.2 == false) && 
+      (length (filter
+                (fun block => ((block_hash_round block) == r) && (~~ (block_is_adversarial block)))
+                (honest_current_chain pair.1)) == 1))
+      ((world_global_state w).1.1.1).
+
