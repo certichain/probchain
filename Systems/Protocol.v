@@ -331,12 +331,17 @@ Definition honest_attempt_hash
       (nonce : Nonce) (state : LocalState) 
       (round : nat) : (LocalState * option Message * OracleState) :=
       let: (random_value, oracle_state) := hash_state in
+      (* Bitcoin backbone - Algorithm 4 - Line 5 *)
+      (* first, find the longest valid chain *)
       let: best_chain := honest_max_valid state oracle_state in
+      (* Retrieve the link to the previous block in the chain *)
       if retrieve_head_link best_chain oracle_state is Some(value)
         then
           let: transaction_pool := honest_local_transaction_pool state in
+          (* Find a set of transactions to include in the new block *)
           let: (selected_transactions, remaining) := find_maximal_valid_subset transaction_pool best_chain in
           let: proof_of_work := honest_proof_of_work state in
+          (* Calculate the hash of the block *)
           let: (new_oracle_state, hash) := hash random_value (value, selected_transactions, proof_of_work) oracle_state in
           if hash < T_Hashing_Difficulty then
             (* New block has been minted *)
@@ -347,19 +352,30 @@ Definition honest_attempt_hash
                     new_chain
                     remaining
                     (rem best_chain (honest_local_message_pool state))
-                    0 in
+                    0 in (* reset the proof of work *)
             (new_state, Some(BroadcastMsg new_chain), new_oracle_state)
           else
-          if best_chain == (honest_current_chain state)
-            then (state, None, new_oracle_state)
-          else 
-            let: new_state := 
-                  mkLclSt 
-                    best_chain 
-                    (honest_local_transaction_pool state)
-                    (rem best_chain (honest_local_message_pool state))
-                    (honest_proof_of_work state) in
-            (new_state, Some(BroadcastMsg best_chain), new_oracle_state)
+            (* Constructed block did not meet the difficulty level *)
+            (* if the longest chain is actually the current chain *)
+            if best_chain == (honest_current_chain state)
+              (* then the only thing to change is to increment the proof of work*)
+              then 
+               let: new_state := 
+                    mkLclSt 
+                      (honest_current_chain state) 
+                      (honest_local_transaction_pool state)
+                      (honest_local_message_pool state)
+                      ((honest_proof_of_work state).+1) in
+              (new_state, None, new_oracle_state)
+            else 
+              (* Otherwise we need to move the best chain from the message pool to current*)
+              let: new_state := 
+                    mkLclSt 
+                      best_chain 
+                      (honest_local_transaction_pool state)
+                      (rem best_chain (honest_local_message_pool state))
+                      ((honest_proof_of_work state).+1) in
+              (new_state, Some(BroadcastMsg best_chain), new_oracle_state)
         else 
           if best_chain == (honest_current_chain state)
             then (state, None, oracle_state)
