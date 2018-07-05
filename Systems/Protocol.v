@@ -16,6 +16,7 @@ Unset Printing Implicit Defensive.
 
 
 
+Parameter n_max_actors : nat.
 (* Should these have different names from the proof for legibility? *)
 (* maximum number of nodes that can be corrupted *)
 Parameter t_max_corrupted : nat.
@@ -54,6 +55,7 @@ Record Adversary := mkAdvrs {
   adversary_proof_of_work: nat;
   adversary_last_hashed_round: nat;
 }.
+Definition initAdversary := mkAdvrs [::] [::] 0 0.
 
 (* A node's local state consists of 
     1. it's currently held chain
@@ -67,6 +69,7 @@ Record LocalState := mkLclSt {
   honest_proof_of_work: nat;
 }.
 
+Definition initLocalState := mkLclSt [::] [::] [::] 0.
 
 (* GlobalState consists of 
       1. A sequence of LocalStates, and a boolean representing whether the state is corrupted
@@ -75,7 +78,7 @@ Record LocalState := mkLclSt {
       3. A number representing the current round
 *)
 Definition GlobalState := ((seq (LocalState * bool) * Adversary) * Addr * nat)%type.
-
+Definition initGlobalState : GlobalState := ((repeat (initLocalState, false) n_max_actors, initAdversary), 0, 0).
 
 Definition MessagePool := seq Message.
 
@@ -92,6 +95,8 @@ Record World := mkWorld {
   (* represents the shared oracle state *)
   world_hash: OracleState
 }.
+
+Definition initWorld := mkWorld initGlobalState [::] [::] (repeat [::] delta) OracleState_new.
 
 (* A round is complete if the currently_active index is one greater than the length of the actors array *)
 Definition round_ended (w: World) :=
@@ -652,10 +657,11 @@ Definition reachable (w w' : World) : Prop :=
 Definition adversarial_minority (w : World) :=
   no_corrupted_players (world_global_state w) <= t_max_corrupted.
 
+About world_step_ind.
+
 (* Trivial lemma to ensure that steps work *)
-Lemma adversarial_minority_induction : forall (w w' : World), reachable w w' -> adversarial_minority w -> adversarial_minority w'.
+Lemma adversarial_minority_induction : forall (w w' : World), 
+  (exists (q : RndGen), world_step w w' q) -> adversarial_minority w -> adversarial_minority w'.
 Proof.
-  move=> w w' is_reachable is_adversarial_minority.
-  case: is_reachable.
   (* TODO(kiran): Complete this proof*)
 Admitted.

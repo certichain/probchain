@@ -10,6 +10,12 @@ Require Import BlockChain InvMisc.
 Module M := FMapAVL.Make(Hash_Triple_as_OT).
 Definition OracleState := M.t nat.
 
+Definition OracleState_new : OracleState.
+Proof.
+  (* TODO(Kiran): complete this proof *)
+Admitted.
+
+
 Definition OracleState_find k (m : OracleState) := M.find k m.
 
 About eqtype.Equality.type.
