@@ -692,31 +692,35 @@ Qed.
 
 About filter.
 
-Definition successful_round (w : World) (r : nat) :=
-  filter 
+Definition successful_round (w : World) (r : nat) : Prop :=
+  length(filter 
     (fun pair => 
       (pair.2 == false) && 
       (length (filter
                 (fun block => ((block_hash_round block) == r) && (~~ (block_is_adversarial block)))
                 (honest_current_chain pair.1)) > 0))
-      ((world_global_state w).1.1.1).
+      ((world_global_state w).1.1.1)) > 0.
 
 Definition unsuccessful_round (w : World) (r : nat) :=
-  filter 
+  length(filter 
     (fun pair => 
       (pair.2 == false) && 
       (length (filter
                 (fun block => ((block_hash_round block) == r) && (~~ (block_is_adversarial block)))
-                (honest_current_chain pair.1)) == 0))
-      ((world_global_state w).1.1.1).
+                (honest_current_chain pair.1)) > 0))
+      ((world_global_state w).1.1.1)) = 0.
 
 
 Definition uniquely_successful_round (w : World) (r : nat) :=
-  filter 
+  length(filter 
     (fun pair => 
       (pair.2 == false) && 
       (length (filter
                 (fun block => ((block_hash_round block) == r) && (~~ (block_is_adversarial block)))
-                (honest_current_chain pair.1)) == 1))
-      ((world_global_state w).1.1.1).
+                (honest_current_chain pair.1)) > 0))
+      ((world_global_state w).1.1.1)) = 1.
 
+Definition bounded_successful_round (w : World) (r : nat) :=
+  (forall (r' : nat), (r' < r) && (r' >= r - delta) -> unsuccessful_round w r') /\
+    successful_round w r.
+  
