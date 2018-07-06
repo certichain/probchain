@@ -93,10 +93,12 @@ Record World := mkWorld {
   (* thus this achieves the simulation of a delta delay *)
   world_message_pool: seq MessagePool;
   (* represents the shared oracle state *)
-  world_hash: OracleState
+  world_hash: OracleState;
+  (* Contains every block seen *)
+  world_block_history: seq Block;
 }.
 
-Definition initWorld := mkWorld initGlobalState [::] [::] (repeat [::] delta) OracleState_new.
+Definition initWorld := mkWorld initGlobalState [::] [::] (repeat [::] delta) OracleState_new [::].
 
 (* A round is complete if the currently_active index is one greater than the length of the actors array *)
 Definition round_ended (w: World) :=
@@ -244,7 +246,7 @@ Variable chain_comparison_operation :  BlockChain -> BlockChain -> bool.
 
 
 (* Small wrapper around arbitrary adversary strategy function*)
-Definition adversary_attempt_hash (adv: Adversary) (inflight_messages : MessagePool) (hash_state : Hashed * OracleState)  (chain_no : nat) (round: nat) : (Adversary * OracleState) :=
+Definition adversary_attempt_hash (adv: Adversary) (inflight_messages : MessagePool) (hash_state : Hashed * OracleState)  (chain_no : nat) (round: nat) : (Adversary * OracleState * option Block) :=
   let: (new_hash, oracle_state) := hash_state in
   (* Adversary can generate the block however they want *)
   let: (nonce, hashed, transactions, pow) := adversary_generate_block adv inflight_messages in
@@ -259,14 +261,14 @@ Definition adversary_attempt_hash (adv: Adversary) (inflight_messages : MessageP
           new_message_pool 
           (adversary_proof_of_work adv)
           (adversary_last_hashed_round adv) in
-          (new_adv, new_oracle_state)
+          (new_adv, new_oracle_state, Some block)
     else 
       let: new_adv :=  mkAdvrs 
           (adversary_local_transaction_pool adv)
           (adversary_local_message_pool adv)
           (adversary_proof_of_work adv)
           (adversary_last_hashed_round adv) in
-          (new_adv, new_oracle_state).
+          (new_adv, new_oracle_state, None).
 
 About foldr.
 
@@ -343,11 +345,12 @@ Definition retrieve_head_link (b : BlockChain) (oracle_state : OracleState) : op
     | h :: t => verify_hash h oracle_state
   end.
 
+
 (* Implementation of the bitcoin backbone protocol *)
 Definition honest_attempt_hash  
       (hash_state: Hashed * OracleState) 
       (nonce : Nonce) (state : LocalState) 
-      (round : nat) : (LocalState * option Message * OracleState) :=
+      (round : nat) : (LocalState * option Message * OracleState * option Block) :=
       let: (random_value, oracle_state) := hash_state in
       (* Bitcoin backbone - Algorithm 4 - Line 5 *)
       (* first, find the longest valid chain *)
@@ -371,7 +374,7 @@ Definition honest_attempt_hash
                     remaining
                     (rem best_chain (honest_local_message_pool state))
                     0 in (* reset the proof of work *)
-            (new_state, Some(BroadcastMsg new_chain), new_oracle_state)
+            (new_state, Some(BroadcastMsg new_chain), new_oracle_state, Some new_block)
           else
             (* Constructed block did not meet the difficulty level *)
             (* if the longest chain is actually the current chain *)
@@ -384,7 +387,7 @@ Definition honest_attempt_hash
                       (honest_local_transaction_pool state)
                       (honest_local_message_pool state)
                       ((honest_proof_of_work state).+1) in
-              (new_state, None, new_oracle_state)
+              (new_state, None, new_oracle_state, None)
             else 
               (* Otherwise we need to move the best chain from the message pool to current*)
               let: new_state := 
@@ -393,10 +396,10 @@ Definition honest_attempt_hash
                       (honest_local_transaction_pool state)
                       (rem best_chain (honest_local_message_pool state))
                       ((honest_proof_of_work state).+1) in
-              (new_state, Some(BroadcastMsg best_chain), new_oracle_state)
+              (new_state, Some(BroadcastMsg best_chain), new_oracle_state, None)
         else 
           if best_chain == (honest_current_chain state)
-            then (state, None, oracle_state)
+            then (state, None, oracle_state, None)
           else 
             let: new_state := 
                   mkLclSt 
@@ -404,7 +407,7 @@ Definition honest_attempt_hash
                     (honest_local_transaction_pool state)
                     (rem best_chain (honest_local_message_pool state))
                     (honest_proof_of_work state) in
-            (new_state, Some(BroadcastMsg best_chain), oracle_state)
+            (new_state, Some(BroadcastMsg best_chain), oracle_state, None)
     .
 
     
@@ -486,6 +489,7 @@ Inductive world_step (w w' : World) (random : RndGen) : Prop :=
             new_inflight_pool
             new_message_pool
             (world_hash w)
+            (world_block_history w)
     | TransactionDrop (n : nat) of
         (* assert that random is of form TransactionDrop
            and index is actually an index into the transaction pool 
@@ -500,6 +504,7 @@ Inductive world_step (w w' : World) (random : RndGen) : Prop :=
               (world_inflight_pool w)
               (world_message_pool w)
               (world_hash w)
+              (world_block_history w)
     | HonestTransaction (transaction : Transaction) (addr : Addr) of
           (* assert that random is of form TransactionGen , round*)
            random = HonestTransactionGen (transaction, addr) &
@@ -524,6 +529,7 @@ Inductive world_step (w w' : World) (random : RndGen) : Prop :=
               (world_inflight_pool w)
               (world_message_pool w)
               (world_hash w)
+              (world_block_history w)
     | HonestMint (random_value : Hashed) (nonce: Nonce) of
            (* assert that random is of form MintBlock *)
            random = HonestMintBlock (random_value, nonce) &
@@ -537,7 +543,7 @@ Inductive world_step (w w' : World) (random : RndGen) : Prop :=
            let: actor := update_transaction_pool active dated_actor (world_transaction_pool w) in
            (* broadcast if successful - else increment proof of work *)
            (* an actor attempts a hash with a random value *)
-           let: (updated_actor, new_message, new_oracle) := honest_attempt_hash (random_value, oracle) nonce actor round in
+           let: (updated_actor, new_message, new_oracle, new_block) := honest_attempt_hash (random_value, oracle) nonce actor round in
            let: new_actors := set_nth default actors active (updated_actor, is_corrupt) in 
            (* then increment the currently active and perform bookkeeping *) 
            let: updated_state := update_round ((new_actors, adversary), active, round) in
@@ -548,6 +554,7 @@ Inductive world_step (w w' : World) (random : RndGen) : Prop :=
               (option_cons new_message (world_inflight_pool w))
               (world_message_pool w)
               new_oracle
+              (option_cons new_block (world_block_history w))
     | AdversaryTransaction (transaction: Transaction) (recipients : seq nat) of
         (* assert that random is of form TransactionGen *)
           random = AdvTransactionGen (transaction, recipients) &
@@ -562,6 +569,7 @@ Inductive world_step (w w' : World) (random : RndGen) : Prop :=
               (world_inflight_pool w)
               (world_message_pool w)
               (world_hash w)
+              (world_block_history w)
     | AdversaryMint  (random_value : Hashed) (index : nat) of
         (* assert that random is of form MintBlock *)
           random = AdvMintBlock (random_value, index)  &
@@ -576,7 +584,7 @@ Inductive world_step (w w' : World) (random : RndGen) : Prop :=
            let: ((actors, dated_adversary), active, round) := (world_global_state w) in 
            let: oracle := (world_hash w) in
            let: adversary := update_adversary_transaction_pool dated_adversary (world_transaction_pool w) in
-           let: (new_adversary, new_oracle) := adversary_attempt_hash adversary (world_inflight_pool w) (random_value, oracle) index round in
+           let: (new_adversary, new_oracle, new_block) := adversary_attempt_hash adversary (world_inflight_pool w) (random_value, oracle) index round in
            let: updated_adversary := update_adversary_round new_adversary round in
            let: updated_state := update_round ((actors, updated_adversary), active, round) in
            w' = 
@@ -585,6 +593,7 @@ Inductive world_step (w w' : World) (random : RndGen) : Prop :=
               (world_inflight_pool w)
               (world_message_pool w)
               new_oracle
+              (option_cons new_block (world_block_history w))
     | AdversaryBroadcast (chain_no : nat) (recipients : seq nat) of
         (* assert that random is of form AdversaryBroadcast *)
         random = AdvBroadcast (chain_no, recipients) &
@@ -604,6 +613,7 @@ Inductive world_step (w w' : World) (random : RndGen) : Prop :=
               ((MulticastMsg  recipients chain) :: (world_inflight_pool w))
               (world_message_pool w)
               (world_hash w)
+              (world_block_history w)
     | AdversaryCorrupt (addr : Addr) of
         (* assert that random is of form AdvCorrupt *)
         random = AdvCorrupt addr &
@@ -630,6 +640,7 @@ Inductive world_step (w w' : World) (random : RndGen) : Prop :=
               (world_inflight_pool w)
               (world_message_pool w)
               (world_hash w)
+              (world_block_history w)
       | AdversaryResign of 
        adversary_activation (world_global_state w)  &
        (* increment round *)
@@ -641,6 +652,7 @@ Inductive world_step (w w' : World) (random : RndGen) : Prop :=
               (world_inflight_pool w)
               (world_message_pool w)
               (world_hash w)
+              (world_block_history w)
 .    
 
 
@@ -693,38 +705,27 @@ Qed.
 About filter.
 
 Definition successful_round (w : World) (r : nat) : Prop :=
-  length(filter 
-    (fun pair => 
-      (pair.2 == false) && 
-      (length (filter
-                (fun block => ((block_hash_round block) == r) && (~~ (block_is_adversarial block)))
-                (honest_current_chain pair.1)) > 0))
-      ((world_global_state w).1.1.1)) > 0.
+  length(filter
+      (fun block => ((block_hash_round block) == r) && (~~ (block_is_adversarial block)))
+      (world_block_history w)) > 0.
+
 
 Definition unsuccessful_round (w : World) (r : nat) :=
-  length(filter 
-    (fun pair => 
-      (pair.2 == false) && 
-      (length (filter
-                (fun block => ((block_hash_round block) == r) && (~~ (block_is_adversarial block)))
-                (honest_current_chain pair.1)) > 0))
-      ((world_global_state w).1.1.1)) = 0.
+  length(filter
+      (fun block => ((block_hash_round block) == r) && (~~ (block_is_adversarial block)))
+      (world_block_history w)) == 0.
 
 
 Definition uniquely_successful_round (w : World) (r : nat) :=
-  length(filter 
-    (fun pair => 
-      (pair.2 == false) && 
-      (length (filter
-                (fun block => ((block_hash_round block) == r) && (~~ (block_is_adversarial block)))
-                (honest_current_chain pair.1)) > 0))
-      ((world_global_state w).1.1.1)) = 1.
+  length(filter
+      (fun block => ((block_hash_round block) == r) && (~~ (block_is_adversarial block)))
+      (world_block_history w)) == 1.
+
 
 Definition bounded_successful_round (w : World) (r : nat) :=
   (forall (r' : nat), (r' < r) && (r' >= r - delta) -> unsuccessful_round w r') /\
     successful_round w r.
 
-  Locate "!=".
 
 Definition bounded_uniquely_successful_round (w : World) (r : nat) :=
   (forall (r' : nat), ((r' <= r + delta) && (r' >= r - delta) && (r' != r)) -> unsuccessful_round w r') /\
@@ -732,17 +733,7 @@ Definition bounded_uniquely_successful_round (w : World) (r : nat) :=
 
 
 Definition adversarial_block_count (w : World) (r : nat) :=
-  foldr
-    (fun a b => a + b)
-    0
-    (map
-      (fun pair => 
-        if (pair.2 == false) 
-          then 
-            length (filter
-                (fun block => ((block_hash_round block) == r) && ((block_is_adversarial block)))
-                (honest_current_chain pair.1))
-          else 0
-      )
-      ((world_global_state w).1.1.1)
-    ).
+    length (filter
+      (fun block => ((block_hash_round block) == r) && ((block_is_adversarial block)))
+      (world_block_history w)).
+
