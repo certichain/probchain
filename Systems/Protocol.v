@@ -712,9 +712,18 @@ Proof.
 Qed.
 
 
-About filter.
+(* Generates an increasing sequence of nats from *from* to *to* inclusive *)
+Fixpoint generate_sequence (from : nat) (to : nat) :=
+  match to with
+    | 0 => nil
+    | S t' => if to >= from
+              then (generate_sequence from t') ++ [:: to]
+              else nil
+   end.
 
-Definition successful_round (w : World) (r : nat) : Prop :=
+
+
+Definition successful_round (w : World) (r : nat) : bool :=
   length(filter
       (fun block => ((block_hash_round block) == r) && (~~ (block_is_adversarial block)))
       (world_block_history w)) > 0.
@@ -732,13 +741,16 @@ Definition uniquely_successful_round (w : World) (r : nat) :=
       (world_block_history w)) == 1.
 
 
+
 Definition bounded_successful_round (w : World) (r : nat) :=
-  (forall (r' : nat), (r' < r) && (r' >= r - delta) -> unsuccessful_round w r') /\
+  (* (forallb (r' : nat), (r' < r) && (r' >= r - delta) -> unsuccessful_round w r') &&   *)
+  (forallb (fun r' => unsuccessful_round w r') (generate_sequence (r - delta) (r - 1))) &&  
     successful_round w r.
 
 
 Definition bounded_uniquely_successful_round (w : World) (r : nat) :=
-  (forall (r' : nat), ((r' <= r + delta) && (r' >= r - delta) && (r' != r)) -> unsuccessful_round w r') /\
+  (* (forall (r' : nat), ((r' <= r + delta) && (r' >= r - delta) && (r' != r)) -> unsuccessful_round w r') /\ *)
+  (forallb (fun r' => (unsuccessful_round w r') || (r' == r)) (generate_sequence (r - delta) (r + delta))) &&
     (uniquely_successful_round w r).
 
 
@@ -788,10 +800,25 @@ Lemma unique_round (w : World) (n : nat) (chain : BlockChain) :
     nth_block_is_adversarial w other_chain n  \/ nth_block_equals w other_chain n (nth_block w chain n)).
 Admitted.
 
-Variable no_successful_rounds: World -> nat -> nat -> nat.
-Variable actor_n_chain_length : World -> nat -> nat.
-Variable world_round : World -> nat.
-Variable actor_n_is_corrupt : World -> nat -> bool.
+
+Definition no_successful_rounds (w : World) (from : nat) (to : nat) : nat :=
+  length(filter
+    (fun round => bounded_successful_round w round)
+    (generate_sequence from to)).
+
+Definition actor_n_chain_length (w : World) (n : nat) : nat :=
+  let: (actor, is_corrupted) := nth (mkLclSt nil nil nil 0, false) ((world_global_state w).1.1.1) n in
+  length (honest_current_chain actor) .
+
+Definition world_round (w : World) : nat := 
+  let: ((_, _), _, round) := world_global_state w in
+    round
+.
+
+Definition actor_n_is_corrupt (w:World) (n:nat) : bool :=
+  let: (actor, is_corrupted) := nth (mkLclSt nil nil nil 0, true) ((world_global_state w).1.1.1) n in
+  is_corrupted
+.
 
 
 Lemma chain_growth (w : World) (round : nat) (l : nat) :
