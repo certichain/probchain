@@ -787,3 +787,23 @@ Lemma unique_round (w : World) (n : nat) (chain : BlockChain) :
     length other_chain > n -> 
     nth_block_is_adversarial w other_chain n  \/ nth_block_equals w other_chain n (nth_block w chain n)).
 Admitted.
+
+Variable no_successful_rounds: World -> nat -> nat -> nat.
+Variable actor_n_chain_length : World -> nat -> nat.
+Variable world_round : World -> nat.
+Variable actor_n_is_corrupt : World -> nat -> bool.
+
+
+Lemma chain_growth (w : World) (round : nat) (l : nat) :
+  reachable initWorld w ->
+  (world_round w) = round ->
+  (exists (n : nat), (n < n_max_actors) /\ (actor_n_chain_length w n = l) /\ ~~ (actor_n_is_corrupt w n)) ->
+  (forall (future_w : World), 
+    reachable w future_w ->
+    ((world_round future_w) >= round + delta - 1) ->
+    (forall (n : nat), n < n_max_actors -> 
+      ~~ (actor_n_is_corrupt w n) ->
+      actor_n_chain_length w n >= l + no_successful_rounds w round ((world_round future_w) - 1))).
+Proof.
+Admitted.
+
