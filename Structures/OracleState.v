@@ -18,7 +18,6 @@ Admitted.
 
 Definition OracleState_find k (m : OracleState) := M.find k m.
 
-About eqtype.Equality.type.
 
 
 Definition OracleState_put (p: (Hashed * (list Transaction) * nat) * nat) (m: OracleState) :=

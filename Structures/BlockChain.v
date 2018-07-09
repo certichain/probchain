@@ -82,10 +82,12 @@ Record Block := Bl {
   block_records: seq Transaction;
   block_proof_of_work: nat;
   
-  (* extra information *)
-  block_is_adversarial: bool;
-  block_hash_round: nat;
+  (* extra information - can't be kept on block, as it may be modified by the adversary*)
+  (* block_is_adversarial: bool; *)
+  (* block_hash_round: nat; *)
 }.
+
+
 
 
 
@@ -99,5 +101,6 @@ Inductive Message :=
   | MulticastMsg (addr : seq Addr) (bc : BlockChain)  
   | BroadcastMsg (bc : BlockChain).
 
+Definition MessagePool := seq Message.
 
 

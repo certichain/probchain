@@ -4,7 +4,9 @@
 -arg "-w -notation-overridden,-local-declaration,-redundant-canonical-projection,-projection-no-head-constant"
 
 Structures/OracleState.v
+Structures/BlockMap.v
 Structures/BlockChain.v
 Systems/Protocol.v
 Properties/InvMisc.v
+Properties/InvBlock.v
 

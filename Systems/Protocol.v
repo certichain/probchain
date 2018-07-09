@@ -5,14 +5,24 @@ Require Import OrderedType.
 (* Implementation of Bitcoin Protocol *)
 (* Does not compile yet - as probability issues have not been resolved. *)
 From Probchain
-Require Import BlockChain OracleState InvMisc.
+Require Import BlockChain OracleState BlockMap InvMisc.
 
 
 Require Coq.Program.Tactics.
 Require Coq.Program.Wf.
 From mathcomp.ssreflect Require Import ssreflect ssrbool ssrnat seq ssrfun eqtype. Set Implicit Arguments.
-Unset Strict Implicit.
-Unset Printing Implicit Defensive.
+(* Unset Strict Implicit. *)
+(* Unset Printing Implicit Defensive. *)
+
+Parameter adversary_internal_state : Type.
+Parameter adversary_internal_initial_state : adversary_internal_state.
+Parameter adversary_internal_state_change : adversary_internal_state -> adversary_internal_state.
+Parameter adversary_internal_insert_transaction: adversary_internal_state -> Transaction -> adversary_internal_state.
+Parameter adversary_internal_insert_chain: adversary_internal_state -> BlockChain -> adversary_internal_state.
+Parameter adversary_internal_generate_block: adversary_internal_state -> MessagePool -> (adversary_internal_state * (Nonce * Hashed * seq Transaction * nat)).
+Parameter adversary_internal_provide_block_hash_result: adversary_internal_state -> (Nonce * Hashed * seq Transaction * nat) -> Hashed -> adversary_internal_state.
+Parameter adversary_internal_send_chain: adversary_internal_state -> (adversary_internal_state * BlockChain).
+Parameter adversary_internal_send_transaction: adversary_internal_state -> (adversary_internal_state * Transaction).
 
 
 
@@ -40,22 +50,61 @@ Definition hash
   
 Definition verify_hash (blk : Block) (oracle : OracleState) : option Hashed := 
    OracleState_find (block_link blk, block_records blk, block_proof_of_work blk) oracle.
+
+
 (*
   An adversary's state consists of
-  1. all transactions it has been delivered.
-  2. All chains it has ever seen
-  3. an extra parameter to persist proof of work calculations between rounds. 
-  4. the last round it attempted a hash - it can only attempt hashing 
+  1. Adversary's hidden state - can not be introspected
+  2. Adversary's state change transition
+  3. all transactions it has been delivered.
+  4. All chains it has ever seen
+  5. an extra parameter to persist proof of work calculations between rounds. 
+  6. the last round it attempted a hash - it can only attempt hashing 
      if this value is less than the current round*)
 Record Adversary := mkAdvrs {
-  adversary_local_transaction_pool: seq Transaction;
-  adversary_local_message_pool: seq BlockChain;
+  T : Type; (* Inner adversary's state, whose type cannot be introspected *)
+
+  adversary_state : T;
+  adversary_state_change: T -> T; (* Changing the state -- an operation provided by an adversary *) 
+  adversary_insert_transaction: T -> Transaction -> T;
+  adversary_insert_chain: T -> BlockChain -> T;
+
+  (* Required to allow adversary limited queries to the oracle*)
+  (* the adversary can propose a block to be hashed*)
+  adversary_generate_block: T -> MessagePool -> (T * (Nonce * Hashed * seq Transaction * nat));
+  (* the result of the hash is returned to the adversary through this method - is the block necassary? *)
+  (* it has to be structured this way, as we can not allow the adversary access to the oracle directly*)
+  adversary_provide_block_hash_result: T -> (Nonce * Hashed * seq Transaction * nat) -> Hashed -> T;
+
+  (* Required to allow the adversary to broadcast chains *)
+  (* I'm not sure how assertions about the blockchain being unable to randomly guess valid blockchains will be made*)
+  adversary_send_chain: T -> (T * BlockChain);
+  adversary_send_transaction: T -> (T * Transaction);
+
+  (* adversary_local_transaction_pool: seq Transaction; *)
+  (* adversary_local_message_pool: seq BlockChain; *)
 
   (* Additional info *)
-  adversary_proof_of_work: nat;
   adversary_last_hashed_round: nat;
 }.
-Definition initAdversary := mkAdvrs [::] [::] 0 0.
+
+
+
+
+
+
+Definition initAdversary  := 
+  mkAdvrs 
+    adversary_internal_initial_state 
+    adversary_internal_state_change 
+    adversary_internal_insert_transaction
+    adversary_internal_insert_chain
+    adversary_internal_generate_block
+    adversary_internal_provide_block_hash_result
+    adversary_internal_send_chain
+    adversary_internal_send_transaction
+    0.
+
 
 (* A node's local state consists of 
     1. it's currently held chain
@@ -80,7 +129,6 @@ Definition initLocalState := mkLclSt [::] [::] [::] 0.
 Definition GlobalState := ((seq (LocalState * bool) * Adversary) * Addr * nat)%type.
 Definition initGlobalState : GlobalState := ((repeat (initLocalState, false) n_max_actors, initAdversary), 0, 0).
 
-Definition MessagePool := seq Message.
 
 Record World := mkWorld {
   world_global_state: GlobalState; 
@@ -95,12 +143,12 @@ Record World := mkWorld {
   (* represents the shared oracle state *)
   world_hash: OracleState;
   (* Contains every block seen *)
-  world_block_history: seq Block;
+  world_block_history: BlockMap;
   (* Contains every chain ever seen*)
   world_chain_history: seq BlockChain;
 }.
 
-Definition initWorld := mkWorld initGlobalState [::] [::] (repeat [::] delta) OracleState_new [::] [::].
+Definition initWorld := mkWorld initGlobalState [::] [::] (repeat [::] delta) OracleState_new BlockMap_new [::].
 
 (* A round is complete if the currently_active index is one greater than the length of the actors array *)
 Definition round_ended (w: World) :=
@@ -154,6 +202,7 @@ Definition next_round  (state : GlobalState) : GlobalState := let: ((actors, adv
 
 
 
+
 (* insert the corresponding message into the recipient's message pool *)
 Definition insert_message 
   (addr: Addr) 
@@ -164,16 +213,19 @@ Definition insert_message
   let: (actor, corrupted) := nth default actors addr in 
   if corrupted 
   then
-    let: local_transaction_pool := adversary_local_transaction_pool adversary in 
-    (* Check whether the blockchain is already in the pool *) 
-      let: local_message_pool := (adversary_local_message_pool adversary) in
-    if bc \in local_message_pool then
-      state
-    else 
-      let: new_message_pool := bc :: local_message_pool in
-      let: proof_of_work := adversary_proof_of_work adversary in
-      let: last_hashed_round := adversary_last_hashed_round adversary in
-      let: new_adversary := mkAdvrs local_transaction_pool new_message_pool proof_of_work last_hashed_round in
+      let: old_adv_state := adversary_state adversary in
+      let: new_adv_state := (adversary_insert_chain adversary) old_adv_state bc in
+      let: new_adversary := 
+                            mkAdvrs
+                              new_adv_state
+                              (adversary_state_change adversary)
+                              (adversary_insert_transaction adversary)
+                              (adversary_insert_chain adversary)
+                              (adversary_generate_block adversary)
+                              (adversary_provide_block_hash_result adversary)
+                              (adversary_send_chain adversary)
+                              (adversary_send_transaction adversary)
+                              (adversary_last_hashed_round adversary) in
       ((actors, new_adversary), active, round)
   else
     let: current_chain := honest_current_chain actor in
@@ -231,46 +283,57 @@ Definition update_message_pool_queue (message_list_queue: seq (seq Message)) (ne
   else ([::], new_message_list :: nil).
 
 Definition update_adversary_round (adversary : Adversary) (round : nat) : Adversary :=
-  mkAdvrs  
-    (adversary_local_transaction_pool adversary)
-    (adversary_local_message_pool adversary)
-    (adversary_proof_of_work adversary)
-    round .
-
+  mkAdvrs
+    (adversary_state adversary)
+    (adversary_state_change adversary)
+    (adversary_insert_transaction adversary)
+    (adversary_insert_chain adversary)
+    (adversary_generate_block adversary)
+    (adversary_provide_block_hash_result adversary)
+    (adversary_send_chain adversary)
+    (adversary_send_transaction adversary)
+    round.
 
 
 
 
     
-(* Represents an arbitrary adversary strategy *)
-Variable adversary_generate_block : Adversary -> MessagePool -> (Nonce * Hashed * seq Transaction * nat).
-Variable chain_comparison_operation :  BlockChain -> BlockChain -> bool.
-
-
 (* Small wrapper around arbitrary adversary strategy function*)
-Definition adversary_attempt_hash (adv: Adversary) (inflight_messages : MessagePool) (hash_state : Hashed * OracleState)  (chain_no : nat) (round: nat) : (Adversary * OracleState * option Block * option BlockChain) :=
+Definition adversary_attempt_hash 
+    (adversary : Adversary) 
+    (inflight_messages : MessagePool) 
+    (hash_state : Hashed * OracleState) : (Adversary * OracleState * option Block) :=
   let: (new_hash, oracle_state) := hash_state in
   (* Adversary can generate the block however they want *)
-  let: (nonce, hashed, transactions, pow) := adversary_generate_block adv inflight_messages in
-  let: (new_oracle_state, result) := hash nonce (hashed, transactions, pow) oracle_state in
-  if result < T_Hashing_Difficulty 
-    then 
-      let: block := Bl nonce hashed transactions pow true round in
-      let: new_chain :=  block :: (nth [::] (adversary_local_message_pool adv) chain_no) in
-      let: new_message_pool :=  set_nth [::] (adversary_local_message_pool adv) chain_no new_chain in
-      let: new_adv :=  mkAdvrs  
-          (adversary_local_transaction_pool adv)
-          new_message_pool 
-          (adversary_proof_of_work adv)
-          (adversary_last_hashed_round adv) in
-          (new_adv, new_oracle_state, Some block, Some new_chain)
-    else 
-      let: new_adv :=  mkAdvrs 
-          (adversary_local_transaction_pool adv)
-          (adversary_local_message_pool adv)
-          (adversary_proof_of_work adv)
-          (adversary_last_hashed_round adv) in
-          (new_adv, new_oracle_state, None, None).
+  let: (adversary_partial, nonce, hashed, transactions, pow) := (adversary_generate_block adversary) (adversary_state adversary) inflight_messages in
+  let: (new_oracle_state, result) := hash new_hash (hashed, transactions, pow) oracle_state in
+  let: adversary_new_state := (adversary_provide_block_hash_result ) adversary_partial (nonce, hashed, transactions, pow) result in
+    if result < T_Hashing_Difficulty 
+      then 
+        let: block := Bl nonce hashed transactions pow in
+        let: new_adv :=  mkAdvrs
+          adversary_new_state
+          (adversary_state_change adversary)
+          (adversary_insert_transaction adversary)
+          (adversary_insert_chain adversary)
+          (adversary_generate_block adversary)
+          (adversary_provide_block_hash_result adversary)
+          (adversary_send_chain adversary)
+          (adversary_send_transaction adversary)
+          (adversary_last_hashed_round adversary) in
+            (new_adv, new_oracle_state, Some block)
+      else 
+        let: new_adv :=  mkAdvrs 
+          (adversary_state adversary)
+          (adversary_state_change adversary)
+          (adversary_insert_transaction adversary)
+          (adversary_insert_chain adversary)
+          (adversary_generate_block adversary)
+          (adversary_provide_block_hash_result adversary)
+          (adversary_send_chain adversary)
+          (adversary_send_transaction adversary)
+          (adversary_last_hashed_round adversary) in
+            (new_adv, new_oracle_state, None).
 
 
 Definition validate_blockchain_links (bc : BlockChain) (oracle_state : OracleState) : bool :=
@@ -450,6 +513,8 @@ Definition update_adversary_transaction_pool  (initial_adv: Adversary) (transact
               then adv
               else 
                 mkAdvrs 
+                  ((adversary_state adv))
+                  adversary_hidden_state_change
                   (tx :: (adversary_local_transaction_pool adv))
                   (adversary_local_message_pool adv)
                   (adversary_proof_of_work adv)
@@ -459,6 +524,8 @@ Definition update_adversary_transaction_pool  (initial_adv: Adversary) (transact
               then adv
               else 
                 mkAdvrs 
+                  (adversary_state adv)
+                  adversary_hidden_state_change
                   (tx :: (adversary_local_transaction_pool adv))
                   (adversary_local_message_pool adv)
                   (adversary_proof_of_work adv)
