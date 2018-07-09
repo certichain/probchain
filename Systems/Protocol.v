@@ -305,9 +305,10 @@ Definition adversary_attempt_hash
     (hash_state : Hashed * OracleState) : (Adversary * OracleState * option Block) :=
   let: (new_hash, oracle_state) := hash_state in
   (* Adversary can generate the block however they want *)
-  let: (adversary_partial, nonce, hashed, transactions, pow) := (adversary_generate_block adversary) (adversary_state adversary) inflight_messages in
+  let: (adversary_partial, (nonce, hashed, transactions, pow)) := (adversary_generate_block adversary) (adversary_state adversary) inflight_messages in
   let: (new_oracle_state, result) := hash new_hash (hashed, transactions, pow) oracle_state in
-  let: adversary_new_state := (adversary_provide_block_hash_result ) adversary_partial (nonce, hashed, transactions, pow) result in
+  let: adversary_new_state := (adversary_provide_block_hash_result adversary) adversary_partial (nonce, hashed, transactions, pow) result in
+  (* let: adversary_new_state := adversary_partial in *)
     if result < T_Hashing_Difficulty 
       then 
         let: block := Bl nonce hashed transactions pow in
@@ -324,7 +325,7 @@ Definition adversary_attempt_hash
             (new_adv, new_oracle_state, Some block)
       else 
         let: new_adv :=  mkAdvrs 
-          (adversary_state adversary)
+          adversary_new_state
           (adversary_state_change adversary)
           (adversary_insert_transaction adversary)
           (adversary_insert_chain adversary)
