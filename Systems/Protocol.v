@@ -431,7 +431,7 @@ Definition honest_attempt_hash
           let: (new_oracle_state, hash) := hash random_value (value, selected_transactions, proof_of_work) oracle_state in
           if hash < T_Hashing_Difficulty then
             (* New block has been minted *)
-            let: new_block := Bl nonce value selected_transactions proof_of_work false round in
+            let: new_block := Bl nonce value selected_transactions proof_of_work in
             let: new_chain := new_block :: best_chain in
             let: new_state :=
                   mkLclSt 
@@ -507,30 +507,34 @@ Definition update_transaction_pool (addr : Addr) (initial_state : LocalState) (t
 
 Definition update_adversary_transaction_pool  (initial_adv: Adversary) (transaction_pool: TransactionPool) : Adversary :=
     foldr 
-      (fun (txMsg : TransactionMessage) adv => 
+      (fun (txMsg : TransactionMessage) adversary => 
+      let: adv_state := adversary_state adversary in
+      let: partial_adv := (adversary_insert_transaction adversary) adv_state in
         match txMsg with
           | BroadcastTransaction tx => 
-            if tx \in (adversary_local_transaction_pool adv) 
-              then adv
-              else 
-                mkAdvrs 
-                  ((adversary_state adv))
-                  adversary_hidden_state_change
-                  (tx :: (adversary_local_transaction_pool adv))
-                  (adversary_local_message_pool adv)
-                  (adversary_proof_of_work adv)
-                  (adversary_last_hashed_round adv)
+            let: new_adv_state := partial_adv tx in
+                            mkAdvrs
+                              new_adv_state
+                              (adversary_state_change adversary)
+                              (adversary_insert_transaction adversary)
+                              (adversary_insert_chain adversary)
+                              (adversary_generate_block adversary)
+                              (adversary_provide_block_hash_result adversary)
+                              (adversary_send_chain adversary)
+                              (adversary_send_transaction adversary)
+                              (adversary_last_hashed_round adversary) 
           | MulticastTransaction (tx, _) =>
-            if tx \in (adversary_local_transaction_pool adv) 
-              then adv
-              else 
-                mkAdvrs 
-                  (adversary_state adv)
-                  adversary_hidden_state_change
-                  (tx :: (adversary_local_transaction_pool adv))
-                  (adversary_local_message_pool adv)
-                  (adversary_proof_of_work adv)
-                  (adversary_last_hashed_round adv)
+            let: new_adv_state := partial_adv tx in
+                            mkAdvrs
+                              new_adv_state
+                              (adversary_state_change adversary)
+                              (adversary_insert_transaction adversary)
+                              (adversary_insert_chain adversary)
+                              (adversary_generate_block adversary)
+                              (adversary_provide_block_hash_result adversary)
+                              (adversary_send_chain adversary)
+                              (adversary_send_transaction adversary)
+                              (adversary_last_hashed_round adversary) 
         end)
       initial_adv
       transaction_pool.
