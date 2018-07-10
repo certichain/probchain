@@ -86,3 +86,21 @@ Proof.
   by [].
 Qed.
 
+Print rem.
+
+Fixpoint prefix {A : eqType} (xs : list A) (ys : list A) :=
+  if length xs > length ys 
+    then false
+    else 
+      match ys with
+        | [::] => xs == [::]
+        | y' :: ys' => if length ys == length xs
+              then xs == ys
+              else prefix  xs ys'
+        end.
+    
+Example prefix_example_1 : prefix  [:: 1; 2; 3] [:: 4; 5; 1; 2; 3].
+Proof. by []. Qed.
+
+Example prefix_example_2 : @prefix _ [:: 1; 2; 3] [:: 1; 2; 3].
+Proof. by []. Qed.

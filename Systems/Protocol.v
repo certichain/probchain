@@ -996,5 +996,5 @@ Definition common_prefix_property (current_w : World) (k r1 r2 : nat) (a1 a2 : A
   (exists (w'' wr2 : World), reachable initWorld w'' -> reachable w'' wr2 -> reachable wr2 current_w ->  
     adopt_at_round w'' wr2 c2 a2 r2) ->
   (* then pruning k blocks from the head of c1 is a subsequence of c2*)
-  subseq (drop k c1) c2.
+  prefix (drop k c1) c2.
 
