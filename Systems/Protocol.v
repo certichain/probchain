@@ -998,3 +998,20 @@ Definition common_prefix_property (current_w : World) (k r1 r2 : nat) (a1 a2 : A
   (* then pruning k blocks from the head of c1 is a subsequence of c2*)
   prefix (drop k c1) c2.
 
+
+Definition chain_quality_prop_agent (w : World) (l u : nat) (agent : Addr) := 
+    let: (actor, is_corrupt) := nth (initLocalState, true) (world_actors w) agent in
+    let: current_chain := honest_current_chain actor in
+      (length current_chain > l) &&
+      (all_consecutive_sequences current_chain l (fun blocks => 
+        length (filter (fun block => match block_is_adversarial block w with 
+          | Some (is_adv) => is_adv
+          | None => false
+          end) blocks)  <= u)).
+
+
+Definition chain_quality_property (current_w : World) (l u : nat) (agent : Addr) :=
+  reachable initWorld current_w ->
+  agent < n_max_actors ->
+  (length (honest_current_chain (fst (nth (initLocalState, false) (world_actors current_w) agent)))) > l ->
+  chain_quality_prop_agent current_w l u agent.

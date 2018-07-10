@@ -104,3 +104,14 @@ Proof. by []. Qed.
 
 Example prefix_example_2 : @prefix _ [:: 1; 2; 3] [:: 1; 2; 3].
 Proof. by []. Qed.
+
+Fixpoint all_consecutive_sequences {A} (xs : list A) (l : nat) (p : list A -> bool) :=
+  if (length xs) < l
+    then true
+  else 
+    match xs with
+      | [::] => true
+      | x' :: xs' => p (take l xs) && all_consecutive_sequences xs' l p
+      end.
+
+
