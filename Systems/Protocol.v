@@ -155,6 +155,17 @@ Definition round_ended (w: World) :=
 (world_global_state w).1.2 = ((length (world_global_state w).1.1.1) + 1)
 . 
 
+Definition world_current_addr (w : World) :=
+  (world_global_state w).1.2.
+
+Definition world_adversary (w : World) :=
+  (world_global_state w).1.1.2.
+
+Definition world_actors (w : World) :=
+  (world_global_state w).1.1.1.
+
+Definition world_round_no (w : World) :=
+  (world_global_state w).2.
 
 Definition no_corrupted_players (state: GlobalState) :=
     let: ((actors, adversary), active, round) := state in 
@@ -869,8 +880,7 @@ Definition bounded_uniquely_successful_round (w : World) (r : nat) :=
 
 
 Definition adversarial_block_count (w : World) (r : nat) :=
-  length
-    (filter
+  length (filter
       (fun block_pair =>
         let: (block, is_corrupt, hash_round) := block_pair in  
       (hash_round  == r) && is_corrupt)
@@ -950,4 +960,41 @@ Lemma chain_growth (w : World) (round : nat) (l : nat) :
       actor_n_chain_length w n >= l + no_successful_rounds w round ((world_round future_w) - 1))).
 Proof.
 Admitted.
+
+
+Definition adopt_at_round (w' : World) (w : World) (bc : BlockChain) (agent: Addr) (r : nat) :=
+  match r with
+    | 0 => false
+    | r'.+1 => 
+      if 
+        (* If the two worlds represent worlds immediately after in rounds *)
+        (world_round_no w == r) && 
+        (world_round_no w' == r') && 
+        (* If the address is valid *)
+        (agent < n_max_actors) &&
+        (* If the agent has been activated in both rounds *)
+        (world_current_addr w  >= agent) &&
+        (world_current_addr w'  >= agent) 
+        then let: (w_state, w_is_corrupt) := (nth (initLocalState, true) (world_actors w) agent) in
+             let: (w'_state, w'_is_corrupt) := (nth (initLocalState, true) (world_actors w') agent) in
+              (~~ w_is_corrupt) && (~~ w'_is_corrupt) && 
+              (honest_current_chain w'_state != bc) &&
+              (honest_current_chain w_state == bc)
+        else false
+    end.
+
+Definition common_prefix_property (current_w : World) (k r1 r2 : nat) (a1 a2 : Addr) (c1 c2 : BlockChain) :=
+  (* current w is valid *)
+  reachable initWorld current_w ->
+  (world_round_no current_w) >= r2 ->
+  r1 <= r2 ->
+  (a1 < n_max_actors) -> (a2 < n_max_actors) ->
+  ~~ (actor_n_is_corrupt current_w a1) -> ~~ (actor_n_is_corrupt current_w a1) ->
+  (* players a1 a2 adopting the chains at rounds r1, r2 *)
+  (exists (w' wr1 : World), reachable initWorld w' -> reachable w' wr1 -> reachable wr1 current_w ->  
+    adopt_at_round w' wr1 c1 a1 r1) ->
+  (exists (w'' wr2 : World), reachable initWorld w'' -> reachable w'' wr2 -> reachable wr2 current_w ->  
+    adopt_at_round w'' wr2 c2 a2 r2) ->
+  (* then pruning k blocks from the head of c1 is a subsequence of c2*)
+  subseq (drop k c1) c2.
 
