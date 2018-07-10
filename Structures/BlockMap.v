@@ -35,4 +35,16 @@ Definition BlockMap_put_honest (bl : Block) (round: nat) (map: BlockMap) :=
 Definition BlockMap_put_adversarial (bl : Block) (round : nat) (map: BlockMap):=
     (bl, true, round) :: map.
 
+Definition BlockMap_put_honest_on_success (o_bl : option Block) (round: nat) (map: BlockMap) :=
+    match o_bl with
+        | Some (bl) => (bl, false, round) :: map
+        | None => map
+    end.        
+
+Definition BlockMap_put_adversarial_on_success (o_bl : option Block) (round: nat) (map: BlockMap) :=
+    match o_bl with
+        | Some (bl) => (bl, true, round) :: map
+        | None => map
+    end.        
+
 Definition BlockMap_new : BlockMap := nil.

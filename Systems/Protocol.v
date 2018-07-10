@@ -5,7 +5,7 @@ Require Import OrderedType.
 (* Implementation of Bitcoin Protocol *)
 (* Does not compile yet - as probability issues have not been resolved. *)
 From Probchain
-Require Import BlockChain OracleState BlockMap InvMisc.
+Require Import BlockChain OracleState BlockMap InvMisc InvBlock.
 
 
 Require Coq.Program.Tactics.
@@ -415,7 +415,7 @@ Definition retrieve_head_link (b : BlockChain) (oracle_state : OracleState) : op
 Definition honest_attempt_hash  
       (hash_state: Hashed * OracleState) 
       (nonce : Nonce) (state : LocalState) 
-      (round : nat) : (LocalState * option Message * OracleState * option Block * option BlockChain) :=
+       : (LocalState * option Message * OracleState * option Block * option BlockChain) :=
       let: (random_value, oracle_state) := hash_state in
       (* Bitcoin backbone - Algorithm 4 - Line 5 *)
       (* first, find the longest valid chain *)
@@ -619,7 +619,7 @@ Inductive world_step (w w' : World) (random : RndGen) : Prop :=
            let: actor := update_transaction_pool active dated_actor (world_transaction_pool w) in
            (* broadcast if successful - else increment proof of work *)
            (* an actor attempts a hash with a random value *)
-           let: (updated_actor, new_message, new_oracle, new_block, new_chain) := honest_attempt_hash (random_value, oracle) nonce actor round in
+           let: (updated_actor, new_message, new_oracle, new_block, new_chain) := honest_attempt_hash (random_value, oracle) nonce actor in
            let: new_actors := set_nth default actors active (updated_actor, is_corrupt) in 
            (* then increment the currently active and perform bookkeeping *) 
            let: updated_state := update_round ((new_actors, adversary), active, round) in
@@ -630,39 +630,50 @@ Inductive world_step (w w' : World) (random : RndGen) : Prop :=
               (option_cons new_message (world_inflight_pool w))
               (world_message_pool w)
               new_oracle
-              (option_cons new_block (world_block_history w))
+              (BlockMap_put_honest_on_success new_block round (world_block_history w))
               (option_cons new_chain (world_chain_history w))
-    | AdversaryTransaction (transaction: Transaction) (recipients : seq nat) of
+    | AdversaryTransaction (recipients : seq nat) of
         (* assert that random is of form TransactionGen *)
-          random = AdvTransactionGen (transaction, recipients) &
+          random = AdvTransactionGen recipients &
           (* Note: Like honest actors, Adversaries can send transactions at any time *)
            (* Note: No guarantees of validity here *)
            let: ((actors, adversary), active, round) := (world_global_state w) in 
-           let: new_transaction_pool := (MulticastTransaction (transaction, recipients)) :: (world_transaction_pool w) in
+           let: adv_state := (adversary_state adversary) in
+           let: (new_adv_state, tx) := (adversary_send_transaction adversary) adv_state in
+           let: new_adversary :=
+                            mkAdvrs
+                              new_adv_state
+                              (adversary_state_change adversary)
+                              (adversary_insert_transaction adversary)
+                              (adversary_insert_chain adversary)
+                              (adversary_generate_block adversary)
+                              (adversary_provide_block_hash_result adversary)
+                              (adversary_send_chain adversary)
+                              (adversary_send_transaction adversary)
+                              (adversary_last_hashed_round adversary) in
+           let: new_state := ((actors, new_adversary), active, round) in
+           let: new_transaction_pool := (MulticastTransaction (tx, recipients)) :: (world_transaction_pool w) in
            w' = 
             mkWorld
-              (world_global_state w)
+              new_state
               new_transaction_pool
               (world_inflight_pool w)
               (world_message_pool w)
               (world_hash w)
               (world_block_history w)
               (world_chain_history w)
-    | AdversaryMint  (random_value : Hashed) (index : nat) of
+    | AdversaryMint  (random_value : Hashed) of
         (* assert that random is of form MintBlock *)
-          random = AdvMintBlock (random_value, index)  &
+          random = AdvMintBlock random_value  &
            (* that the currently active node is a corrupted node, increment proof of work *)
            adversary_activation (world_global_state w)  &
            (* assert that last_hashed_round is less than current_round *)
            let: ((_, adversary), _, round) := (world_global_state w) in 
            adversary_last_hashed_round adversary < round &
-           let: ((_, adversary), _, _) := (world_global_state w) in 
-           let: blockchain_cache := adversary_local_message_pool adversary in
-           (length blockchain_cache) < index &            
            let: ((actors, dated_adversary), active, round) := (world_global_state w) in 
            let: oracle := (world_hash w) in
            let: adversary := update_adversary_transaction_pool dated_adversary (world_transaction_pool w) in
-           let: (new_adversary, new_oracle, new_block, new_chain) := adversary_attempt_hash adversary (world_inflight_pool w) (random_value, oracle) index round in
+           let: (new_adversary, new_oracle, new_block) := adversary_attempt_hash adversary (world_inflight_pool w) (random_value, oracle) in
            let: updated_adversary := update_adversary_round new_adversary round in
            let: updated_state := update_round ((actors, updated_adversary), active, round) in
            w' = 
@@ -671,20 +682,28 @@ Inductive world_step (w w' : World) (random : RndGen) : Prop :=
               (world_inflight_pool w)
               (world_message_pool w)
               new_oracle
-              (option_cons new_block (world_block_history w))
-              (option_cons new_chain (world_chain_history w))
-    | AdversaryBroadcast (chain_no : nat) (recipients : seq nat) of
+              (BlockMap_put_adversarial_on_success new_block round (world_block_history w))
+              (world_chain_history w)
+    | AdversaryBroadcast (recipients : seq nat) of
         (* assert that random is of form AdversaryBroadcast *)
-        random = AdvBroadcast (chain_no, recipients) &
+        random = AdvBroadcast (recipients) &
         (* that the currently active node is a corrupted one  *)
         adversary_activation (world_global_state w)  &
            (* that the index is valid *)
           let: ((actors, adversary), active, round) := (world_global_state w) in 
-          let: blockchain_cache := adversary_local_message_pool adversary in
-          (length blockchain_cache) < chain_no &
-          let: ((actors, adversary), active, round) := (world_global_state w) in 
-          let: blockchain_cache := adversary_local_message_pool adversary in
-          let: chain := nth [::] blockchain_cache chain_no in
+          let: adv_state := (adversary_state adversary) in
+          let: (new_adv_state, chain) := (adversary_send_chain adversary) adv_state in
+          let: new_adversary :=
+                            mkAdvrs
+                              new_adv_state
+                              (adversary_state_change adversary)
+                              (adversary_insert_transaction adversary)
+                              (adversary_insert_chain adversary)
+                              (adversary_generate_block adversary)
+                              (adversary_provide_block_hash_result adversary)
+                              (adversary_send_chain adversary)
+                              (adversary_send_transaction adversary)
+                              (adversary_last_hashed_round adversary) in
            w' = 
             mkWorld
               (world_global_state w)

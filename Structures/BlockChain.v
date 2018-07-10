@@ -64,15 +64,15 @@ Inductive RndGen  :=
     | HonestMintBlock of (Hashed * Nonce)
     (* the adversary gets an additional parameter specifying which chain
        in it's pool it should mint onto *)
-    | AdvMintBlock of (Hashed * nat)
+    | AdvMintBlock of (Hashed)
     (* Used to represent the adversary corrupting players - nat is an index into
        which player to corrupt*)
     | AdvCorrupt of Addr
     (* used by adversary parties to broadcast chains - nat is an index into 
        the adversaries local blockchain pool*)
-    | AdvBroadcast of (nat * list Addr)
+    | AdvBroadcast of (list Addr)
     (* Used by adversary parties to create transactions at any round *)
-    | AdvTransactionGen of (Transaction * (list Addr))
+    | AdvTransactionGen of ((list Addr))
     .
 
 
