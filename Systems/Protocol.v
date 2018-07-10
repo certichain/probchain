@@ -813,22 +813,45 @@ Fixpoint generate_sequence (from : nat) (to : nat) :=
    end.
 
 
+Definition block_hash_round (b : Block) (w : World) :=
+  match BlockMap_find b (world_block_history w) with
+    | Some (is_corrupt, hash_round) => Some(hash_round)
+    | None => None
+    end.
+
+Definition block_is_adversarial (b : Block) (w : World) :=
+  match BlockMap_find b (world_block_history w) with
+    | Some (is_corrupt, hash_round) => Some(is_corrupt)
+    | None => None
+    end.
+
+
 
 Definition successful_round (w : World) (r : nat) : bool :=
-  length(filter
-      (fun block => ((block_hash_round block) == r) && (~~ (block_is_adversarial block)))
+  length
+    (filter
+      (fun block_pair =>
+        let: (block, is_corrupt, hash_round) := block_pair in  
+      (hash_round  == r) && (~~ is_corrupt))
       (world_block_history w)) > 0.
 
 
 Definition unsuccessful_round (w : World) (r : nat) :=
-  length(filter
-      (fun block => ((block_hash_round block) == r) && (~~ (block_is_adversarial block)))
+  length
+    (filter
+      (fun block_pair =>
+        let: (block, is_corrupt, hash_round) := block_pair in  
+      (hash_round  == r) && (~~ is_corrupt))
       (world_block_history w)) == 0.
 
 
+
 Definition uniquely_successful_round (w : World) (r : nat) :=
-  length(filter
-      (fun block => ((block_hash_round block) == r) && (~~ (block_is_adversarial block)))
+  length
+    (filter
+      (fun block_pair =>
+        let: (block, is_corrupt, hash_round) := block_pair in  
+      (hash_round  == r) && (~~ is_corrupt))
       (world_block_history w)) == 1.
 
 
@@ -846,44 +869,47 @@ Definition bounded_uniquely_successful_round (w : World) (r : nat) :=
 
 
 Definition adversarial_block_count (w : World) (r : nat) :=
-    length (filter
-      (fun block => ((block_hash_round block) == r) && ((block_is_adversarial block)))
+  length
+    (filter
+      (fun block_pair =>
+        let: (block, is_corrupt, hash_round) := block_pair in  
+      (hash_round  == r) && is_corrupt)
       (world_block_history w)).
 
-Definition nth_block_is_honest (c : BlockChain) (n : nat) :=
-  ~~ (block_is_adversarial (nth (Bl 0 0 [::] 0 true 0) c n)).
+Definition nth_block_is_honest (c : BlockChain) (n : nat) (w : World) :=
+  ~~ (block_is_adversarial (nth (Bl 0 0 [::] 0) c n) w).
 
 
 Definition nth_block_hashed_in_a_uniquely_successful_round (w : World) (chain : BlockChain) (n : nat) :=
   if length chain <= n
     then False
     else 
-      let: block := (nth (Bl 0 0 [::] 0 true 0) chain n) in
-      let: round := block_hash_round block in
+      let: block := (nth (Bl 0 0 [::] 0) chain n) in
+      let: round := block_hash_round block w in
       bounded_uniquely_successful_round w round.
     
 Definition nth_block_is_adversarial (w : World) (chain : BlockChain) (n : nat) :=
   if length chain <= n 
     then False
     else
-      let: block := (nth (Bl 0 0 [::] 0 true 0) chain n) in
-      block_is_adversarial block.
+      let: block := (nth (Bl 0 0 [::] 0) chain n) in
+      block_is_adversarial block w.
 
 Definition nth_block_equals (w : World) (chain : BlockChain) (n : nat) (block : Block) :=
   if length chain <= n
     then False
     else
-      let: other_block := (nth (Bl 0 0 [::] 0 true 0) chain n) in
+      let: other_block := (nth (Bl 0 0 [::] 0) chain n) in
       other_block = block.
 
 Definition nth_block (w : World) (chain : BlockChain) (n : nat) :=
-  (nth (Bl 0 0 [::] 0 true 0) chain n).
+  (nth (Bl 0 0 [::] 0) chain n).
 
 Lemma unique_round (w : World) (n : nat) (chain : BlockChain) :
   reachable initWorld w ->
     chain \in (world_chain_history w) ->
     length chain > n ->
-    nth_block_is_honest chain n  ->
+    nth_block_is_honest chain n w  ->
     nth_block_hashed_in_a_uniquely_successful_round w chain n ->
     (forall (other_chain : BlockChain), 
     other_chain \in (world_chain_history w) -> 
