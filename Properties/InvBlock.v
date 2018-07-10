@@ -46,3 +46,28 @@ Module Block_as_OT <: OrderedType.
 
 End Block_as_OT.
 
+
+
+Module BlockEq.
+
+
+      Definition eq_block (bc1 bc2 : Block) := 
+      ((block_link bc1) == (block_link bc2)) &&
+      ((block_records bc1) == (block_records bc2)) &&
+      ((block_proof_of_work bc1) == (block_proof_of_work bc2)).
+
+      Lemma eq_blockP : Equality.axiom eq_block.
+      Proof.
+        case => [bl br bpow bia ]; rewrite /eq_block//=.
+        move=> y.
+        destruct y.
+      Admitted.
+      
+
+    Canonical Block_eqMixin := Eval hnf in EqMixin eq_blockP.
+    Canonical Block_eqType := Eval hnf in EqType Block Block_eqMixin.
+
+
+End BlockEq.
+Export BlockEq.
+

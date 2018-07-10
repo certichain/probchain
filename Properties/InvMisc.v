@@ -39,29 +39,6 @@ Module Hash_Triple_as_OT <: OrderedType.
 End Hash_Triple_as_OT.
 
 
-Module BlockEq.
-
-
-      Definition eq_block (bc1 bc2 : Block) := 
-      ((block_link bc1) == (block_link bc2)) &&
-      ((block_records bc1) == (block_records bc2)) &&
-      ((block_proof_of_work bc1) == (block_proof_of_work bc2)).
-
-      Lemma eq_blockP : Equality.axiom eq_block.
-      Proof.
-        case => [bl br bpow bia bhr b]; rewrite /eq_block//=.
-        (* TODO(Kiran): Complete this proof *)
-      Admitted.
-      
-
-    Canonical Block_eqMixin := Eval hnf in EqMixin eq_blockP.
-    Canonical Block_eqType := Eval hnf in EqType Block Block_eqMixin.
-
-
-End BlockEq.
-Export BlockEq.
-
-
 (* Couldn't find a remove_nth function in stdlib or ssreflect*)
 Fixpoint rem_nth {A:Type} (n : nat) (ls : list A) : list A := 
     match n with
