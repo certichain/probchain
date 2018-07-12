@@ -782,6 +782,222 @@ Definition adversarial_minority (w : World) :=
   no_corrupted_players (world_global_state w) <= t_max_corrupted.
 
 
+Lemma maintain_corrupt_next_round (w : World ) :
+  no_corrupted_players (next_round (world_global_state w)) = no_corrupted_players (world_global_state w).
+Proof.
+  elim w => //= state tp mp msgs os blmap blocks.
+  rewrite /next_round. 
+  elim state => players_adv_act; elim players_adv_act => players_adv act; elim players_adv => players adv round  //=.
+  case (eqn _ _) => //=.
+Qed.
+
+Lemma filter_ncons_ident (A : Type) (P : pred A) (s : seq A) (a : A) (n : nat) :
+  ~~ P a ->
+  filter P (ncons n a s) = filter P s.
+Proof.
+  move=> nPa.
+  Print list_ind.
+
+  (* induction s. *)
+  induction n => //=.
+  rewrite ifN; last by []. 
+  by rewrite IHn.
+Qed.
+
+
+Lemma filter_ind (A : Type) (P : pred A) (s : seq A) :
+  length (filter P s) = 0 -> (forall a : A, ~~ P a -> length (filter P (a :: s)) = 0).
+Proof.
+  move=> H a n_Pa //=.
+  by rewrite ifN; last by [].
+Qed.
+
+Lemma filter_imp_n_a (A : Type) (P : pred A) (s : seq A) (a : A) :
+  length (filter P (a :: s)) = 0 -> ~~ P a.
+Proof.
+  move=> //= .
+  case (P _) => //=.
+Qed. 
+
+Lemma filter_reducible  (A : Type) (P : pred A) (s : seq A) (a : A) :
+  length (filter P  (a :: s)) = 0 -> length (filter P s) = 0.
+Proof.
+  move=> //=.
+  case (P _) => //=.
+Qed.
+
+Lemma len_eq_size (A : Type) (a : seq A) :
+  length a = size a.
+Proof.
+  induction a => //=.
+Qed.
+
+
+Lemma set_nth_length (A : Type) (P : pred A) (s : seq A) (a b : A) (n : nat) :
+  ~~ P a ->
+  ~~ P b ->
+  length (filter P s) = 0 ->
+  length (filter P (set_nth a s n b)) = 0.
+Proof.
+
+  move=> n_Pa n_Pb lenseq //=.
+  induction s => //=.
+  rewrite /set_nth => //=. 
+  induction n => //=; rewrite ifN .
+  by [].
+  by [].
+
+  by rewrite filter_ncons_ident //= ifN.
+  by [].
+  apply filter_reducible in lenseq as lenseq_weak.
+  apply IHs in lenseq_weak as IHn. 
+  destruct n => //=.
+  by rewrite ifN.
+  apply filter_imp_n_a in lenseq.
+  rewrite ifN; last by [].
+  induction n => //=.
+  rewrite -lenseq_weak.
+
+
+  (* move=> n_Pa n_Pb lenseq //=.
+  induction s => //=.
+  rewrite /set_nth => //=. 
+  induction n => //=; rewrite ifN .
+  by [].
+  by [].
+
+  by rewrite filter_ncons_ident //= ifN.
+  by [].
+  apply filter_reducible in lenseq as lenseq_weak.
+  apply IHs in lenseq_weak as IHn. 
+  destruct n => //=.
+  by rewrite ifN.
+  apply filter_imp_n_a in lenseq.
+  rewrite ifN; last by [].
+     *)
+
+
+
+
+
+
+  induction n => //=.  
+  case s.
+  by rewrite ifN. 
+  move=> a' s' n_Pa n_Pb //=.
+  case (P _) => //=.
+  move=> H.
+  by rewrite ifN.
+  move=> n_Pa n_Pb H.
+  move: (IHn n_Pa n_Pb H)=> IHn'.
+  elim s => //=.
+
+
+
+  rewrite ifN.
+  by rewrite filter_ncons_ident //= ifN.
+
+  by []. 
+
+
+  case (P _) => //=.
+  by rewrite ifN.
+  rewrite ifN.
+
+
+  Search _ "filter".
+
+  case s.
+  move=> lenseq.
+
+  by rewrite ifN.
+
+  elim  s => //=.
+
+  rewrite ifN.
+
+
+
+  by rewrite ifN. 
+  rewrite ifN; last by []. 
+
+  induction n => //=.
+  induction n => //=.
+  rewrite ifN; last by [].
+  
+  
+
+
+
+Lemma maintain_corrupt_insert_message (state : GlobalState) (a : Addr) (bc : BlockChain) :
+  no_corrupted_players (insert_message a bc state) = no_corrupted_players state.
+Proof.
+  rewrite /insert_message.
+  destruct state.
+  destruct p.
+  destruct p.
+  destruct (nth _).
+  destruct b => //=.
+  destruct (_ \in _) => //=.
+  induction l => [//=|].
+  rewrite set_nth_nil.
+  rewrite /ncons.
+
+
+  Search _ "set_nth" "map".
+
+
+
+(* Couldn't find a foldr induction proof?? *)
+Lemma foldr_ind (A B : Type) (P : B -> Prop) (f : A -> B -> B)  (b0 : B) (ls : seq A) :
+  P b0 -> (forall a b, P b -> P (f a b)) -> P (foldr f b0 ls).
+Proof.
+  move=> P_b0 IHn.
+  induction ls => [//|//=].
+  by apply IHn.
+Qed.
+
+Lemma foldr_rec (A B : Type) (P : B -> Set) (f : A -> B -> B)  (b0 : B) (ls : seq A) :
+  P b0 -> (forall a b, P b -> P (f a b)) -> P (foldr f b0 ls).
+Proof.
+  move=> P_b0 IHn.
+  induction ls => [//|//=].
+  by apply IHn.
+Qed.
+Lemma foldr_rect (A B : Type) (P : B -> Type) (f : A -> B -> B)  (b0 : B) (ls : seq A) :
+  P b0 -> (forall a b, P b -> P (f a b)) -> P (foldr f b0 ls).
+Proof.
+  move=> P_b0 IHn.
+  induction ls => [//|//=].
+  by apply IHn.
+Qed.
+
+
+
+Lemma maintain_corrupt_deliver_messages (w : World) (l : seq Message) :
+      no_corrupted_players (deliver_messages l (next_round (world_global_state w))) = no_corrupted_players (world_global_state w).
+Proof.
+  elim w => //= state _ _ _ _ _ _.
+  rewrite /next_round.
+  destruct state;  do 2 destruct p => //=.
+  rewrite /deliver_messages. 
+  apply  foldr_rec.
+  case (eqn _ _) => //=.
+  move=> msg state H1.
+  destruct msg.
+  rewrite /insert_multicast_message .
+  apply foldr_rec.
+    by [].
+    move=> a_1 state_0 H2.
+    rewrite /no_corrupted_players /insert_message //=.
+
+
+
+  induction l => //=.
+  destruct a1 => //=.
+  rewrite /insert_multicast_message => //=.
+  
+
 (* Trivial lemma to ensure that steps work *)
 Lemma adversarial_minority_induction  (w w' : World) (q : RndGen) :
    world_step w w' q -> adversarial_minority w -> adversarial_minority w'.
@@ -789,9 +1005,15 @@ Proof.
 
   (* TODO(kiran): Complete this proof*)
   move=> S.
-  case (S) => w_end dest_w.
-  destruct (update_message_pool_queue _ _).
-  rewrite dest_w /adversarial_minority => //=.
+  rewrite /adversarial_minority .
+
+  destruct S.
+    - destruct (update_message_pool_queue _ _) => H1.
+      rewrite H0 => //=.
+      suff H2: no_corrupted_players (deliver_messages l (next_round (world_global_state w))) = no_corrupted_players (world_global_state w).
+      by rewrite H2.
+
+
   rewrite /next_round.
   destruct (world_global_state w).
   case l => //=.
