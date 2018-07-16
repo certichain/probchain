@@ -1013,14 +1013,11 @@ Proof.
   apply foldr_rec.
     by [].
     move=> a_1 state_0 H2.
-    rewrite /no_corrupted_players /insert_message //=.
+    by rewrite maintain_corrupt_insert_message.
+    by rewrite /broadcast_message.
+Qed.
 
 
-
-  induction l => //=.
-  destruct a1 => //=.
-  rewrite /insert_multicast_message => //=.
-  
 
 (* Trivial lemma to ensure that steps work *)
 Lemma adversarial_minority_induction  (w w' : World) (q : RndGen) :
