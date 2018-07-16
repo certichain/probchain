@@ -982,8 +982,35 @@ Proof.
   by rewrite H1.
 Qed.
 
-
-
+Lemma nth_set_nth_incr (A : Type) (P : pred A) (ls : seq A) (a a' : A) (n : nat) :
+    n < length ls ->
+    P a' ->
+    ~~ P (nth a ls n)  -> 
+      length (filter P (set_nth a ls n a')) = (length (filter P ls)).+1.
+Proof.
+  elim: ls n => [n H0 | a'' ls H n' ltnN Pa nPcons] //=.
+  move: nPcons.
+  case_eq n' => //= n0.
+  move=> H1.
+  rewrite ifT .
+  by rewrite ifN. 
+  by [].
+  move=> n_eq.
+  move=> H1.
+  case_eq (P a'') => //= Pa''.
+  rewrite H.
+  by [].
+  rewrite n_eq in ltnN.
+  move: ltnN => //=.
+  by [].
+  by [].
+  rewrite H.
+  by [].
+  rewrite n_eq in ltnN.
+  move: ltnN => //=.
+  by [].
+  by [].
+Qed.
 
 Lemma maintain_corrupt_insert_message (state : GlobalState) (a : Addr) (bc : BlockChain) :
   no_corrupted_players (insert_message a bc state) = no_corrupted_players state.
@@ -1150,14 +1177,15 @@ Proof.
       destruct H0.
       destruct H0.
 
-      move: H5 H2 H4.
+      move: H5 H2 H4 H3.
 
       destruct (nth _) as [[]] => corrupted.
 
       destruct (nth _) as [dated_actor corrupt] eqn:H'.
       move=> corrupt_f -> //=.
+      move=> Ltn_Adv_Strong Ltn_Adv_Weak.
       
-      rewrite nth_set_nth_ident => //=.
+      rewrite nth_set_nth_ident_general => //=.
       rewrite H'.
       by rewrite corrupt_f.
       rewrite -corrupt_f.
