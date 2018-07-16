@@ -180,7 +180,7 @@ Definition honest_activation (state: GlobalState) :=
     let: default := (mkLclSt nil nil nil 0, false) in
     (length actors) > active /\
     let: (actor, is_corrupt) := nth default  actors active in
-      is_corrupt.
+      ~~ is_corrupt.
 
 (* A given world step is an adversarial activation if the current address
    is to a node which has been corrupted, or the current address is equal to
@@ -192,7 +192,7 @@ Definition adversary_activation (state: GlobalState) :=
     let: default := (mkLclSt nil nil nil 0, false) in
     ((length actors) > active /\
     let: (actor, is_corrupt) := nth default  actors active in
-      is_corrupt = false) \/ (length actors = active).
+      is_corrupt ) \/ (length actors = active).
 
 
 
@@ -1033,11 +1033,65 @@ Proof.
       rewrite H0 => //=.
       suff H2: no_corrupted_players (deliver_messages l (next_round (world_global_state w))) = no_corrupted_players (world_global_state w).
       by rewrite H2.
+      by rewrite maintain_corrupt_deliver_messages. 
+
+    - rewrite H1 =>//=.
+
+    - rewrite H3 => //=.
+      move: H1 H0.
+      destruct w => //=.
+      destruct world_global_state0.
+      destruct p => //=.
+      destruct p => //=.
+      destruct (nth _) as [dated_actor corrupt] eqn:H'.
+      destruct (retrieve_head_link _).
+      destruct (find_maximal_valid_subset) .
+      destruct (hash _) .
+      case (_ < _).
+      case (eqn _ _).
+      move=> H1 H2.
+      rewrite H1 => //=.
+      destruct H2.
+      rewrite nth_set_nth_ident => //=.
+        by rewrite H'.
+        case (honest_max_valid _).
+        move=>  -> //=.
+        move=> [ltlen not_corrupt].
+        rewrite nth_set_nth_ident => //=.
+        by rewrite H'.
+        move=> new_bl blocks w'_def [ltlen not_corrupt] //=.
+        rewrite w'_def => //=.
+        rewrite nth_set_nth_ident => //=.
+          by rewrite H'.
+          move=> w'_def [ltlne not_corrupt].
+          move: w'_def.
+          destruct (_ == _).
+          destruct (eqn _ _) => -> //=.
+          rewrite nth_set_nth_ident => //=.
+          by rewrite H'.
+          rewrite nth_set_nth_ident => //=.
+          by rewrite H'.
+          destruct (eqn _ _) => -> //=.
+          rewrite nth_set_nth_ident => //=.
+          by rewrite H'.
+          rewrite nth_set_nth_ident => //=.
+          by rewrite H'.
+          move=> w'_defn [ltlen not_corrupt].
+          move: w'_defn.
+          destruct (_ == _).
+          destruct (eqn _ _) =>  -> //=.
+          rewrite nth_set_nth_ident => //=.
+          by rewrite H'.
+          rewrite nth_set_nth_ident => //=.
+          by rewrite H'.
+          destruct (eqn _ _) =>  -> //=.
+          rewrite nth_set_nth_ident => //=.
+          by rewrite H'.
+          rewrite nth_set_nth_ident => //=.
+          by rewrite H'.
 
 
-  rewrite /next_round.
-  destruct (world_global_state w).
-  case l => //=.
+
 Admitted.
 
 
