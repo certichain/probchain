@@ -951,18 +951,6 @@ Qed.
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
 Lemma maintain_corrupt_insert_message (state : GlobalState) (a : Addr) (bc : BlockChain) :
   no_corrupted_players (insert_message a bc state) = no_corrupted_players state.
 Proof.
@@ -970,17 +958,19 @@ Proof.
   destruct state => //=.
   destruct p.
   destruct p.
-  case (nth _) as [actor corrupted].
-  case_eq corrupted => //=.
+  
+  destruct (nth _)  as [actor corrupted]   eqn:H'. 
+  
+  case_eq  corrupted => //=.
   destruct (_ \in _) => //=.
-  induction l => [//=|].
-  rewrite set_nth_nil.
-  rewrite /ncons.
+  move=>H.
+  rewrite nth_set_nth_ident.
+    by [].
+    by [].
+    by rewrite H' H.
+  by [].
+Qed.
 
-
-  Search _ "set_nth" "map".
-
-Admitted.
 
 (* Couldn't find a foldr induction proof?? *)
 Lemma foldr_ind (A B : Type) (P : B -> Prop) (f : A -> B -> B)  (b0 : B) (ls : seq A) :
