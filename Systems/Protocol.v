@@ -249,7 +249,7 @@ Definition insert_message
       let: new_message_pool := bc :: message_pool in
       let: proof_of_work := honest_proof_of_work actor in 
       let: new_actor := mkLclSt current_chain local_transaction_pool new_message_pool proof_of_work in
-      let: new_actors := set_nth default actors addr (new_actor, false) in
+      let: new_actors := set_nth default actors addr (new_actor, corrupted) in
       ((new_actors, adversary), active, round)
   .
 
@@ -833,7 +833,7 @@ Proof.
 Qed.
 
 
-Lemma set_nth_length (A : Type) (P : pred A) (s : seq A) (a b : A) (n : nat) :
+(* Lemma set_nth_length (A : Type) (P : pred A) (s : seq A) (a b : A) (n : nat) :
   ~~ P a ->
   ~~ P b ->
   length (filter P s) = 0 ->
@@ -856,8 +856,7 @@ Proof.
   apply filter_imp_n_a in lenseq.
   rewrite ifN; last by [].
   induction n => //=.
-  rewrite -lenseq_weak.
-
+  rewrite -lenseq_weak. *)
 
   (* move=> n_Pa n_Pb lenseq //=.
   induction s => //=.
@@ -881,7 +880,7 @@ Proof.
 
 
 
-  induction n => //=.  
+  (* induction n => //=.  
   case s.
   by rewrite ifN. 
   move=> a' s' n_Pa n_Pb //=.
@@ -924,20 +923,55 @@ Proof.
   induction n => //=.
   induction n => //=.
   rewrite ifN; last by [].
+   *)
   
-  
+
+Lemma nth_set_nth_ident (A : Type) (P : pred A) (ls : seq A) (a a' : A) (n : nat) :
+  ~~ P a -> ~~ P (nth a ls n) -> ~~ P a' -> length (filter P (set_nth a ls n a')) = length (filter P ls).
+Proof.
+  elim: ls n => [n H0 H1 H2| a'' ls n n'] //=.
+  rewrite /filter.
+
+  case n => [//=|n0//=]; rewrite ifN.
+    by [].
+    by [].
+
+  by induction n0 => //=; rewrite ifN.
+    by [].
+
+  induction n' => //= H0 H1 H2.
+  by rewrite ifN; [rewrite ifN| by []] .
+  case_eq (P a'') => H //=.
+  by rewrite n.
+  by rewrite n.
+Qed.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
 Lemma maintain_corrupt_insert_message (state : GlobalState) (a : Addr) (bc : BlockChain) :
   no_corrupted_players (insert_message a bc state) = no_corrupted_players state.
 Proof.
-  rewrite /insert_message.
-  destruct state.
+  rewrite /insert_message /no_corrupted_players.
+  destruct state => //=.
   destruct p.
   destruct p.
-  destruct (nth _).
-  destruct b => //=.
+  case (nth _) as [actor corrupted].
+  case_eq corrupted => //=.
   destruct (_ \in _) => //=.
   induction l => [//=|].
   rewrite set_nth_nil.
@@ -946,7 +980,7 @@ Proof.
 
   Search _ "set_nth" "map".
 
-
+Admitted.
 
 (* Couldn't find a foldr induction proof?? *)
 Lemma foldr_ind (A B : Type) (P : B -> Prop) (f : A -> B -> B)  (b0 : B) (ls : seq A) :
