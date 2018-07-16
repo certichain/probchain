@@ -946,7 +946,41 @@ Proof.
   by rewrite n.
 Qed.
 
+Lemma nth_set_nth_ident_general (A : Type) (P : pred A) (ls : seq A) (a a' : A) (n : nat) :
+    n < length ls ->
+    P (nth a ls n) == P a' -> 
+      length (filter P (set_nth a ls n a')) = length (filter P ls).
+Proof.
+ 
+  elim: ls n => [n H0 | a'' ls n n'] //=.
 
+  move=> H0 /eqP H.
+  case_eq (P a'') =>  //=.
+  move: H H0.
+  case_eq n' => //=.
+  move=> n0 H H1 H2.
+  rewrite ifT.
+    by [].
+    by rewrite -H H2.
+    move=> n0 n0eq H H1 H2.
+    rewrite ifT.
+    rewrite -(n n0) => //=.
+      by rewrite H.
+      by [].
+  move=> H1.
+  move: H.
+  case_eq n' => //=.
+  move=> H2 H.
+  rewrite ifF.
+    by [].
+    by rewrite -H.
+  move=> n0 H2 H.
+  rewrite ifN.
+  rewrite n => //=.
+  by rewrite H2 in H0.
+  by rewrite H.
+  by rewrite H1.
+Qed.
 
 
 
@@ -1090,8 +1124,50 @@ Proof.
           rewrite nth_set_nth_ident => //=.
           by rewrite H'.
 
+    - destruct (world_global_state _).
+      destruct p.
+      destruct p.
+      destruct (adversary_send_transaction _).
+      rewrite H0 => //=.
 
+    - destruct (world_global_state _).
+      destruct p.
+      destruct p.
+      destruct (adversary_attempt_hash _).
+      destruct p.
+      rewrite H2 => //=.
+      case (eqn _ _) => //=.
+      
+    - destruct (world_global_state _).
+      destruct p.
+      destruct p.
+      destruct (adversary_send_chain _).
+      rewrite H1 => //=.
 
+    - destruct (world_global_state _).
+      destruct p.
+      destruct p.
+      destruct H0.
+      destruct H0.
+
+      move: H5 H2 H4.
+
+      destruct (nth _) as [[]] => corrupted.
+
+      destruct (nth _) as [dated_actor corrupt] eqn:H'.
+      move=> corrupt_f -> //=.
+      
+      rewrite nth_set_nth_ident => //=.
+      rewrite H'.
+      by rewrite corrupt_f.
+      rewrite -corrupt_f.
+
+      destruct (nth _) as [dated_actor''' corrupt'''] eqn:H3'.
+      rewrite H4 => //=.
+      rewrite /adversary_activation in H0.
+      rewrite nth_set_nth_ident => //=.
+      by rewrite H' H2.
+      
 Admitted.
 
 
