@@ -1192,19 +1192,22 @@ Proof.
       by rewrite H' corrupt_f.
 
       move: H4 H3 H2.
-      destruct w' => //=.
-      destruct (nth _) as [[]] => corrupted //=.
-      destruct world_global_state0 as [[[actors addr'] active] round] eqn:H2.
+      destruct (nth _) as [[]] eqn:H2 => //=.
+      destruct w' => -> //= H3 F H4.
+      
+      rewrite nth_set_nth_incr => //=.
+      rewrite H2.
+      by rewrite F.
 
-      destruct (world_global_state _) as [[[actors addr'] active] round] eqn: H2.
+    - destruct (world_global_state _).
       destruct p.
       destruct p.
+      rewrite H0 => //=.
+Qed.
 
 
 
-Admitted.
-
-
+   
 Lemma initWorld_adversarial_minority : adversarial_minority initWorld.
 Proof.
   rewrite /initWorld  /adversarial_minority /=.
@@ -1220,6 +1223,32 @@ Proof.
   by rewrite ifN.
 Qed.
 
+(* Lemma adversarial_minority_induction  (w w' : World) (q : RndGen) :
+   world_step w w' q -> adversarial_minority w -> adversarial_minority w'. *)
+
+Lemma adversarial_minority_induction_full  (w w' : World) :
+   reachable w w'  -> adversarial_minority w -> adversarial_minority w'.
+Proof.
+  rewrite /reachable /reachable_internal => [[schedule]].
+  move: w.
+  induction schedule.
+  move=> w -> //=.
+  move=> w  [w''] H H2.
+  destruct H.
+  apply IHschedule in H0.
+    by [].
+  by apply (adversarial_minority_induction H). 
+Qed.
+
+Lemma adversarial_minority_maintained : forall w : World, reachable initWorld w -> adversarial_minority w.
+Proof.
+  move=> w.
+  move=> /(adversarial_minority_induction_full ) .
+  move=> H.
+  apply H.
+  exact initWorld_adversarial_minority.
+Qed.
+  
 
 (* Generates an increasing sequence of nats from *from* to *to* inclusive *)
 Fixpoint generate_sequence (from : nat) (to : nat) :=
