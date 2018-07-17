@@ -1184,18 +1184,24 @@ Proof.
       destruct (nth _) as [dated_actor corrupt] eqn:H'.
       move=> corrupt_f -> //=.
       move=> Ltn_Adv_Strong Ltn_Adv_Weak.
-      
-      rewrite nth_set_nth_ident_general => //=.
-      rewrite H'.
-      by rewrite corrupt_f.
-      rewrite -corrupt_f.
 
-      destruct (nth _) as [dated_actor''' corrupt'''] eqn:H3'.
-      rewrite H4 => //=.
-      rewrite /adversary_activation in H0.
-      rewrite nth_set_nth_ident => //=.
-      by rewrite H' H2.
-      
+      rewrite nth_set_nth_incr.
+      by [].
+      by [].
+      by [].
+      by rewrite H' corrupt_f.
+
+      move: H4 H3 H2.
+      destruct w' => //=.
+      destruct (nth _) as [[]] => corrupted //=.
+      destruct world_global_state0 as [[[actors addr'] active] round] eqn:H2.
+
+      destruct (world_global_state _) as [[[actors addr'] active] round] eqn: H2.
+      destruct p.
+      destruct p.
+
+
+
 Admitted.
 
 
