@@ -39,7 +39,7 @@ Section Expectation.
 
 
     Notation "Pr[ x ]" := (prob_event_explicit P x) .
-    Notation "Pr[ x | f ]" := (prob_event_implicit P (fun x => f)).
+    Notation "Pr[ x | f ]" := (prob_event_implicit P sample_space (fun x => f)).
 
     Notation "E[ x ]" := (expect_event_explicit x).
     Notation "E[ x | f ]" := (expect_event_implicit (fun x => f)).
@@ -48,12 +48,13 @@ Section Expectation.
 End Expectation.
 
 Section Theorems.
-    Variable A : eqType.
-    Variable P : Dist A.
-    Variable sample_space : seq A.
+    Variable P : Dist rat.
+    Variable sample_space : seq rat.
 
     Notation "Pr[ x ]" := (prob_event_explicit P x) .
-    Notation "Pr[ x | f ]" := (prob_event_implicit P (fun x => f)).
+    Notation "Pr[ x | f ]" := (prob_event_implicit P sample_space (fun x => f)).
+    Notation "E[ x ]" := (expect_event_explicit P x).
+    Notation "E[ x | f ]" := (expect_event_implicit P sample_space (fun x => f)).
 
     Hypothesis wf_sample_space : Pr[ sample_space ] = 1%Q.
     Hypothesis wf_probability :  forall x, ~~ (x \in sample_space) -> Pr[ [:: x] ] = 0%Q.
