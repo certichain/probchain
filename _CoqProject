@@ -1,6 +1,7 @@
 -Q Structures Probchain
 -Q Systems Probchain
 -Q Properties Probchain
+-Q Probability Probchain
 -arg "-w -notation-overridden,-local-declaration,-redundant-canonical-projection,-projection-no-head-constant"
 
 Structures/OracleState.v
@@ -9,4 +10,6 @@ Structures/BlockChain.v
 Systems/Protocol.v
 Properties/InvMisc.v
 Properties/InvBlock.v
+Probability/Comp.v
+Probability/Dist.v
 

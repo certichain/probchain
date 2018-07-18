@@ -1353,10 +1353,7 @@ Definition nth_block (w : World) (chain : BlockChain) (n : nat) :=
 
 Lemma unique_round (w : World) (n : nat) (chain : BlockChain) :
   reachable initWorld w ->
-    chain \in (world_chain_history w) ->
-    length chain > n ->
-    nth_block_is_honest chain n w  ->
-    nth_block_hashed_in_a_uniquely_successful_round w chain n ->
+    chain \in (world_chain_history w) -> length chain > n -> nth_block_is_honest chain n w  -> nth_block_hashed_in_a_uniquely_successful_round w chain n ->
     (forall (other_chain : BlockChain), 
     other_chain \in (world_chain_history w) -> 
     length other_chain > n -> 
