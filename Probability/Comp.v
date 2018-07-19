@@ -24,10 +24,13 @@ Section Comp.
         | Bind : forall (A B : finType), Comp B -> (B -> Comp A) -> Comp A
         | Repeat : forall (A : finType),  Comp A -> pred A -> Comp A
         | Rnd : forall (A : finType) (n : nat), Comp A.
+    
+        Locate "#| x |".
 
+        About card.
+        About mem.
 
-
-
+    
     Fixpoint getSupport(A : finType) (c : Comp A) : list A :=
         match c with
             | Ret _ a => [:: a]
@@ -45,5 +48,21 @@ Section Comp.
                                                         end) (index_iota 0 n)))
         end.
 
+
+    Inductive well_formed_comp : forall (A : finType), Comp A -> Prop :=
+        | well_formed_Ret :
+            forall (A : finType) (a : A),
+                well_formed_comp (Ret A a)
+        | well_formed_Bind : forall (A B : finType) (c1 : Comp B) (c2 : B -> Comp A),
+            well_formed_comp c1 ->
+            (forall b, b \in (getSupport c1) -> well_formed_comp (c2 b)) ->
+            well_formed_comp (Bind c1 c2)
+        | well_formed_Rnd : forall (A : finType) n,
+            well_formed_comp (Rnd A n)
+        | well_formed_Repeat :
+            forall (A : finType) (c : Comp A) P b,
+                well_formed_comp c ->
+                    b \in (filter P (getSupport c)) ->
+                    well_formed_comp (Repeat c P).
 
 End Comp.
