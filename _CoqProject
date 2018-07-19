@@ -12,5 +12,4 @@ Systems/Protocol.v
 Properties/InvMisc.v
 Properties/InvBlock.v
 Probability/Comp.v
-Probability/Dist.v
 
