@@ -1165,11 +1165,8 @@ Proof.
       rewrite H2 => //=.
       case (eqn _ _) => //=.
       
-    - destruct (world_global_state _).
-      destruct p.
-      destruct p.
-      destruct (adversary_send_chain _).
-      rewrite H1 => //=.
+    - case: (world_global_state _) H0 H1=>[[[a b]]] c d H0.
+      by case: (adversary_send_chain b _)=>??->.
 
     - destruct (world_global_state _).
       destruct p.
