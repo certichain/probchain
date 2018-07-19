@@ -9,7 +9,6 @@ Definition Hashed := nat.
 Definition Addr := nat.
 
 
-
 Parameter Transaction : eqType.
 (* determines whether a transaction is valid or not with respect to another sequence of transactions*)
 Parameter Transaction_valid : Transaction -> seq Transaction -> bool. 
