@@ -1,8 +1,11 @@
 From mathcomp.ssreflect
 Require Import ssreflect ssrbool ssrnat seq ssrfun eqtype bigop fintype choice.
 
+Require Import Reals Fourier FunctionalExtensionality.
 From infotheo
-Require Import proba.
+Require Import proba ssrR Reals_ext logb ssr_ext ssralg_ext bigop_ext Rbigop .
+
+Require Import Nsatz.
 
 Require Import Bvector.
 Set Implicit Arguments.
@@ -25,7 +28,6 @@ Section Comp.
         | Repeat : forall (A : finType),  Comp A -> pred A -> Comp A
         | Rnd : forall (A : finType) (n : nat), Comp A.
     
-        Locate "#| x |".
 
 
     
@@ -62,5 +64,16 @@ Section Comp.
                 well_formed_comp c ->
                     b \in (filter P (getSupport c)) ->
                     well_formed_comp (Repeat c P).
+                
+
+
+    Fixpoint evalDist(A : finType) (c : Comp A) : dist A :=
+        match c with
+            Ret _ a => fun a' => if pickle a == pickle a' then 1 else 0 
+        end
+    .
+
+
+
 
 End Comp.
