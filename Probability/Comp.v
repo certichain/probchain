@@ -27,8 +27,6 @@ Section Comp.
     
         Locate "#| x |".
 
-        About card.
-        About mem.
 
     
     Fixpoint getSupport(A : finType) (c : Comp A) : list A :=
