@@ -10,6 +10,11 @@ Require Import Nsatz.
 Require Import Bvector.
 Set Implicit Arguments.
 
+
+
+
+
+
 (* Computation definition - from FCF*)
 Section Comp.
 
@@ -25,8 +30,8 @@ Section Comp.
     Inductive Comp : finType -> Type :=
         | Ret : forall (A : finType) (a : A), Comp A 
         | Bind : forall (A B : finType), Comp B -> (B -> Comp A) -> Comp A
-        | Repeat : forall (A : finType),  Comp A -> pred A -> Comp A
-        | Rnd : forall (A : finType) (n : nat), Comp A.
+        (* | Repeat : forall (A : finType),  Comp A -> pred A -> Comp A *)
+        | Rnd : forall (A : finType) (n : nat) (n_valid : #|A| = n.+1), Comp A.
     
 
 
@@ -41,11 +46,11 @@ Section Comp.
                     (getSupport c1)
                 )
             )
-            | Repeat _ c P => (filter P (getSupport c))
-            | Rnd A n => (flatten (map (fun x => match pickle_inv A x with 
+            (* | Repeat _ c P => (filter P (getSupport c)) *)
+            | Rnd A n _ => (flatten (map (fun x => match pickle_inv A x with 
                                                         | Some value => [:: value]
                                                         | None => [::]
-                                                        end) (index_iota 0 n)))
+                                                        end) (index_iota 0 n.+1)))
         end.
 
 
@@ -57,23 +62,32 @@ Section Comp.
             well_formed_comp c1 ->
             (forall b, b \in (getSupport c1) -> well_formed_comp (c2 b)) ->
             well_formed_comp (Bind c1 c2)
-        | well_formed_Rnd : forall (A : finType) n,
-            well_formed_comp (Rnd A n)
-        | well_formed_Repeat :
+        | well_formed_Rnd : forall (A : finType) (n : nat) (n_valid : #|A| = n.+1),
+            well_formed_comp (@Rnd A n n_valid)
+        (* | well_formed_Repeat :
             forall (A : finType) (c : Comp A) P b,
                 well_formed_comp c ->
                     b \in (filter P (getSupport c)) ->
-                    well_formed_comp (Repeat c P).
+                    well_formed_comp (Repeat c P). *).
                 
+
 
 
     Fixpoint evalDist(A : finType) (c : Comp A) : dist A :=
         match c with
-            Ret _ a => fun a' => if pickle a == pickle a' then 1 else 0 
-        end
-    .
+            | Ret _ a => Dist1.d a  (* Dist1 is a distribution of 1 or 0 if eq a*)
+            | Bind _ _ c f => DistBind.d (evalDist c) (fun b => evalDist (f b))
+            | Rnd _ n n_valid => Uniform.d n_valid
+            end.
 
 
+    Section expected_value.
+            Variable n : nat.
+            
+            Definition expected_value (c : Comp (ordinal_finType n)) : R :=
+                Ex (mkRvar (evalDist c) INR).
+            
 
+    End expected_value.
 
 End Comp.
