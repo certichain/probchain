@@ -72,6 +72,8 @@ Inductive RndGen  :=
     | AdvBroadcast of (list Addr)
     (* Used by adversary parties to create transactions at any round *)
     | AdvTransactionGen of ((list Addr))
+    | RoundEnd
+    | AdversaryEnd 
     .
 
 

@@ -555,6 +555,7 @@ Definition update_adversary_transaction_pool  (initial_adv: Adversary) (transact
 Inductive world_step (w w' : World) (random : RndGen) : Prop :=
   (* when a round changes... *)
    | RoundChange of 
+        random = RoundEnd &
         round_ended w &
         (*  - we need to reset the currently active node to the start (round-robin) *)
         let: updated_state := next_round (world_global_state w) in
@@ -753,6 +754,7 @@ Inductive world_step (w w' : World) (random : RndGen) : Prop :=
               (world_block_history w)
               (world_chain_history w)
       | AdversaryResign of 
+        random = AdversaryEnd &
        adversary_activation (world_global_state w)  &
        (* increment round *)
        let: updated_state := update_round (world_global_state w) in
