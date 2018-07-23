@@ -60,10 +60,10 @@ Inductive RndGen  :=
     (* Hashed represents the return value of the random oracle if the block is new*)
     (* Nonce represents the nonce used to create the block*)
     (* Both parameters will be probabilistically generated *)
-    | HonestMintBlock of (Hashed * Nonce)
+    | HonestMintBlock 
     (* the adversary gets an additional parameter specifying which chain
        in it's pool it should mint onto *)
-    | AdvMintBlock of (Hashed)
+    | AdvMintBlock 
     (* Used to represent the adversary corrupting players - nat is an index into
        which player to corrupt*)
     | AdvCorrupt of Addr

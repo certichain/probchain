@@ -552,7 +552,7 @@ Definition update_adversary_transaction_pool  (initial_adv: Adversary) (transact
 
 
 
-Inductive world_step (w w' : World) (random : RndGen) : Prop :=
+(* Inductive world_step (w w' : World) (random : RndGen) : Prop :=
   (* when a round changes... *)
    | RoundChange of 
         random = RoundEnd &
@@ -768,9 +768,9 @@ Inductive world_step (w w' : World) (random : RndGen) : Prop :=
               (world_block_history w)
               (world_chain_history w)
 .    
+ *)
 
-
-Fixpoint reachable_internal (w w' : World) (schedule : seq RndGen) : Prop :=
+(* Fixpoint reachable_internal (w w' : World) (schedule : seq RndGen) : Prop :=
   match schedule with
     | [::] => w = w'
     | h :: t' => exists (y : World), world_step w y h /\ reachable_internal y w' t'
@@ -779,154 +779,10 @@ Fixpoint reachable_internal (w w' : World) (schedule : seq RndGen) : Prop :=
 (* Clone of function from toychain *)
 Definition reachable (w w' : World) : Prop :=
   exists (schedule : seq RndGen), reachable_internal w w' schedule.
-
+ *)
 Definition adversarial_minority (w : World) :=
   no_corrupted_players (world_global_state w) <= t_max_corrupted.
-
-
-Lemma maintain_corrupt_next_round (w : World ) :
-  no_corrupted_players (next_round (world_global_state w)) = no_corrupted_players (world_global_state w).
-Proof.
-  elim w => //= state tp mp msgs os blmap blocks.
-  rewrite /next_round. 
-  elim state => players_adv_act; elim players_adv_act => players_adv act; elim players_adv => players adv round  //=.
-  case (eqn _ _) => //=.
-Qed.
-
-Lemma filter_ncons_ident (A : Type) (P : pred A) (s : seq A) (a : A) (n : nat) :
-  ~~ P a ->
-  filter P (ncons n a s) = filter P s.
-Proof.
-  move=> nPa.
-  Print list_ind.
-
-  (* induction s. *)
-  induction n => //=.
-  rewrite ifN; last by []. 
-  by rewrite IHn.
-Qed.
-
-
-Lemma filter_ind (A : Type) (P : pred A) (s : seq A) :
-  length (filter P s) = 0 -> (forall a : A, ~~ P a -> length (filter P (a :: s)) = 0).
-Proof.
-  move=> H a n_Pa //=.
-  by rewrite ifN; last by [].
-Qed.
-
-Lemma filter_imp_n_a (A : Type) (P : pred A) (s : seq A) (a : A) :
-  length (filter P (a :: s)) = 0 -> ~~ P a.
-Proof.
-  move=> //= .
-  case (P _) => //=.
-Qed. 
-
-Lemma filter_reducible  (A : Type) (P : pred A) (s : seq A) (a : A) :
-  length (filter P  (a :: s)) = 0 -> length (filter P s) = 0.
-Proof.
-  move=> //=.
-  case (P _) => //=.
-Qed.
-
-Lemma len_eq_size (A : Type) (a : seq A) :
-  length a = size a.
-Proof.
-  induction a => //=.
-Qed.
-
-
-(* Lemma set_nth_length (A : Type) (P : pred A) (s : seq A) (a b : A) (n : nat) :
-  ~~ P a ->
-  ~~ P b ->
-  length (filter P s) = 0 ->
-  length (filter P (set_nth a s n b)) = 0.
-Proof.
-
-  move=> n_Pa n_Pb lenseq //=.
-  induction s => //=.
-  rewrite /set_nth => //=. 
-  induction n => //=; rewrite ifN .
-  by [].
-  by [].
-
-  by rewrite filter_ncons_ident //= ifN.
-  by [].
-  apply filter_reducible in lenseq as lenseq_weak.
-  apply IHs in lenseq_weak as IHn. 
-  destruct n => //=.
-  by rewrite ifN.
-  apply filter_imp_n_a in lenseq.
-  rewrite ifN; last by [].
-  induction n => //=.
-  rewrite -lenseq_weak. *)
-
-  (* move=> n_Pa n_Pb lenseq //=.
-  induction s => //=.
-  rewrite /set_nth => //=. 
-  induction n => //=; rewrite ifN .
-  by [].
-  by [].
-
-  by rewrite filter_ncons_ident //= ifN.
-  by [].
-  apply filter_reducible in lenseq as lenseq_weak.
-  apply IHs in lenseq_weak as IHn. 
-  destruct n => //=.
-  by rewrite ifN.
-  apply filter_imp_n_a in lenseq.
-  rewrite ifN; last by [].
-     *)
-
-
-
-
-
-
-  (* induction n => //=.  
-  case s.
-  by rewrite ifN. 
-  move=> a' s' n_Pa n_Pb //=.
-  case (P _) => //=.
-  move=> H.
-  by rewrite ifN.
-  move=> n_Pa n_Pb H.
-  move: (IHn n_Pa n_Pb H)=> IHn'.
-  elim s => //=.
-
-
-
-  rewrite ifN.
-  by rewrite filter_ncons_ident //= ifN.
-
-  by []. 
-
-
-  case (P _) => //=.
-  by rewrite ifN.
-  rewrite ifN.
-
-
-  Search _ "filter".
-
-  case s.
-  move=> lenseq.
-
-  by rewrite ifN.
-
-  elim  s => //=.
-
-  rewrite ifN.
-
-
-
-  by rewrite ifN. 
-  rewrite ifN; last by []. 
-
-  induction n => //=.
-  induction n => //=.
-  rewrite ifN; last by [].
-   *)
-  
+ 
 
 Lemma nth_set_nth_ident (A : Type) (P : pred A) (ls : seq A) (a a' : A) (n : nat) :
   ~~ P a -> ~~ P (nth a ls n) -> ~~ P a' -> length (filter P (set_nth a ls n a')) = length (filter P ls).
@@ -1034,16 +890,6 @@ Proof.
   by [].
 Qed.
 
-
-(* Couldn't find a foldr induction proof?? *)
-Lemma foldr_ind (A B : Type) (P : B -> Prop) (f : A -> B -> B)  (b0 : B) (ls : seq A) :
-  P b0 -> (forall a b, P b -> P (f a b)) -> P (foldr f b0 ls).
-Proof.
-  move=> P_b0 IHn.
-  induction ls => [//|//=].
-  by apply IHn.
-Qed.
-
 Lemma foldr_rec (A B : Type) (P : B -> Set) (f : A -> B -> B)  (b0 : B) (ls : seq A) :
   P b0 -> (forall a b, P b -> P (f a b)) -> P (foldr f b0 ls).
 Proof.
@@ -1051,14 +897,6 @@ Proof.
   induction ls => [//|//=].
   by apply IHn.
 Qed.
-Lemma foldr_rect (A B : Type) (P : B -> Type) (f : A -> B -> B)  (b0 : B) (ls : seq A) :
-  P b0 -> (forall a b, P b -> P (f a b)) -> P (foldr f b0 ls).
-Proof.
-  move=> P_b0 IHn.
-  induction ls => [//|//=].
-  by apply IHn.
-Qed.
-
 
 
 Lemma maintain_corrupt_deliver_messages (w : World) (l : seq Message) :
@@ -1087,15 +925,6 @@ Qed.
 (* Lemma adversarial_minority_induction  (w w' : World) (q : RndGen) :
    world_step w w' q -> adversarial_minority w -> adversarial_minority w'. *)
  
-
-(* Generates an increasing sequence of nats from *from* to *to* inclusive *)
-Fixpoint generate_sequence (from : nat) (to : nat) :=
-  match to with
-    | 0 => nil
-    | S t' => if to >= from
-              then (generate_sequence from t') ++ [:: to]
-              else nil
-   end.
 
 
 Definition block_hash_round (b : Block) (w : World) :=
@@ -1143,13 +972,13 @@ Definition uniquely_successful_round (w : World) (r : nat) :=
 
 Definition bounded_successful_round (w : World) (r : nat) :=
   (* (forallb (r' : nat), (r' < r) && (r' >= r - delta) -> unsuccessful_round w r') &&   *)
-  (forallb (fun r' => unsuccessful_round w r') (generate_sequence (r - delta) (r - 1))) &&  
+  (forallb (fun r' => unsuccessful_round w r') (iota (r - delta) (r - 1))) &&  
     successful_round w r.
 
 
 Definition bounded_uniquely_successful_round (w : World) (r : nat) :=
   (* (forall (r' : nat), ((r' <= r + delta) && (r' >= r - delta) && (r' != r)) -> unsuccessful_round w r') /\ *)
-  (forallb (fun r' => (unsuccessful_round w r') || (r' == r)) (generate_sequence (r - delta) (r + delta))) &&
+  (forallb (fun r' => (unsuccessful_round w r') || (r' == r)) (iota (r - delta) (r + delta))) &&
     (uniquely_successful_round w r).
 
 
@@ -1184,13 +1013,12 @@ Definition nth_block_equals (w : World) (chain : BlockChain) (n : nat) (block : 
     then false
     else
       let: other_block := (nth (Bl 0 0 [::] 0) chain n) in
-      other_block = block.
+      other_block == block.
 
 Definition nth_block (w : World) (chain : BlockChain) (n : nat) :=
   (nth (Bl 0 0 [::] 0) chain n).
 
 Lemma unique_round (w : World) (n : nat) (chain : BlockChain) :
-  reachable initWorld w ->
     chain \in (world_chain_history w) -> length chain > n -> nth_block_is_honest chain n w  -> nth_block_hashed_in_a_uniquely_successful_round w chain n ->
     (forall (other_chain : BlockChain), 
     other_chain \in (world_chain_history w) -> 
@@ -1202,7 +1030,7 @@ Admitted.
 Definition no_successful_rounds (w : World) (from : nat) (to : nat) : nat :=
   length(filter
     (fun round => bounded_successful_round w round)
-    (generate_sequence from to)).
+    (iota from to)).
 
 Definition actor_n_chain_length (w : World) (n : nat) : nat :=
   let: (actor, is_corrupted) := nth (mkLclSt nil nil nil 0, false) ((world_global_state w).1.1.1) n in
@@ -1220,11 +1048,9 @@ Definition actor_n_is_corrupt (w:World) (n:nat) : bool :=
 
 
 Lemma chain_growth (w : World) (round : nat) (l : nat) :
-  reachable initWorld w ->
   (world_round w) = round ->
   (exists (n : nat), (n < n_max_actors) /\ (actor_n_chain_length w n = l) /\ ~~ (actor_n_is_corrupt w n)) ->
   (forall (future_w : World), 
-    reachable w future_w ->
     ((world_round future_w) >= round + delta - 1) ->
     (forall (n : nat), n < n_max_actors -> 
       ~~ (actor_n_is_corrupt w n) ->
@@ -1256,15 +1082,16 @@ Definition adopt_at_round (w' : World) (w : World) (bc : BlockChain) (agent: Add
 
 Definition common_prefix_property (current_w : World) (k r1 r2 : nat) (a1 a2 : Addr) (c1 c2 : BlockChain) :=
   (* current w is valid *)
-  reachable initWorld current_w ->
   (world_round_no current_w) >= r2 ->
   r1 <= r2 ->
   (a1 < n_max_actors) -> (a2 < n_max_actors) ->
   ~~ (actor_n_is_corrupt current_w a1) -> ~~ (actor_n_is_corrupt current_w a1) ->
   (* players a1 a2 adopting the chains at rounds r1, r2 *)
-  (exists (w' wr1 : World), reachable initWorld w' -> reachable w' wr1 -> reachable wr1 current_w ->  
+  (exists (w' wr1 : World), 
+  (* reachable initWorld w' -> reachable w' wr1 -> reachable wr1 current_w ->   *)
     adopt_at_round w' wr1 c1 a1 r1) ->
-  (exists (w'' wr2 : World), reachable initWorld w'' -> reachable w'' wr2 -> reachable wr2 current_w ->  
+  (exists (w'' wr2 : World), 
+  (* reachable initWorld w'' -> reachable w'' wr2 -> reachable wr2 current_w ->   *)
     adopt_at_round w'' wr2 c2 a2 r2) ->
   (* then pruning k blocks from the head of c1 is a subsequence of c2*)
   prefix (drop k c1) c2.
@@ -1282,7 +1109,6 @@ Definition chain_quality_prop_agent (w : World) (l u : nat) (agent : Addr) :=
 
 
 Definition chain_quality_property (current_w : World) (l u : nat) (agent : Addr) :=
-  reachable initWorld current_w ->
   agent < n_max_actors ->
   (length (honest_current_chain (fst (nth (initLocalState, false) (world_actors current_w) agent)))) > l ->
   chain_quality_prop_agent current_w l u agent.
