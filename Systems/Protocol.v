@@ -1166,7 +1166,7 @@ Definition nth_block_is_honest (c : BlockChain) (n : nat) (w : World) :=
 
 Definition nth_block_hashed_in_a_uniquely_successful_round (w : World) (chain : BlockChain) (n : nat) :=
   if length chain <= n
-    then False
+    then false
     else 
       let: block := (nth (Bl 0 0 [::] 0) chain n) in
       let: round := block_hash_round block w in
@@ -1174,14 +1174,14 @@ Definition nth_block_hashed_in_a_uniquely_successful_round (w : World) (chain : 
     
 Definition nth_block_is_adversarial (w : World) (chain : BlockChain) (n : nat) :=
   if length chain <= n 
-    then False
+    then false
     else
       let: block := (nth (Bl 0 0 [::] 0) chain n) in
       block_is_adversarial block w.
 
 Definition nth_block_equals (w : World) (chain : BlockChain) (n : nat) (block : Block) :=
   if length chain <= n
-    then False
+    then false
     else
       let: other_block := (nth (Bl 0 0 [::] 0) chain n) in
       other_block = block.
