@@ -13,26 +13,6 @@ Proof.
     by rewrite  -H0.
 Qed.
 
-Lemma size_exists (A: eqType) (ls : seq A) (n' : nat) : (size ls) = n'.+1 -> exists (ls' : seq A) (a : A), ls == (a :: ls').
-Proof.
-    move: n'.
-    induction ls.
-        move=> n' H.
-        inversion H.
-    move=> n' //= /eq_add_S H .
-    destruct n'.
-        apply size0nil in H.
-        exists [::].
-        exists a.
-        by rewrite H.
-    apply IHls in H.
-    destruct H as [ls' [a']].
-    move: H=> /eqP-H. 
-    rewrite H.
-    exists (a' :: ls').
-    by exists a.
-Qed.
-
 Definition ntuple_head (A : Type) (n' : nat) (list : (n'.+1).-tuple A) : A .
 Proof.
     apply (thead list).
@@ -149,4 +129,46 @@ Section fixlist.
             (* m'.+1, n'.+1 *)
             exact [tuple of ntuple_head list ::  @fixlist_set_nth m' (ntuple_tail list) a n0].
     Qed.
+
+
+    Definition fixlist_get_nth (m : nat) (default : A) (list : fixlist m.+1)  (n : nat) : A.
+    Proof.
+        case (n < m) eqn: H; last first.
+            exact default.
+            apply ltn_addr with (p := 1) in H .
+            rewrite addn1 in H.
+            move: (Ordinal H)=> ind.
+            case (tnth list ind) eqn: isSome.
+                exact s.
+                exact default.
+    Qed.    
+
+
+    (* Fixpoint fixlist_length' (m : nat) (list : fixlist  m.+1) : nat :=
+        match m with 
+            | 0 => match ntuple_head list with 
+                | Some _ => 1 
+                | None   => 0
+                end
+            | m'.+1 => match ntuple_head list with 
+                | Some _ => 1 + fixlist_length' (ntuple_tail list)
+                | None   =>  fixlist_length' (ntuple_tail list)
+                end
+            end. *)
+
+
+
+    Fixpoint fixlist_length (m : nat) (list : fixlist  m.+1) : nat. 
+        case m eqn:H.
+            case (ntuple_head list).
+                move=> a.
+                exact 1.
+            exact 0.
+        case (ntuple_head list).
+            move=> a.
+            exact (1 + fixlist_length n (ntuple_tail list)).
+            exact (fixlist_length n (ntuple_tail list)).
+    Qed. 
+
+
 
