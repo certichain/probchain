@@ -4,6 +4,7 @@ Require Import ssreflect ssrbool ssrnat eqtype fintype ssrfun seq path.
 From mathcomp.ssreflect
 Require Import tuple.
 
+
 (* To ensure that all blocks are unqiue, each block contains a random nonce *)
 Definition Nonce := nat.
 (* Hashed can not be a parameter, as it has to be comparable to a numerical T *)
@@ -14,7 +15,7 @@ Definition Addr := nat.
 
 
 Parameter TransactionPool_Length : nat.
-Parameter Transaction : finType.
+Parameter Transaction : eqType.
 (* determines whether a transaction is valid or not with respect to another sequence of transactions*)
 Parameter Transaction_valid : Transaction -> seq Transaction -> bool. 
 
