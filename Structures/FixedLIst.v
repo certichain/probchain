@@ -127,17 +127,26 @@ Section fixlist.
     Qed.
    
 
-    Definition getStC d (C : TPCCoh d) : CStateT :=
-           match find st (getLocal cn d) as f return _ = f -> _ with
-             Some v => fun epf => icoerce id (idyn_val v) (cohStC C epf)
-           | _ => fun epf => (0, CInit)
-         end (erefl _).
+    (* Fixpoint fixlist_set_nth (m : nat) (list : fixlist  m.+1) (a : A) (n : nat) : fixlist m.+1 :=
+         match m, n with
+            | m'.+1, n'.+1 => [tuple of ntuple_head list ::  @fixlist_remove m' (ntuple_tail list) n']
+            | 0, n'.+1 => [tuple of [:: ntuple_head list]]
+            | m'.+1, 0 => [tuple of (Some a) :: (ntuple_tail list)] 
+            | 0, 0 =>  [tuple of [:: Some a] ]
+       end. *)
 
-    Fixpoint fixpoint_remove (m : nat)  (list : fixlist m.+1) (n : nat) : fixlist m.+1.
-        move: list.
-        elim Hm: m => [list | m'].
-        elim Hn: n.
-        move=> _.
-        exact [tuple of [:: None]].
-        move=> H list.
-        exact list.
+    Fixpoint fixlist_set_nth (m : nat) (list : fixlist  m.+1) (a : A) (n : nat) : fixlist m.+1.
+    Proof.
+        induction  m  as [|m'] eqn: Hm.
+        induction n as [|n''] eqn: Hn.
+            (* 0, 0 *)
+            exact [tuple of [:: Some a]].
+            (* 0, n.+1 *)
+            exact list.
+        case n eqn: Hn.
+            (* m.+1, 0 *)
+            exact [tuple of (Some a) :: (ntuple_tail list)].
+            (* m'.+1, n'.+1 *)
+            exact [tuple of ntuple_head list ::  @fixlist_set_nth m' (ntuple_tail list) a n0].
+    Qed.
+
