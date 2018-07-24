@@ -1,5 +1,8 @@
 From mathcomp.ssreflect
-Require Import ssreflect ssrbool ssrnat eqtype ssrfun seq path.
+Require Import ssreflect ssrbool ssrnat eqtype fintype ssrfun seq path.
+
+From mathcomp.ssreflect
+Require Import tuple.
 
 (* To ensure that all blocks are unqiue, each block contains a random nonce *)
 Definition Nonce := nat.
@@ -9,7 +12,9 @@ Definition Hashed := nat.
 Definition Addr := nat.
 
 
-Parameter Transaction : eqType.
+
+Parameter TransactionPool_Length : nat.
+Parameter Transaction : finType.
 (* determines whether a transaction is valid or not with respect to another sequence of transactions*)
 Parameter Transaction_valid : Transaction -> seq Transaction -> bool. 
 
@@ -17,6 +22,7 @@ Parameter Transaction_valid : Transaction -> seq Transaction -> bool.
 Axiom transaction_valid_consistent : forall (x y : Transaction) (ys : seq Transaction), 
     Transaction_valid x (y :: ys) -> Transaction_valid y ys.
 
+    About tuple.
 (*
   Transactions can be wrong for two reasons:
     1. signed incorrectly
@@ -38,7 +44,21 @@ Inductive TransactionMessage :=
   | BroadcastTransaction of Transaction
   | MulticastTransaction of (Transaction * (seq Addr)).
 
-Definition TransactionPool := seq (TransactionMessage).
+  About iter.
+  Search _ ncons.
+  About tuple_of.
+
+Lemma TransactionPool_valid (A: Type) : size (ncons TransactionPool_Length (@None A) [::]) == TransactionPool_Length.
+Proof.
+  rewrite size_ncons => //=.
+  by rewrite addn0.
+Qed.
+
+Definition TransactionPool : tuple_of TransactionPool_Length (option Transaction) := @Tuple TransactionPool_Length (option Transaction) (ncons TransactionPool_Length None [::]) (@TransactionPool_valid Transaction). 
+
+
+
+
 
 
 (* RndGen will be passed down from the probabilistic component and used to simulate any probabilistic components *)

@@ -8,10 +8,12 @@
 Structures/OracleState.v
 Structures/BlockMap.v
 Structures/BlockChain.v
+Systems/Deterministic.v
 Systems/Protocol.v
 Properties/InvMisc.v
 Properties/InvBlock.v
 Probability/Comp.v
+Probability/Notationv1.v
 
 
 
