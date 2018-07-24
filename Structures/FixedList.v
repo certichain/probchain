@@ -25,6 +25,11 @@ Proof.
     apply behead_tupleP.
 Qed.
 
+Lemma size_ncons_nil (A : Type) (a : A) (n : nat): (size (ncons n a [::])) == n.
+Proof.
+    rewrite size_ncons => //=.
+    by rewrite addn0.
+Qed.
 
 Section fixlist.
     Variable A : eqType.
@@ -32,6 +37,11 @@ Section fixlist.
 
     Definition fixlist n := n.-tuple (option A).
 
+    Definition fixlist_empty n : fixlist n :=
+        @Tuple n
+            (option A) 
+            (ncons n None [::])
+            (size_ncons_nil   None n).
 
     (* I wanted to write this, but it wouldn't type check*)
     (* Fixpoint fixlist_insert (m : nat) (list : fixlist m.+1) (a : A) : fixlist m.+1 :=

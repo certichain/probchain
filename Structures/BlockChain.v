@@ -4,26 +4,44 @@ Require Import ssreflect ssrbool ssrnat eqtype fintype ssrfun seq path.
 From mathcomp.ssreflect
 Require Import tuple.
 
-
-(* To ensure that all blocks are unqiue, each block contains a random nonce *)
-Definition Nonce := nat.
-(* Hashed can not be a parameter, as it has to be comparable to a numerical T *)
-Definition Hashed := nat.
-(* Simmilarly, Addr must be an index into the honest actors, thus not a parameter*)
-Definition Addr := nat.
+From Probchain
+Require Import FixedList.
 
 
+(* maximum number of nodes that can be corrupted *)
+Parameter t_max_corrupted : nat.
+(* number of actors in the system *)
+Parameter n_max_actors : nat.
 
-Parameter TransactionPool_Length : nat.
+Parameter Hash_length_k : nat.
+Parameter TransactionPool_length : nat.
 Parameter Transaction : eqType.
 (* determines whether a transaction is valid or not with respect to another sequence of transactions*)
 Parameter Transaction_valid : Transaction -> seq Transaction -> bool. 
+
+(* a hash is valid iff hash(block) < T*)
+Parameter T_Hashing_Difficulty : nat.
+(* delay between activation and success *)
+Parameter delta : nat.
+
+Parameter Transactions_per_block : nat.
+
+
+(* A range from 0 to n where n is the maximum hash value*)
+Definition Hash_value := 2^Hash_length_k.
+
+(* To ensure that all blocks are unqiue, each block contains a random nonce *)
+Definition Nonce := ordinal Hash_value.
+(* Hashed can not be a parameter, as it has to be comparable to a numerical T *)
+Definition Hashed := ordinal Hash_value.
+(* Simmilarly, Addr must be an index into the honest actors, thus not a parameter*)
+Definition Addr := ordinal n_max_actors.
+
 
 (* Ensures that valid sequences of transactions are well formed *)
 Axiom transaction_valid_consistent : forall (x y : Transaction) (ys : seq Transaction), 
     Transaction_valid x (y :: ys) -> Transaction_valid y ys.
 
-    About tuple.
 (*
   Transactions can be wrong for two reasons:
     1. signed incorrectly
@@ -45,20 +63,9 @@ Inductive TransactionMessage :=
   | BroadcastTransaction of Transaction
   | MulticastTransaction of (Transaction * (seq Addr)).
 
-  About iter.
-  Search _ ncons.
-  About tuple_of.
+Definition TransactionPool : fixlist Transaction TransactionPool_length := fixlist_empty Transaction TransactionPool_length .
 
-Lemma TransactionPool_valid (A: Type) : size (ncons TransactionPool_Length (@None A) [::]) == TransactionPool_Length.
-Proof.
-  rewrite size_ncons => //=.
-  by rewrite addn0.
-Qed.
-
-Definition TransactionPool : tuple_of TransactionPool_Length (option Transaction) := @Tuple TransactionPool_Length (option Transaction) (ncons TransactionPool_Length None [::]) (@TransactionPool_valid Transaction). 
-
-
-
+Definition Block_record : fixlist Transaction Transactions_per_block := fixlist_empty Transaction Transactions_per_block.
 
 
 
@@ -76,7 +83,7 @@ Definition TransactionPool : tuple_of TransactionPool_Length (option Transaction
 Inductive RndGen  := 
     (* used by Honest Parties to generate transactions - nat specifies which actor *)
     | HonestTransactionGen of (Transaction * Addr)
-    | TransactionDrop of nat
+    | TransactionDrop of (ordinal TransactionPool_length)
     (* used by both Honest Parties to mint blocks*)
     (* Hashed represents the return value of the random oracle if the block is new*)
     (* Nonce represents the nonce used to create the block*)
@@ -109,6 +116,11 @@ Record Block := Bl {
   (* block_hash_round: nat; *)
 }.
 
+
+(* Lemma bool_enumP : Finite.axiom [:: true; false]. Proof. by case. Qed. *)
+(* Definition bool_finMixin := Eval hnf in FinMixin bool_enumP. *)
+(* Canonical bool_finType := Eval hnf in FinType bool bool_finMixin. *)
+(* Lemma card_bool : #|{: bool}| = 2. Proof. by rewrite cardT enumT unlock. Qed. *)
 
 
 

@@ -26,15 +26,6 @@ Parameter adversary_internal_send_transaction: adversary_internal_state -> (adve
 
 
 
-Parameter n_max_actors : nat.
-(* Should these have different names from the proof for legibility? *)
-(* maximum number of nodes that can be corrupted *)
-Parameter t_max_corrupted : nat.
-(* a hash is valid iff hash(block) < T*)
-Parameter T_Hashing_Difficulty : nat.
-(* delay between activation and success *)
-Parameter delta : nat.
-
 (* given a random generator, a block and the oracle, 
    updates the oracle state and returns a new hashed value *)
 Definition hash 
