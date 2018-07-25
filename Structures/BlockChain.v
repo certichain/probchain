@@ -297,9 +297,42 @@ Qed.
 Definition message_eqMixin := @EqMixin Message message_eq message_eqP.
 Canonical message_eqType := Eval hnf in EqType Message message_eqMixin.
 
+About sum_enum.
 (*
   TODO : finitize message
 *)
+Definition message_sum (m : Message) := match m with
+    | MulticastMsg addr bc => inl (addr, bc)
+    | BroadcastMsg bc      => inr bc
+    end.
+
+Definition sum_message m := match m with
+    | inl (addr, bc) => MulticastMsg addr bc
+    | inr bc      => BroadcastMsg bc
+    end.
+    About sum_message.
+
+Lemma message_cancel : cancel message_sum sum_message.
+Proof.
+  rewrite /cancel.
+  move=> m.
+  destruct m => //=.
+Qed.
+
+Definition message_choiceMixin :=
+  CanChoiceMixin message_cancel.
+Canonical message_choiceType :=
+  Eval hnf in ChoiceType Message message_choiceMixin.
+Definition message_countMixin :=
+  CanCountMixin message_cancel.
+Canonical message_countType :=
+  Eval hnf in CountType Message message_countMixin.
+Definition message_finMixin :=
+  CanFinMixin message_cancel.
+Canonical message_finType :=
+  Eval hnf in FinType Message message_finMixin.
+
+
 
 
 Definition MessagePool := fixlist [eqType of Message] MessagePool_length.
