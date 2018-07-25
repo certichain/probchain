@@ -1,10 +1,11 @@
 From mathcomp.ssreflect
-Require Import ssreflect ssrbool ssrnat seq ssrfun eqtype.
-Require Import FMapAVL.
+Require Import ssreflect ssrbool ssrnat seq ssrfun eqtype choice fintype path.
+
 
 From Probchain
-Require Import BlockChain InvMisc.
+Require Import BlockChain InvMisc FixedList.
 
+Parameter OracleState_size: nat.
 
 
 Module M := FMapAVL.Make(Hash_Triple_as_OT).
