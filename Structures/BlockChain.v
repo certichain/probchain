@@ -1,5 +1,10 @@
 From mathcomp.ssreflect
-Require Import ssreflect ssrbool ssrnat eqtype fintype ssrfun seq path.
+Require Import ssreflect ssrbool ssrnat eqtype fintype choice ssrfun seq path.
+
+From mathcomp.ssreflect
+Require Import tuple.
+
+
 
 From mathcomp.ssreflect
 Require Import tuple.
@@ -13,9 +18,15 @@ Parameter t_max_corrupted : nat.
 (* number of actors in the system *)
 Parameter n_max_actors : nat.
 
+(* represents the length of bitstrings used in hashes - note: no actual
+   bitstrings are used, but rather emulated by a value in the ordinal 
+   from 0 - 2^k-1*)
 Parameter Hash_length_k : nat.
+
+(* Represents the maximum number of transactions that may be inflight at a time *)
 Parameter TransactionPool_length : nat.
-Parameter Transaction : eqType.
+
+Parameter Transaction : finType.
 (* determines whether a transaction is valid or not with respect to another sequence of transactions*)
 Parameter Transaction_valid : Transaction -> seq Transaction -> bool. 
 
@@ -26,14 +37,16 @@ Parameter delta : nat.
 
 Parameter Transactions_per_block : nat.
 
+Parameter Maximum_proof_of_work : nat.
+
 
 (* A range from 0 to n where n is the maximum hash value*)
 Definition Hash_value := 2^Hash_length_k.
 
 (* To ensure that all blocks are unqiue, each block contains a random nonce *)
-Definition Nonce := ordinal Hash_value.
+Definition Nonce := ordinal_finType Hash_value.
 (* Hashed can not be a parameter, as it has to be comparable to a numerical T *)
-Definition Hashed := ordinal Hash_value.
+Definition Hashed := ordinal_finType Hash_value.
 (* Simmilarly, Addr must be an index into the honest actors, thus not a parameter*)
 Definition Addr := ordinal n_max_actors.
 
@@ -63,9 +76,11 @@ Inductive TransactionMessage :=
   | BroadcastTransaction of Transaction
   | MulticastTransaction of (Transaction * (seq Addr)).
 
-Definition TransactionPool : fixlist Transaction TransactionPool_length := fixlist_empty Transaction TransactionPool_length .
+Definition TransactionPool := fixlist Transaction TransactionPool_length.
+Definition initTransactionPool : TransactionPool := fixlist_empty Transaction TransactionPool_length .
 
-Definition Block_record : fixlist Transaction Transactions_per_block := fixlist_empty Transaction Transactions_per_block.
+Definition BlockRecord := fixlist Transaction Transactions_per_block.
+Definition initBlockRecord : BlockRecord := fixlist_empty Transaction Transactions_per_block.
 
 
 
@@ -105,22 +120,127 @@ Inductive RndGen  :=
     .
 
 
-Record Block := Bl {
+Record Block : Type := Bl {
   block_nonce: Nonce;
   block_link: Hashed;
-  block_records: seq Transaction;
-  block_proof_of_work: nat;
+  block_records: BlockRecord;
+  block_proof_of_work: ordinal Maximum_proof_of_work;
   
   (* extra information - can't be kept on block, as it may be modified by the adversary*)
   (* block_is_adversarial: bool; *)
   (* block_hash_round: nat; *)
 }.
 
+Definition block_prod (b : Block) :=
+  (block_nonce b, block_link b, block_records b, block_proof_of_work b).
+Definition prod_block (product: (Nonce * Hashed * BlockRecord * (ordinal Maximum_proof_of_work))%type) : Block :=
+  let (triple1, pow1) := product in
+    let (tuple1, br1) := triple1 in
+      let (n1, h1) := tuple1 in
+        Bl n1 h1 br1 pow1.
 
-(* Lemma bool_enumP : Finite.axiom [:: true; false]. Proof. by case. Qed. *)
-(* Definition bool_finMixin := Eval hnf in FinMixin bool_enumP. *)
-(* Canonical bool_finType := Eval hnf in FinType bool bool_finMixin. *)
-(* Lemma card_bool : #|{: bool}| = 2. Proof. by rewrite cardT enumT unlock. Qed. *)
+Definition block_eq (b : Block) (o : Block) := (block_prod b) == (block_prod o).
+Lemma block_eqP : Equality.axiom block_eq.
+Proof.
+  move=> b1 b2.
+  rewrite /block_eq /block_prod.
+  destruct b1; destruct b2.
+  case (_ == _) eqn: H.
+    move:H => //= /eqP H //=.
+    injection (H) => <- <- <- <-; constructor => //=.
+
+  move: H => //= /eqP H.
+  constructor.
+  rewrite /not.
+  move=> H0.
+  move: H.
+  injection H0.
+  move=> <- <- <- <- .
+  rewrite /not => H.
+  case H => //=.
+Qed.
+  
+Definition block_eqMixin := @EqMixin Block block_eq block_eqP.
+Canonical block_eqType := Eval hnf in EqType Block block_eqMixin.
+
+Definition block_prod_enum := (prod_enum 
+    (prod_finType (prod_finType [finType of Nonce] [finType of Hashed]) [finType of BlockRecord]) 
+    [finType of (ordinal Maximum_proof_of_work)]).
+
+Definition block_enum := map prod_block 
+  block_prod_enum. 
+
+Lemma block_enumP : Finite.axiom block_enum.
+Proof.
+  rewrite /Finite.axiom.
+  move=>  b.
+  rewrite /block_enum => //=.
+  rewrite /block_prod_enum => //=.
+  destruct b.
+  rewrite <-prod_enumP with (T1 := (prod_finType (prod_finType [finType of 'I_Hash_value] [finType of 'I_Hash_value])) [finType of BlockRecord]) 
+                            (T2 := [finType of 'I_Maximum_proof_of_work])
+                            (x := (block_nonce0, block_link0, block_records0, block_proof_of_work0)).
+                          Search _ "count_mem".
+  induction (prod_enum _) => //=.
+  symmetry.
+  case (_ == _) eqn:H => //=.
+  destruct a as [[[a_n a_l] a_r] a_p].
+  move: H=> /eqP H.
+  injection H => -> -> -> ->.
+  rewrite -IHl => //=.
+  have H' : ({|
+  block_nonce := block_nonce0;
+  block_link := block_link0;
+  block_records := block_records0;
+  block_proof_of_work := block_proof_of_work0 |} ==
+  {|
+  block_nonce := block_nonce0;
+  block_link := block_link0;
+  block_records := block_records0;
+  block_proof_of_work := block_proof_of_work0 |}) = true.
+  by apply /eqP.
+  by rewrite H'.
+  rewrite add0n.
+  destruct a as [[[a_n a_l] a_r] a_p] => //=.
+  move: H => /eqP H.
+  rewrite /not in H.
+  have H': ({|
+  block_nonce := a_n;
+  block_link := a_l;
+  block_records := a_r;
+  block_proof_of_work := a_p |} ==
+  {|
+  block_nonce := block_nonce0;
+  block_link := block_link0;
+  block_records := block_records0;
+  block_proof_of_work := block_proof_of_work0 |}) = false.
+  apply /eqP => H0.
+  move: H.
+  injection H0.
+  move=> <- <- <- <-.
+  move=> H.
+  by apply H.
+  rewrite H' => //=.
+Qed. 
+
+
+
+Lemma block_cancel : cancel block_prod prod_block.
+Proof.
+  rewrite /cancel.
+  move=> b.
+  destruct b => //=.
+Qed.
+
+Definition block_choiceMixin := CanChoiceMixin block_cancel.
+Canonical block_choiceType := Eval hnf in ChoiceType Block block_choiceMixin.
+Definition block_countMixin := CanCountMixin block_cancel.
+Canonical block_countType := Eval hnf in CountType Block block_countMixin.
+
+Definition block_finMixin := Finite.Mixin block_countMixin block_enumP.
+Canonical block_finType := Eval hnf in FinType Block block_finMixin.
+
+
 
 
 
