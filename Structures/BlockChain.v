@@ -4,13 +4,12 @@ Require Import ssreflect ssrbool ssrnat eqtype fintype choice ssrfun seq path.
 From mathcomp.ssreflect
 Require Import tuple.
 
-
-
 From mathcomp.ssreflect
 Require Import tuple.
 
 From Probchain
 Require Import FixedList.
+Set Implicit Arguments.
 
 
 (* maximum number of nodes that can be corrupted *)
@@ -38,6 +37,11 @@ Parameter delta : nat.
 Parameter Transactions_per_block : nat.
 
 Parameter Maximum_proof_of_work : nat.
+
+(* To keep the structures finite, we have to constrain the maximum size of the blockchain*)
+Parameter Maximum_blockchain_length : nat.
+
+Parameter MessagePool_length : nat.
 
 
 (* A range from 0 to n where n is the maximum hash value*)
@@ -180,7 +184,6 @@ Proof.
   rewrite <-prod_enumP with (T1 := (prod_finType (prod_finType [finType of 'I_Hash_value] [finType of 'I_Hash_value])) [finType of BlockRecord]) 
                             (T2 := [finType of 'I_Maximum_proof_of_work])
                             (x := (block_nonce0, block_link0, block_records0, block_proof_of_work0)).
-                          Search _ "count_mem".
   induction (prod_enum _) => //=.
   symmetry.
   case (_ == _) eqn:H => //=.
@@ -244,17 +247,61 @@ Canonical block_finType := Eval hnf in FinType Block block_finMixin.
 
 
 
-
-Definition BlockChain := seq Block.
+Definition BlockChain := fixlist [eqType of Block] Maximum_blockchain_length.
+Definition initBlockChain := fixlist_empty [eqType of Block] Maximum_blockchain_length.
 (* converts a blockchain into a transaction sequence *)
-Definition BlockChain_unwrap (b : BlockChain) := flatten (map (fun bchain => block_records bchain)  b) .
+
+
+
+
+Definition BlockChain_unwrap (b : BlockChain) := flatten (map (fun block => fixlist_unwrap (block_records block)) (fixlist_unwrap b)).
 
 Parameter BlockChain_compare_lt : BlockChain -> BlockChain -> bool.
 
 Inductive Message := 
-  | MulticastMsg (addr : seq Addr) (bc : BlockChain)  
+  | MulticastMsg (addr : fixlist [eqType of Addr] n_max_actors ) (bc : BlockChain)  
   | BroadcastMsg (bc : BlockChain).
 
-Definition MessagePool := seq Message.
+Definition message_eq (m1 m2 : Message) :=
+  match m1, m2 with 
+    | MulticastMsg a1 b1 , MulticastMsg a2 b2 => (a1 == a2) && (b1 == b2)
+    | BroadcastMsg b1, BroadcastMsg b2 => b1 == b2
+    | _, _ => false
+    end.
+
+
+Lemma message_eqP : Equality.axiom message_eq.
+Proof.
+  move=> m1 m2.
+  case m1 eqn: Hm1, m2 eqn: Hm2 => //=.
+    case (_ && _) eqn: H; move:H => /andP H; constructor.
+      by destruct H; move: H H0 => /eqP <- /eqP <-.
+    move=> H0.
+    move: H.
+    injection H0 => <- <-.
+    move=> H.
+    by apply H.
+
+  by constructor.
+  by constructor.
+  case (_ == _) eqn: H; constructor.
+  by move: H => /eqP <-.
+  rewrite /not.
+  move=> H0.
+  move: H => /eqP.
+  injection H0.
+  move=> <- H.
+  by apply H.
+Qed.
+
+Definition message_eqMixin := @EqMixin Message message_eq message_eqP.
+Canonical message_eqType := Eval hnf in EqType Message message_eqMixin.
+
+(*
+  TODO : finitize message
+*)
+
+
+Definition MessagePool := fixlist [eqType of Message] MessagePool_length.
 
 

@@ -34,8 +34,7 @@ Qed.
 Section fixlist.
     Variable A : eqType.
     Variable n' : nat.
-
-    Definition fixlist n := n.-tuple (option A).
+Definition fixlist n := n.-tuple (option A).
 
     Definition fixlist_empty n : fixlist n :=
         @Tuple n
@@ -66,7 +65,7 @@ Section fixlist.
         destruct (tnth list (inord (m0.+1))) eqn: H; last first.
             exact [tuple of (Some a) :: [tuple of behead list]].
             exact [tuple of (Some s) :: [tuple of fixlist_insert (ntuple_tail list) a]].
-    Qed.
+    Defined.
 
 
 
@@ -114,7 +113,7 @@ Section fixlist.
             exact list.
         (* Some v *)
         exact [tuple of None :: (ntuple_tail list)].
-    Qed.
+    Defined.
    
 
     (* Fixpoint fixlist_set_nth (m : nat) (list : fixlist  m.+1) (a : A) (n : nat) : fixlist m.+1 :=
@@ -138,7 +137,7 @@ Section fixlist.
             exact [tuple of (Some a) :: (ntuple_tail list)].
             (* m'.+1, n'.+1 *)
             exact [tuple of ntuple_head list ::  @fixlist_set_nth m' (ntuple_tail list) a n0].
-    Qed.
+    Defined.
 
 
     Definition fixlist_get_nth (m : nat) (default : A) (list : fixlist m.+1)  (n : nat) : A.
@@ -151,7 +150,7 @@ Section fixlist.
             case (tnth list ind) eqn: isSome.
                 exact s.
                 exact default.
-    Qed.    
+    Defined.
 
 
     (* Fixpoint fixlist_length' (m : nat) (list : fixlist  m.+1) : nat :=
@@ -168,19 +167,26 @@ Section fixlist.
 
 
 
-    Fixpoint fixlist_length (m : nat) (list : fixlist  m.+1) : nat. 
+    Fixpoint fixlist_length (m : nat) (list : fixlist  m) : nat. 
         case m eqn:H.
-            case (ntuple_head list).
-                move=> a.
-                exact 1.
             exact 0.
         case (ntuple_head list).
             move=> a.
             exact (1 + fixlist_length n (ntuple_tail list)).
             exact (fixlist_length n (ntuple_tail list)).
-    Qed. 
+    Defined. 
 
 
+    Definition fixlist_unwrap (m : nat) (list : fixlist m) : seq A :=
+        flatten (map (fun o_value => match o_value with
+                            | Some value => [:: value]
+                            | None => [::]
+                            end) list).
+    
+    Lemma fixlist_length_unwrap_ident : forall (m : nat) (ls : fixlist m), length (fixlist_unwrap ls) = fixlist_length ls.
+    Proof.
+        (* TODO(Kiran): Complete this proof *)
+        Admitted.
 
 End fixlist.
 
