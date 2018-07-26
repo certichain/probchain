@@ -16,15 +16,15 @@ Require Import BlockChain OracleState BlockMap InvMisc Parameters.
 
 Set Implicit Arguments.
 
-Parameter adversary_internal_state : Type.
+Parameter adversary_internal_state : finType.
 Parameter adversary_internal_initial_state : adversary_internal_state.
-Parameter adversary_internal_state_change : adversary_internal_state -> adversary_internal_state.
-Parameter adversary_internal_insert_transaction: adversary_internal_state -> Transaction -> adversary_internal_state.
-Parameter adversary_internal_insert_chain: adversary_internal_state -> BlockChain -> adversary_internal_state.
-Parameter adversary_internal_generate_block: adversary_internal_state -> MessagePool -> (adversary_internal_state * (Nonce * Hashed * seq Transaction * nat)).
-Parameter adversary_internal_provide_block_hash_result: adversary_internal_state -> (Nonce * Hashed * seq Transaction * nat) -> Hashed -> adversary_internal_state.
-Parameter adversary_internal_send_chain: adversary_internal_state -> (adversary_internal_state * BlockChain).
-Parameter adversary_internal_send_transaction: adversary_internal_state -> (adversary_internal_state * Transaction).
+Parameter adversary_internal_state_change : {ffun adversary_internal_state -> adversary_internal_state}.
+Parameter adversary_internal_insert_transaction: {ffun adversary_internal_state -> {ffun Transaction -> adversary_internal_state}}.
+Parameter adversary_internal_insert_chain: {ffun adversary_internal_state -> {ffun BlockChain -> adversary_internal_state}}.
+Parameter adversary_internal_generate_block: {ffun adversary_internal_state -> {ffun MessagePool -> (adversary_internal_state * (Nonce * Hashed * BlockRecord * ordinal Maximum_proof_of_work))}}.
+Parameter adversary_internal_provide_block_hash_result: {ffun adversary_internal_state -> {ffun (Nonce * Hashed * BlockRecord * ordinal Maximum_proof_of_work) -> {ffun Hashed -> adversary_internal_state}}}.
+Parameter adversary_internal_send_chain: {ffun adversary_internal_state -> (adversary_internal_state * BlockChain)}.
+Parameter adversary_internal_send_transaction: {ffun adversary_internal_state -> (adversary_internal_state * Transaction)}.
 
 
 
@@ -54,8 +54,8 @@ Definition verify_hash (blk : Block) (oracle : oraclestate) : option Hashed :=
   5. an extra parameter to persist proof of work calculations between rounds. 
   6. the last round it attempted a hash - it can only attempt hashing 
      if this value is less than the current round*)
-Record Adversary := mkAdvrs {
-  T : finType; (* Inner adversary's state, whose type cannot be introspected *)
+   (* Inner adversary's state, whose type cannot be introspected *)
+Record Adversary (T : finType) := mkAdvrs {
 
   adversary_state : T;
   adversary_state_change: {ffun T -> T}; (* Changing the state -- an operation provided by an adversary *) 
@@ -84,9 +84,6 @@ Record Adversary := mkAdvrs {
 
 
 
-
-
-
 Definition initAdversary  := 
   mkAdvrs 
     adversary_internal_initial_state 
@@ -97,7 +94,68 @@ Definition initAdversary  :=
     adversary_internal_provide_block_hash_result
     adversary_internal_send_chain
     adversary_internal_send_transaction
-    0.
+    (Ordinal valid_N_rounds).
+
+Definition Adversary_prod  (a : Adversary adversary_internal_state) :=
+  (adversary_state a,
+  adversary_state_change a,
+  adversary_insert_transaction  a,
+  adversary_insert_chain  a,
+  adversary_generate_block  a,
+  adversary_provide_block_hash_result  a,
+  adversary_send_chain a,
+  adversary_send_transaction a,
+  adversary_last_hashed_round a).
+
+
+Definition prod_Adversary (pair : (adversary_internal_state  * {ffun adversary_internal_state  -> adversary_internal_state } * {ffun adversary_internal_state  -> {ffun Transaction -> adversary_internal_state }} * {ffun adversary_internal_state  -> {ffun BlockChain -> adversary_internal_state }} * {ffun adversary_internal_state  -> {ffun MessagePool -> adversary_internal_state  * (Nonce * Hashed * BlockRecord * 'I_Maximum_proof_of_work)}} * {ffun adversary_internal_state  -> {ffun Nonce * Hashed * BlockRecord * 'I_Maximum_proof_of_work -> {ffun Hashed -> adversary_internal_state }}} * {ffun adversary_internal_state  -> adversary_internal_state  * BlockChain} * {ffun adversary_internal_state  -> adversary_internal_state  * Transaction} * 'I_N_rounds)) := 
+  let: (adversary_state ,
+    adversary_state_change ,
+    adversary_insert_transaction  ,
+    adversary_insert_chain  ,
+    adversary_generate_block  ,
+    adversary_provide_block_hash_result  ,
+    adversary_send_chain ,
+    adversary_send_transaction ,
+    adversary_last_hashed_round) := pair in
+    mkAdvrs 
+      adversary_state 
+      adversary_state_change 
+      adversary_insert_transaction  
+      adversary_insert_chain  
+      adversary_generate_block  
+      adversary_provide_block_hash_result  
+      adversary_send_chain 
+      adversary_send_transaction 
+      adversary_last_hashed_round.
+
+
+Check (Adversary_prod, prod_Adversary).
+
+Lemma adversary_cancel : cancel Adversary_prod prod_Adversary .
+Proof.
+  by case.
+Qed.
+
+Definition adversary_eqMixin :=
+  CanEqMixin adversary_cancel.
+Canonical adversary_eqType :=
+  Eval hnf in EqType (Adversary adversary_internal_state) adversary_eqMixin.
+
+Definition adversary_choiceMixin :=
+  CanChoiceMixin adversary_cancel.
+Canonical adversary_choiceType :=
+  Eval hnf in ChoiceType (Adversary adversary_internal_state) adversary_choiceMixin.
+
+Definition adversary_countMixin :=
+  CanCountMixin adversary_cancel.
+Canonical adversary_countType :=
+  Eval hnf in CountType (Adversary adversary_internal_state) adversary_countMixin.
+Definition adversary_finMixin :=
+  CanFinMixin adversary_cancel.
+Canonical adversary_finType :=
+  Eval hnf in FinType (Adversary adversary_internal_state) adversary_finMixin.
+
 
 
 (* A node's local state consists of 
