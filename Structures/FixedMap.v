@@ -5,6 +5,8 @@ From Probchain
 Require Import FixedList.
 Set Implicit Arguments.
 
+From mathcomp.ssreflect
+Require Import tuple.
 
 
 Section fixmap.
@@ -18,7 +20,7 @@ Section fixmap.
     }.
 
 
-    Definition fixmap_empty n : fixmap n :=
+    Definition fixmap_empty n : fixmap n := 
         FixMap
             (fixlist_empty K n)
             (fixlist_empty V n).
@@ -79,3 +81,4 @@ Section fin_fixmap.
 
 
 End fin_fixmap.
+
