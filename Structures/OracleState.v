@@ -8,11 +8,11 @@ Set Implicit Arguments.
 
 
 From Probchain
-Require Import BlockChain InvMisc FixedList FixedMap.
+Require Import BlockChain InvMisc FixedList FixedMap Parameters.
 
-Parameter oraclestate_size: nat.
 
 Definition oraclestate_keytype := [eqType of ([eqType of ([eqType of Hashed] * [eqType of BlockRecord])] * (ordinal Maximum_proof_of_work))%type].
+
 Definition oraclestate := fixmap  oraclestate_keytype  [eqType of Hashed] oraclestate_size.
 
 Definition oraclestate_new : oraclestate := fixmap_empty oraclestate_keytype [eqType of Hashed] oraclestate_size.
@@ -25,7 +25,6 @@ Definition oraclestate_find k (m : oraclestate) := fixmap_find k m.
 Definition oraclestate_put (k: oraclestate_keytype) (v : Hashed) (m: oraclestate) :=
   fixmap_put k v m.
 
-  About finmap_cancel.
 
   Definition oraclestate_prod (m : oraclestate) := finmap_prod m.
   Definition prod_oraclestate pair : oraclestate := prod_finmap pair.

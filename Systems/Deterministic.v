@@ -1,5 +1,5 @@
 From Probchain
-Require Import Comp Notationv1 BlockChain Protocol OracleState BlockMap InvMisc InvBlock.
+Require Import Comp Notationv1 BlockChain Protocol OracleState BlockMap InvMisc.
 
 From mathcomp.ssreflect
 Require Import ssreflect ssrnat ssrbool seq fintype eqtype.

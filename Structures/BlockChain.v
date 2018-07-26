@@ -4,48 +4,10 @@ Require Import ssreflect ssrbool ssrnat eqtype fintype choice ssrfun seq path.
 From mathcomp.ssreflect
 Require Import tuple.
 
-From mathcomp.ssreflect
-Require Import tuple.
-
 From Probchain
-Require Import FixedList.
+Require Import FixedList Parameters.
 Set Implicit Arguments.
 
-
-(* maximum number of nodes that can be corrupted *)
-Parameter t_max_corrupted : nat.
-(* number of actors in the system *)
-Parameter n_max_actors : nat.
-
-(* represents the length of bitstrings used in hashes - note: no actual
-   bitstrings are used, but rather emulated by a value in the ordinal 
-   from 0 - 2^k-1*)
-Parameter Hash_length_k : nat.
-
-(* Represents the maximum number of transactions that may be inflight at a time *)
-Parameter TransactionPool_length : nat.
-
-Parameter Transaction : finType.
-(* determines whether a transaction is valid or not with respect to another sequence of transactions*)
-Parameter Transaction_valid : Transaction -> seq Transaction -> bool. 
-
-(* a hash is valid iff hash(block) < T*)
-Parameter T_Hashing_Difficulty : nat.
-(* delay between activation and success *)
-Parameter delta : nat.
-
-Parameter Transactions_per_block : nat.
-
-Parameter Maximum_proof_of_work : nat.
-
-(* To keep the structures finite, we have to constrain the maximum size of the blockchain*)
-Parameter Maximum_blockchain_length : nat.
-
-Parameter MessagePool_length : nat.
-
-
-(* A range from 0 to n where n is the maximum hash value*)
-Definition Hash_value := 2^Hash_length_k.
 
 (* To ensure that all blocks are unqiue, each block contains a random nonce *)
 Definition Nonce := ordinal_finType Hash_value.
@@ -54,21 +16,6 @@ Definition Hashed := ordinal_finType Hash_value.
 (* Simmilarly, Addr must be an index into the honest actors, thus not a parameter*)
 Definition Addr := ordinal n_max_actors.
 
-
-(* Ensures that valid sequences of transactions are well formed *)
-Axiom transaction_valid_consistent : forall (x y : Transaction) (ys : seq Transaction), 
-    Transaction_valid x (y :: ys) -> Transaction_valid y ys.
-
-(*
-  Transactions can be wrong for two reasons:
-    1. signed incorrectly
-    2. conflict with prior records
-  If signed incorrectly:
-    1. a transaction would be invalid even with an empty list of transactions
-    2. the transaction would be invalid for any at all
-*)
-Axiom transaction_inherently_invalid : forall (x : Transaction) (ys : seq Transaction), 
-  not (Transaction_valid x [::]) -> not (Transaction_valid x ys).
 
 Definition validate_transactions (xs : seq Transaction) : bool :=
   match xs with 
@@ -217,9 +164,7 @@ Proof.
   block_link := block_link0;
   block_records := block_records0;
   block_proof_of_work := block_proof_of_work0 |}) = false.
-  apply /eqP => H0.
-  move: H.
-  injection H0.
+  apply /eqP => H0. move: H. injection H0.
   move=> <- <- <- <-.
   move=> H.
   by apply H.
@@ -256,7 +201,6 @@ Definition initBlockChain := fixlist_empty [eqType of Block] Maximum_blockchain_
 
 Definition BlockChain_unwrap (b : BlockChain) := flatten (map (fun block => fixlist_unwrap (block_records block)) (fixlist_unwrap b)).
 
-Parameter BlockChain_compare_lt : BlockChain -> BlockChain -> bool.
 
 Inductive Message := 
   | MulticastMsg (addr : fixlist [eqType of Addr] n_max_actors ) (bc : BlockChain)  
@@ -338,3 +282,5 @@ Canonical message_finType :=
 Definition MessagePool := fixlist [eqType of Message] MessagePool_length.
 
 
+
+Parameter BlockChain_compare_lt : BlockChain -> BlockChain -> bool.

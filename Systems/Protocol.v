@@ -1,18 +1,20 @@
 
-Require Import FMapAVL.
-Require Import Coq.Structures.OrderedTypeEx.
-Require Import OrderedType.
 (* Implementation of Bitcoin Protocol *)
 (* Does not compile yet - as probability issues have not been resolved. *)
+
+
+
+From mathcomp.ssreflect
+Require Import ssreflect ssrbool ssrnat eqtype fintype choice ssrfun seq path finfun.
+
+From mathcomp.ssreflect
+Require Import tuple.
+
+
 From Probchain
-Require Import BlockChain OracleState BlockMap InvMisc InvBlock.
+Require Import BlockChain OracleState BlockMap InvMisc Parameters.
 
-
-Require Coq.Program.Tactics.
-Require Coq.Program.Wf.
-From mathcomp.ssreflect Require Import ssreflect ssrbool ssrnat seq ssrfun eqtype. Set Implicit Arguments.
-(* Unset Strict Implicit. *)
-(* Unset Printing Implicit Defensive. *)
+Set Implicit Arguments.
 
 Parameter adversary_internal_state : Type.
 Parameter adversary_internal_initial_state : adversary_internal_state.
@@ -29,18 +31,18 @@ Parameter adversary_internal_send_transaction: adversary_internal_state -> (adve
 (* given a random generator, a block and the oracle, 
    updates the oracle state and returns a new hashed value *)
 Definition hash 
-  (rnd : nat) 
-  (blk : (Hashed * seq Transaction * nat))
-  (oracle : OracleState) : (OracleState * Hashed) :=
- match OracleState_find blk oracle with
+  (rnd : Hashed) 
+  (blk : oraclestate_keytype)
+  (oracle : oraclestate) : (oraclestate * Hashed) :=
+ match oraclestate_find blk oracle with
   | Some(value) => (oracle, value)
-  | None => let new_oracle := OracleState_put (blk, rnd) oracle in
+  | None => let new_oracle := oraclestate_put blk rnd oracle in
           (new_oracle, rnd)
  end.
 
   
-Definition verify_hash (blk : Block) (oracle : OracleState) : option Hashed := 
-   OracleState_find (block_link blk, block_records blk, block_proof_of_work blk) oracle.
+Definition verify_hash (blk : Block) (oracle : oraclestate) : option Hashed := 
+   oraclestate_find (block_link blk, block_records blk, block_proof_of_work blk) oracle.
 
 
 (*
@@ -53,30 +55,31 @@ Definition verify_hash (blk : Block) (oracle : OracleState) : option Hashed :=
   6. the last round it attempted a hash - it can only attempt hashing 
      if this value is less than the current round*)
 Record Adversary := mkAdvrs {
-  T : Type; (* Inner adversary's state, whose type cannot be introspected *)
+  T : finType; (* Inner adversary's state, whose type cannot be introspected *)
 
   adversary_state : T;
-  adversary_state_change: T -> T; (* Changing the state -- an operation provided by an adversary *) 
-  adversary_insert_transaction: T -> Transaction -> T;
-  adversary_insert_chain: T -> BlockChain -> T;
+  adversary_state_change: {ffun T -> T}; (* Changing the state -- an operation provided by an adversary *) 
+  adversary_insert_transaction: {ffun T -> {ffun Transaction -> T}};
+  adversary_insert_chain: {ffun T -> {ffun BlockChain -> T}};
 
   (* Required to allow adversary limited queries to the oracle*)
   (* the adversary can propose a block to be hashed*)
-  adversary_generate_block: T -> MessagePool -> (T * (Nonce * Hashed * seq Transaction * nat));
+  adversary_generate_block: {ffun T -> {ffun MessagePool -> (T * (Nonce * Hashed * BlockRecord * ordinal Maximum_proof_of_work ))}};
+
   (* the result of the hash is returned to the adversary through this method - is the block necassary? *)
   (* it has to be structured this way, as we can not allow the adversary access to the oracle directly*)
-  adversary_provide_block_hash_result: T -> (Nonce * Hashed * seq Transaction * nat) -> Hashed -> T;
+  adversary_provide_block_hash_result: {ffun T -> {ffun (Nonce * Hashed * BlockRecord * ordinal Maximum_proof_of_work) -> {ffun Hashed -> T}}};
 
   (* Required to allow the adversary to broadcast chains *)
   (* I'm not sure how assertions about the blockchain being unable to randomly guess valid blockchains will be made*)
-  adversary_send_chain: T -> (T * BlockChain);
-  adversary_send_transaction: T -> (T * Transaction);
+  adversary_send_chain: {ffun T -> (T * BlockChain)};
+  adversary_send_transaction: {ffun T -> (T * Transaction)};
 
   (* adversary_local_transaction_pool: seq Transaction; *)
   (* adversary_local_message_pool: seq BlockChain; *)
 
   (* Additional info *)
-  adversary_last_hashed_round: nat;
+  adversary_last_hashed_round: ordinal N_rounds;
 }.
 
 
