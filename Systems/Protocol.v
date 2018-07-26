@@ -12,7 +12,7 @@ Require Import tuple.
 
 
 From Probchain
-Require Import BlockChain OracleState BlockMap InvMisc Parameters.
+Require Import BlockChain OracleState BlockMap InvMisc Parameters FixedList.
 
 Set Implicit Arguments.
 
@@ -130,7 +130,6 @@ Definition prod_Adversary (pair : (adversary_internal_state  * {ffun adversary_i
       adversary_last_hashed_round.
 
 
-Check (Adversary_prod, prod_Adversary).
 
 Lemma adversary_cancel : cancel Adversary_prod prod_Adversary .
 Proof.
@@ -165,12 +164,57 @@ Canonical adversary_finType :=
     4. an extra parameter to persist proof of work calculations between rounds. *)
 Record LocalState := mkLclSt {
   honest_current_chain: BlockChain;
-  honest_local_transaction_pool: seq Transaction;
-  honest_local_message_pool: seq BlockChain;
-  honest_proof_of_work: nat;
+  honest_local_transaction_pool: fixlist Transaction Honest_TransactionPool_size;
+  honest_local_message_pool: fixlist [eqType of BlockChain] Honest_MessagePool_size ;
+  honest_proof_of_work: ordinal Maximum_proof_of_work;
 }.
 
-Definition initLocalState := mkLclSt [::] [::] [::] 0.
+Definition initLocalState := mkLclSt initBlockChain (fixlist_empty Transaction Honest_TransactionPool_size) (fixlist_empty [eqType of BlockChain] Honest_MessagePool_size) (Ordinal valid_Maximum_proof_of_work).
+
+Definition LocalState_prod (ls : LocalState) :=
+  (honest_current_chain ls,
+  honest_local_transaction_pool ls,
+  honest_local_message_pool ls,
+  honest_proof_of_work ls).
+
+Definition prod_LocalState pair :=
+  let: (honest_current_chain,
+  honest_local_transaction_pool,
+  honest_local_message_pool,
+  honest_proof_of_work) := pair in 
+  mkLclSt
+    honest_current_chain
+    honest_local_transaction_pool
+    honest_local_message_pool
+    honest_proof_of_work.
+
+    
+Lemma localstate_cancel : cancel LocalState_prod prod_LocalState .
+Proof.
+  by case.
+Qed.
+
+Definition localstate_eqMixin :=
+  CanEqMixin localstate_cancel.
+Canonical localstate_eqType :=
+  Eval hnf in EqType (LocalState) localstate_eqMixin.
+
+Definition localstate_choiceMixin :=
+  CanChoiceMixin localstate_cancel.
+Canonical localstate_choiceType :=
+  Eval hnf in ChoiceType (LocalState) localstate_choiceMixin.
+
+Definition localstate_countMixin :=
+  CanCountMixin localstate_cancel.
+Canonical localstate_countType :=
+  Eval hnf in CountType (LocalState) localstate_countMixin.
+Definition localstate_finMixin :=
+  CanFinMixin localstate_cancel.
+Canonical localstate_finType :=
+  Eval hnf in FinType (LocalState) localstate_finMixin.
+
+
+
 
 (* GlobalState consists of 
       1. A sequence of LocalStates, and a boolean representing whether the state is corrupted

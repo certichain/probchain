@@ -27,12 +27,15 @@ Parameter delta : nat.
 Parameter Transactions_per_block : nat.
 
 Parameter Maximum_proof_of_work : nat.
+Axiom valid_Maximum_proof_of_work : 0 < Maximum_proof_of_work. 
 
 (* To keep the structures finite, we have to constrain the maximum size of the blockchain*)
 Parameter Maximum_blockchain_length : nat.
 
 Parameter MessagePool_length : nat.
 
+Parameter Honest_TransactionPool_size: nat.
+Parameter Honest_MessagePool_size: nat.
 
 (* A range from 0 to n where n is the maximum hash value*)
 Definition Hash_value := 2^Hash_length_k.
