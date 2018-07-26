@@ -8,6 +8,7 @@
 Structures/OracleState.v
 Structures/BlockMap.v
 Structures/FixedList.v
+Structures/FixedMap.v
 Structures/BlockChain.v
 Systems/Deterministic.v
 Systems/Protocol.v

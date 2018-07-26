@@ -1,30 +1,27 @@
 From mathcomp.ssreflect
-Require Import ssreflect ssrbool ssrnat seq ssrfun eqtype choice fintype path.
+Require Import ssreflect ssrbool ssrnat eqtype fintype choice ssrfun seq path.
+
+From mathcomp.ssreflect
+Require Import tuple.
+
+Set Implicit Arguments.
 
 
 From Probchain
-Require Import BlockChain InvMisc FixedList.
+Require Import BlockChain InvMisc FixedList FixedMap.
 
 Parameter OracleState_size: nat.
 
+Definition OracleState_keytype := [eqType of ([eqType of ([eqType of Hashed] * [eqType of BlockRecord])] * (ordinal Maximum_proof_of_work))%type].
+Definition OracleState := fixmap  OracleState_keytype  [eqType of Hashed] OracleState_size.
 
-Module M := FMapAVL.Make(Hash_Triple_as_OT).
-Definition OracleState := M.t nat.
-
-Definition OracleState_new : OracleState.
-Proof.
-  (* TODO(Kiran): complete this proof *)
-Admitted.
+Definition OracleState_new : OracleState := fixmap_empty OracleState_keytype [eqType of Hashed] OracleState_size.
 
 
-Definition OracleState_find k (m : OracleState) := M.find k m.
+Definition OracleState_find k (m : OracleState) := fixmap_find k m.
 
 
 
-Definition OracleState_put (p: (Hashed * (list Transaction) * nat) * nat) (m: OracleState) :=
-  M.add (fst p) (snd p) m.
-
-(* Notation "k |-> v" := (pair k v) (at level 60). *)
-(* Notation "[ ]" := (M.empty nat). *)
-(* Notation "[ p1 , .. , pn ]" := (OracleState_put p1 .. (OracleState_put pn (M.empty nat)) .. ). *)
+Definition OracleState_put (k: OracleState_keytype) (v : Hashed) (m: OracleState) :=
+  fixmap_put k v m.
 

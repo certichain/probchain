@@ -83,9 +83,9 @@ Inductive TransactionMessage :=
 Definition TransactionPool := fixlist Transaction TransactionPool_length.
 Definition initTransactionPool : TransactionPool := fixlist_empty Transaction TransactionPool_length .
 
+
 Definition BlockRecord := fixlist Transaction Transactions_per_block.
 Definition initBlockRecord : BlockRecord := fixlist_empty Transaction Transactions_per_block.
-
 
 
 (* RndGen will be passed down from the probabilistic component and used to simulate any probabilistic components *)
