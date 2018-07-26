@@ -53,14 +53,12 @@ Definition fixlist n := n.-tuple (option A).
             end. *)
 
 
-    Lemma fixlist_insert (m : nat) (list : fixlist m.+1) (a : A) : fixlist m.+1.
+    Lemma fixlist_insert (m : nat) (list : fixlist m) (a : A) : fixlist m.
         move: a.
         move: list.
         elim m.
         move=> list a.
-        case (tnth list (inord m)) eqn: H; last first.
-            exact [tuple of (Some a) :: [tuple of behead list]].
-        exact list.
+            exact list. (* can not insert anything into an empty list*)
         move=> m0 fixlist_insert list a.
         destruct (tnth list (inord (m0.+1))) eqn: H; last first.
             exact [tuple of (Some a) :: [tuple of behead list]].
@@ -124,12 +122,12 @@ Definition fixlist n := n.-tuple (option A).
             | 0, 0 =>  [tuple of [:: Some a] ]
        end. *)
 
-    Fixpoint fixlist_set_nth (m : nat) (list : fixlist  m.+1) (a : A) (n : nat) : fixlist m.+1.
+    Fixpoint fixlist_set_nth (m : nat) (list : fixlist  m) (a : A) (n : nat) : fixlist m.
     Proof.
         induction  m  as [|m'] eqn: Hm.
         induction n as [|n''] eqn: Hn.
             (* 0, 0 *)
-            exact [tuple of [:: Some a]].
+            exact list.
             (* 0, n.+1 *)
             exact list.
         case n eqn: Hn.
@@ -139,17 +137,41 @@ Definition fixlist n := n.-tuple (option A).
             exact [tuple of ntuple_head list ::  @fixlist_set_nth m' (ntuple_tail list) a n0].
     Defined.
 
+    (* Definition fixlist_nth (m : nat) (default : A) (list : fixlist m) (n : nat) : A :=
+        if n < m then
+            match m with
+                | 0 => default
+                | m'.+1 => tnth list (Ordinal (m'.+1))
+                end
+        else default. *)
 
-    Definition fixlist_get_nth (m : nat) (default : A) (list : fixlist m.+1)  (n : nat) : A.
+    Definition fixlist_nth (m : nat) (default : A) (list : fixlist m)  (n : nat) : A.
     Proof.
         case (n < m) eqn: H; last first.
             exact default.
-            apply ltn_addr with (p := 1) in H .
-            rewrite addn1 in H.
-            move: (Ordinal H)=> ind.
-            case (tnth list ind) eqn: isSome.
-                exact s.
-                exact default.
+        
+        apply ltn_addr with (p := 1) in H .
+        case m eqn: H1.
+            exact default.
+        move: (ltn0Sn n0)=> H''.
+        move: (Ordinal H'')=> ind.
+        case (tnth list ind) eqn: isSome.
+            exact s.
+            exact default.
+    Defined.
+
+    Definition fixlist_get_nth (m : nat)  (list : fixlist m)  (n : nat) : option A.
+    Proof.
+        case (n < m) eqn: H; last first.
+            exact None.
+        
+        apply ltn_addr with (p := 1) in H .
+        case m eqn: H1.
+            exact None.
+        move: (Ordinal (ltn0Sn n0))=> ind.
+        case (tnth list ind) eqn: isSome.
+            exact (Some s).
+            exact None.
     Defined.
 
 
@@ -175,6 +197,43 @@ Definition fixlist n := n.-tuple (option A).
             exact (1 + fixlist_length n (ntuple_tail list)).
             exact (fixlist_length n (ntuple_tail list)).
     Defined. 
+
+    (* Fixpoint fixlist_contains (m : nat) (a : A) (list : fixlist m) : bool :=
+        match m with
+            | 0 => false
+            end
+            | m'.+1 => match ntuple_head list with 
+                | Some a' => if a' == a then true else fixlist_contains (ntuple_tail list)
+                | None => fixlist_contains (ntuple_tail list)
+                end
+            end. *)
+
+    Fixpoint fixlist_contains (m : nat) (a : A) (list : fixlist m) : bool. 
+        case m eqn: H.
+            exact false.
+        case (ntuple_head list).
+            move=> a'.
+            case (a' == a).
+                exact true.
+                exact (fixlist_contains n a (ntuple_tail list)).
+            exact (fixlist_contains n a (ntuple_tail list)).
+    Defined. 
+
+    Fixpoint fixlist_index_of' (m : nat) (n: nat) (a : A) (list : fixlist m) : option nat. 
+        case m eqn: H.
+            exact None.
+        case (ntuple_head list).
+            move=> a'.
+            case (a' == a) eqn: H'.
+                exact (Some n).
+                exact (fixlist_index_of' n0 n.+1 a (ntuple_tail list)).
+            exact (fixlist_index_of' n0 n.+1 a (ntuple_tail list)).
+    Defined. 
+
+    Definition fixlist_index_of (m : nat) (a : A) (list : fixlist m) : option nat := 
+        fixlist_index_of' 0 a list.
+
+
 
 
     Definition fixlist_unwrap (m : nat) (list : fixlist m) : seq A :=
