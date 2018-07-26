@@ -11,6 +11,7 @@ Section fixmap.
     Variable K : eqType.
     Variable V : eqType.
 
+
     Record fixmap n := FixMap {
         fixmap_key : fixlist K n;
         fixmap_value : fixlist V n;
@@ -48,5 +49,33 @@ Section fixmap.
         (* TODO(Kiran): Complete this proof. *)
     Admitted.
 
+
+       
+
+
+
 End fixmap. 
 
+Section fin_fixmap.
+    Variable K : finType.
+    Variable V : finType.
+    Variable n : nat.
+
+    Definition finmap := fixmap K V n.
+
+    Definition finmap_prod (map : finmap) := (fixmap_key map, fixmap_value map).
+
+    Definition prod_finmap (pair : ((fixlist K n) * (fixlist V n))) : finmap :=  
+        let (key, value) := pair in
+            FixMap  key value.
+ 
+
+    Lemma finmap_cancel : cancel finmap_prod prod_finmap.
+    Proof.
+    rewrite /cancel.
+    move=> m.
+    destruct m => //=.
+    Qed.
+
+
+End fin_fixmap.
