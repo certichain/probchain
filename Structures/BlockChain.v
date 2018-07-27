@@ -280,7 +280,7 @@ Canonical message_finType :=
 
 
 Definition MessagePool := fixlist [eqType of Message] MessagePool_length.
-
+Definition initMessagePool := fixlist_empty [eqType of Message] MessagePool_length.
 
 
 Parameter BlockChain_compare_lt : BlockChain -> BlockChain -> bool.

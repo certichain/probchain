@@ -33,7 +33,7 @@ Parameter adversary_internal_send_transaction: {ffun adversary_internal_state ->
 Definition hash 
   (rnd : Hashed) 
   (blk : oraclestate_keytype)
-  (oracle : oraclestate) : (oraclestate * Hashed) :=
+  (oracle : OracleState) : (OracleState * Hashed) :=
  match oraclestate_find blk oracle with
   | Some(value) => (oracle, value)
   | None => let new_oracle := oraclestate_put blk rnd oracle in
@@ -41,7 +41,7 @@ Definition hash
  end.
 
   
-Definition verify_hash (blk : Block) (oracle : oraclestate) : option Hashed := 
+Definition verify_hash (blk : Block) (oracle : OracleState) : option Hashed := 
    oraclestate_find (block_link blk, block_records blk, block_proof_of_work blk) oracle.
 
 
@@ -294,16 +294,83 @@ Record World := mkWorld {
   (* the world message pool is a queue of messages sent in the past round - once
   the length exceeds delta, the last entry is removed, and all messages delivered *)
   (* thus this achieves the simulation of a delta delay *)
-  world_message_pool: seq MessagePool;
+  world_message_pool: fixlist [eqType of MessagePool] delta;
   (* represents the shared oracle state *)
   world_hash: OracleState;
   (* Contains every block seen *)
   world_block_history: BlockMap;
   (* Contains every chain ever seen*)
-  world_chain_history: seq BlockChain;
+  world_chain_history: fixlist [eqType of BlockChain] ChainHistory_size;
 }.
+Definition initWorldMessagePool := (fixlist_empty [eqType of MessagePool] delta).
+Definition initWorldChainHistory := (fixlist_empty [eqType of BlockChain] ChainHistory_size).
 
-Definition initWorld := mkWorld initGlobalState [::] [::] (repeat [::] delta) OracleState_new BlockMap_new [::].
+Definition initWorld := 
+    mkWorld   
+      initGlobalState 
+      initTransactionPool 
+      initMessagePool  
+      initWorldMessagePool 
+      oraclestate_new 
+      blockmap_new 
+      initWorldChainHistory.
+
+Definition World_prod w :=
+  (world_global_state w,
+  world_transaction_pool w,
+  world_inflight_pool w,
+  world_message_pool w,
+  world_hash w,
+  world_block_history w,
+  world_chain_history w).
+
+
+Definition prod_World pair :=
+  let: (world_global_state,
+  world_transaction_pool,
+  world_inflight_pool,
+  world_message_pool,
+  world_hash,
+  world_block_history,
+  world_chain_history) := pair in
+    mkWorld
+      world_global_state
+      world_transaction_pool
+      world_inflight_pool
+      world_message_pool
+      world_hash
+      world_block_history
+      world_chain_history.
+
+
+
+Lemma world_cancel : cancel World_prod prod_World .
+Proof.
+  by case.
+Qed.
+
+Definition world_eqMixin :=
+  CanEqMixin world_cancel.
+Canonical world_eqType :=
+  Eval hnf in EqType (World) world_eqMixin.
+
+Definition world_choiceMixin :=
+  CanChoiceMixin world_cancel.
+Canonical world_choiceType :=
+  Eval hnf in ChoiceType (World) world_choiceMixin.
+
+Definition world_countMixin :=
+  CanCountMixin world_cancel.
+Canonical world_countType :=
+  Eval hnf in CountType (World) world_countMixin.
+Definition world_finMixin :=
+  CanFinMixin world_cancel.
+Canonical world_finType :=
+  Eval hnf in FinType (World) world_finMixin.
+
+
+
+
 
 (* A round is complete if the currently_active index is one greater than the length of the actors array *)
 Definition round_ended (w: World) :=

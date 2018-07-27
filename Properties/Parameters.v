@@ -66,6 +66,14 @@ Axiom transaction_inherently_invalid : forall (x : Transaction) (ys : seq Transa
    we will need to add constraints to ensure the system never exceeds
    the maximum number of blocks  *)
 Parameter BlockHistory_size : nat.
+
+(* a finite structure will be used to store all chains seen 
+    throughout the execution of the system. *)
+(* As it is finite, we need to specify a size before execution. As such
+   we will need to add constraints to ensure the system never exceeds
+   the maximum number of chains *)
+Parameter ChainHistory_size : nat.
+
 (* Defines the number of rounds being considered *)
 Parameter N_rounds : nat.
 Axiom valid_N_rounds : 0 < N_rounds.
