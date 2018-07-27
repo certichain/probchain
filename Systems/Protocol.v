@@ -223,29 +223,27 @@ Canonical localstate_finType :=
       3. A number representing the current round
 *)
 Record GlobalState := mkGlobalState {
-  local_states: fixlist [eqType of ([eqType of LocalState] * [eqType of bool])]  n_max_actors ;
-  adversary: Adversary adversary_internal_state ;
-  currently_active: Addr;
-  current_round: (ordinal N_rounds);
+  global_local_states: fixlist [eqType of ([eqType of LocalState] * [eqType of bool])]  n_max_actors ;
+  global_adversary: Adversary adversary_internal_state ;
+  global_currently_active: Addr;
+  global_current_round: (ordinal N_rounds);
 }.
-About fixlist_of.
 
 Definition initLocalStates : fixlist [eqType of ([eqType of LocalState] * [eqType of bool])]  n_max_actors :=
   fixlist_of _ _ (initLocalState, false).
 
 
-
 Definition initGlobalState : GlobalState := mkGlobalState
   initLocalStates
   initAdversary
-  (Ordinal valid_n_max_actors)
+  (Ordinal (ltn_addr _ valid_n_max_actors))
   (Ordinal valid_N_rounds).
 
 Definition GlobalState_prod (g : GlobalState) :=
-  (local_states g,
-  adversary g,
-  currently_active g,
-  current_round g).
+  (global_local_states g,
+  global_adversary g,
+  global_currently_active g,
+  global_current_round g).
 
 
 Definition prod_GlobalState pair :=
@@ -374,23 +372,22 @@ Canonical world_finType :=
 
 (* A round is complete if the currently_active index is one greater than the length of the actors array *)
 Definition round_ended (w: World) :=
-(world_global_state w).1.2 = ((length (world_global_state w).1.1.1) + 1)
-. 
+ nat_of_ord (global_currently_active (world_global_state w)) = n_max_actors + 1. 
 
 Definition world_current_addr (w : World) :=
-  (world_global_state w).1.2.
+  global_currently_active (world_global_state w).
 
 Definition world_adversary (w : World) :=
-  (world_global_state w).1.1.2.
+  global_adversary (world_global_state w).
 
 Definition world_actors (w : World) :=
-  (world_global_state w).1.1.1.
+  global_local_states (world_global_state w).
 
 Definition world_round_no (w : World) :=
-  (world_global_state w).2.
+  nat_of_ord (global_current_round (world_global_state w)).
 
 Definition no_corrupted_players (state: GlobalState) :=
-    let: ((actors, adversary), active, round) := state in 
+    let: actors := global_local_states state in 
       length (filter (fun actor => actor.2) actors).
 
 

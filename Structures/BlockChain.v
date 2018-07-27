@@ -14,7 +14,7 @@ Definition Nonce := ordinal_finType Hash_value.
 (* Hashed can not be a parameter, as it has to be comparable to a numerical T *)
 Definition Hashed := ordinal_finType Hash_value.
 (* Simmilarly, Addr must be an index into the honest actors, thus not a parameter*)
-Definition Addr := ordinal n_max_actors.
+Definition Addr := ordinal (n_max_actors + 2).
 
 
 Definition validate_transactions (xs : seq Transaction) : bool :=

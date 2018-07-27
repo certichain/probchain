@@ -204,6 +204,29 @@ Definition fixlist n := n.-tuple (option A).
             exact (fixlist_length n (ntuple_tail list)).
     Defined. 
 
+
+    (* Fixpoint fixlist_filter (m : nat) (P : pred A) (list : fixlist m) : fixlist m :=
+        match m with
+            | 0 => list
+            | m'.+1 => match ntuple_head list with
+                | Some a => if P a then [tuple of (Some a) :: fixlist_filter (ntuple_tail list)]
+                                    else [tuple of fixlist_filter (ntuple_tail list)]
+                | None => [tuple of fixlist_filter (ntuple_tail list)]
+                end
+            end. *)
+    Fixpoint fixlist_filter (m : nat) (P : pred A) (list : fixlist m) : fixlist m.
+        case m eqn: H.
+            exact list.
+        case (ntuple_head list).
+            move=> a.
+            case (P a) eqn: H'.
+                exact [tuple of (Some a) :: fixlist_filter n P (ntuple_tail list)].
+            exact [tuple of None :: fixlist_filter n P (ntuple_tail list)].
+        exact [tuple of None :: fixlist_filter n P (ntuple_tail list)].
+    Defined.
+
+
+
     (* Fixpoint fixlist_contains (m : nat) (a : A) (list : fixlist m) : bool :=
         match m with
             | 0 => false
