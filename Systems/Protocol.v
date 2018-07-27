@@ -414,6 +414,29 @@ Definition adversary_activation (state: GlobalState) :=
       is_corrupt  \/ (n_max_actors = nat_of_ord active).
 
 
+Lemma round_in_range (active: Addr) : nat_of_ord active != n_max_actors.+1 -> active.+1 < n_max_actors + 2.
+Proof.
+  move=> H.
+  case active eqn: Haddr.
+  rewrite neq_ltn in H.
+  move: H => /orP H.
+  case H => [Hlt | Hgt].
+  rewrite -ltnS in Hlt.
+  rewrite -(addn1 n_max_actors) in Hlt.
+  by rewrite -(addn1 (n_max_actors + _)) -addnA in Hlt.
+
+  rewrite -ltnS in Hgt.
+  inversion Hgt.
+  rewrite -(addn1 m) in H1.
+  rewrite -addn2 in H1.
+  suff Hn a b : a < b -> b < a + 1 -> False.
+  move: (Hn _ _ i H1) => //=.
+  clear active m i Haddr H Hgt H1.
+  move=> Ha_ltb Hb_lta.
+  rewrite addnS addn0 ltnS in Hb_lta.
+  move: (leq_ltn_trans Hb_lta Ha_ltb) => H.
+  by rewrite ltnn in H.
+Qed.
 
 (* Implements the round robin - each actor activated once a round mechanism 
    Once the last actor, and then the adversary has activated, the function does
@@ -442,25 +465,7 @@ Definition update_round (state : GlobalState) : GlobalState.
   suff H' : active.+1 < n_max_actors + 2.
   exact (mkGlobalState actors adversary (Ordinal H') round).
   (* Start having to prove stuff here - is there an easier way to do this?*)
-  case active eqn: Haddr.
-  rewrite neq_ltn in H.
-  move: H => /orP H.
-  case H => [Hlt | Hgt].
-  rewrite -ltnS in Hlt.
-  rewrite -(addn1 n_max_actors) in Hlt.
-  by rewrite -(addn1 (n_max_actors + _)) -addnA in Hlt.
-
-  rewrite -ltnS in Hgt.
-  inversion Hgt.
-  rewrite -(addn1 m) in H1.
-  rewrite -addn2 in H1.
-  suff Hn a b : a < b -> b < a + 1 -> False.
-  move: (Hn _ _ i H1) => //=.
-  clear state actors adversary active round m i Haddr H Hgt H1.
-  move=> Ha_ltb Hb_lta.
-  rewrite addnS addn0 ltnS in Hb_lta.
-  move: (leq_ltn_trans Hb_lta Ha_ltb) => H.
-  by rewrite ltnn in H.
+  by apply round_in_range.
 Defined.
 
 
