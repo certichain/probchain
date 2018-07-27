@@ -388,17 +388,17 @@ Definition world_round_no (w : World) :=
 
 Definition no_corrupted_players (state: GlobalState) :=
     let: actors := global_local_states state in 
-      length (filter (fun actor => actor.2) actors).
+      fixlist_length (fixlist_filter (fun actor => actor.2) actors).
 
 
 
 (* A given world step is an honest activation if the current address
    is to a node which has not been corrupted *)
 Definition honest_activation (state: GlobalState) :=
-    let: ((actors, adversary), active, round) := state in 
-    let: default := (mkLclSt nil nil nil 0, false) in
-    (length actors) > active /\
-    let: (actor, is_corrupt) := nth default  actors active in
+    let: actors := global_local_states state in
+    let: active := global_currently_active state in
+    let: default := (initLocalState, false) in
+    let: (actor, is_corrupt) := fixlist_nth default actors active in
       ~~ is_corrupt.
 
 (* A given world step is an adversarial activation if the current address
@@ -407,21 +407,63 @@ Definition honest_activation (state: GlobalState) :=
    this is based on the fact that the bitcoin paper states that in the round
    robin scheduling, once all nodes have activated, the adversary activates *)
 Definition adversary_activation (state: GlobalState) :=
-    let: ((actors, adversary), active, round) := state in 
-    let: default := (mkLclSt nil nil nil 0, false) in
-    ((length actors) > active /\
-    let: (actor, is_corrupt) := nth default  actors active in
-      is_corrupt ) \/ (length actors = active).
+    let: actors := global_local_states state in
+    let: active := global_currently_active state in
+    let: default := (initLocalState, false) in
+    let: (actor, is_corrupt) := fixlist_nth default actors active in
+      is_corrupt  \/ (n_max_actors = nat_of_ord active).
 
 
 
 (* Implements the round robin - each actor activated once a round mechanism 
    Once the last actor, and then the adversary has activated, the function does
    not do anything else *)
-Definition update_round (state : GlobalState) : GlobalState := let: ((actors, adversary), active, round) := state in 
-  if (eqn active (length actors).+1) 
+Definition update_round (state : GlobalState) : GlobalState. 
+  (* 
+    the following proof should be equivalent to this
+    definition below:
+
+    (most of the work comes from proving that, 
+    if nat_of_ord active != n_max_actors + 1
+    then active.+1 is in ordinal (n_max_actors + 2))
+
+  let: actors := global_local_states state in 
+  let: active := global_currently_active state in
+  let: adversary := global_adversary state in
+  let: round := global_current_round state in
+  if ((nat_of_ord active) == (fixlist_length actors).+1) 
   then state
-  else ((actors,adversary), active.+1, round).
+  else mkGlobalState actors adversary active.+1 round. *)
+  case state => actors adversary active round.
+  case ((nat_of_ord active) == (n_max_actors).+1)  eqn:H.
+    exact state.
+
+  move: H =>  /eqP   /eqP H.
+  suff H' : active.+1 < n_max_actors + 2.
+  exact (mkGlobalState actors adversary (Ordinal H') round).
+  (* Start having to prove stuff here - is there an easier way to do this?*)
+  case active eqn: Haddr.
+  rewrite neq_ltn in H.
+  move: H => /orP H.
+  case H => [Hlt | Hgt].
+  rewrite -ltnS in Hlt.
+  rewrite -(addn1 n_max_actors) in Hlt.
+  by rewrite -(addn1 (n_max_actors + _)) -addnA in Hlt.
+
+  rewrite -ltnS in Hgt.
+  inversion Hgt.
+  rewrite -(addn1 m) in H1.
+  rewrite -addn2 in H1.
+  suff Hn a b : a < b -> b < a + 1 -> False.
+  move: (Hn _ _ i H1) => //=.
+  clear state actors adversary active round m i Haddr H Hgt H1.
+  move=> Ha_ltb Hb_lta.
+  rewrite addnS addn0 ltnS in Hb_lta.
+  move: (leq_ltn_trans Hb_lta Ha_ltb) => H.
+  by rewrite ltnn in H.
+Defined.
+
+
 
 Definition next_round  (state : GlobalState) : GlobalState := let: ((actors, adversary), active, round) := state in 
   if (eqn active (length actors).+1) 
