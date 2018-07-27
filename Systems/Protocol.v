@@ -534,18 +534,19 @@ Definition insert_message
 
 
 Definition insert_multicast_message 
-  (addresses: seq Addr) 
+  (addresses: fixlist [eqType of Addr] n_max_actors) 
   (bc: BlockChain) 
   (initial_state: GlobalState) : GlobalState := 
       foldr
         (fun addr state => insert_message addr bc state)
         initial_state
-        addresses.
+        (fixlist_unwrap addresses).
  
 
 
 (* insert the corresponding message into every actor's message pool *)
-Definition broadcast_message (bc : BlockChain) (state: GlobalState) : GlobalState := state.
+Definition broadcast_message (bc : BlockChain) (state: GlobalState) : GlobalState.
+Admitted. 
 
 
 (* for each message in messages, send to corresponding actor *)
