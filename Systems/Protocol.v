@@ -490,17 +490,19 @@ Defined.
 
 
 
-
 (* insert the corresponding message into the recipient's message pool *)
 Definition insert_message 
   (addr: Addr) 
   (bc: BlockChain) 
   (state: GlobalState) : GlobalState := 
-  let: ((actors, adversary), active, round) := state in 
-  let: default := (mkLclSt nil nil nil 0, false) in
-  let: (actor, corrupted) := nth default actors addr in 
-  if corrupted 
-  then
+    let: actors := global_local_states state in
+    let: adversary := global_adversary state in
+    let: active := global_currently_active state in
+    let: round := global_current_round state in
+    let: default := (initLocalState, false) in
+    let: (actor, corrupted) := fixlist_nth default actors addr in 
+    if corrupted 
+    then
       let: old_adv_state := adversary_state adversary in
       let: new_adv_state := (adversary_insert_chain adversary) old_adv_state bc in
       let: new_adversary := 
@@ -514,20 +516,20 @@ Definition insert_message
                               (adversary_send_chain adversary)
                               (adversary_send_transaction adversary)
                               (adversary_last_hashed_round adversary) in
-      ((actors, new_adversary), active, round)
+      (mkGlobalState actors new_adversary active round)
   else
     let: current_chain := honest_current_chain actor in
     let: local_transaction_pool := honest_local_transaction_pool actor in
     (* Check whether the blockchain is already in the pool *)
     let: message_pool := (honest_local_message_pool actor) in
-    if bc \in message_pool then
+    if fixlist_contains bc message_pool then
       state
     else
-      let: new_message_pool := bc :: message_pool in
+      let: new_message_pool := fixlist_insert message_pool bc in
       let: proof_of_work := honest_proof_of_work actor in 
       let: new_actor := mkLclSt current_chain local_transaction_pool new_message_pool proof_of_work in
-      let: new_actors := set_nth default actors addr (new_actor, corrupted) in
-      ((new_actors, adversary), active, round)
+      let: new_actors := fixlist_set_nth actors (new_actor, corrupted) addr in
+      (mkGlobalState new_actors adversary active round)
   .
 
 
