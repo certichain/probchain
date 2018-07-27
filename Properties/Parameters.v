@@ -6,6 +6,7 @@ Require Import ssreflect ssrbool ssrnat eqtype fintype choice ssrfun seq path.
 Parameter t_max_corrupted : nat.
 (* number of actors in the system *)
 Parameter n_max_actors : nat.
+Axiom valid_n_max_actors : 0 < n_max_actors.
 
 (* represents the length of bitstrings used in hashes - note: no actual
    bitstrings are used, but rather emulated by a value in the ordinal 

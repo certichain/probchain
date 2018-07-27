@@ -42,6 +42,12 @@ Definition fixlist n := n.-tuple (option A).
             (ncons n None [::])
             (size_ncons_nil   None n).
 
+    Definition fixlist_of n (a : A) : fixlist n:=
+        @Tuple n
+            (option A) 
+            (ncons n (Some a) [::])
+            (size_ncons_nil (Some a) n).
+
     (* I wanted to write this, but it wouldn't type check*)
     (* Fixpoint fixlist_insert (m : nat) (list : fixlist m.+1) (a : A) : fixlist m.+1 :=
         match tnth list (inord m) return fixlist m.+1  with

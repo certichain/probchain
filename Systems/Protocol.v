@@ -222,8 +222,67 @@ Canonical localstate_finType :=
          the round is complete
       3. A number representing the current round
 *)
-Definition GlobalState := ((seq (LocalState * bool) * Adversary) * Addr * nat)%type.
-Definition initGlobalState : GlobalState := ((repeat (initLocalState, false) n_max_actors, initAdversary), 0, 0).
+Record GlobalState := mkGlobalState {
+  local_states: fixlist [eqType of ([eqType of LocalState] * [eqType of bool])]  n_max_actors ;
+  adversary: Adversary adversary_internal_state ;
+  currently_active: Addr;
+  current_round: (ordinal N_rounds);
+}.
+About fixlist_of.
+
+Definition initLocalStates : fixlist [eqType of ([eqType of LocalState] * [eqType of bool])]  n_max_actors :=
+  fixlist_of _ _ (initLocalState, false).
+
+
+
+Definition initGlobalState : GlobalState := mkGlobalState
+  initLocalStates
+  initAdversary
+  (Ordinal valid_n_max_actors)
+  (Ordinal valid_N_rounds).
+
+Definition GlobalState_prod (g : GlobalState) :=
+  (local_states g,
+  adversary g,
+  currently_active g,
+  current_round g).
+
+
+Definition prod_GlobalState pair :=
+  let: ( local_states, adversary, 
+        currently_active, current_round) := pair in
+        mkGlobalState
+          local_states
+          adversary
+          currently_active
+          current_round.
+        
+
+Lemma globalstate_cancel : cancel GlobalState_prod prod_GlobalState .
+Proof.
+  by case.
+Qed.
+
+Definition globalstate_eqMixin :=
+  CanEqMixin globalstate_cancel.
+Canonical globalstate_eqType :=
+  Eval hnf in EqType (GlobalState) globalstate_eqMixin.
+
+Definition globalstate_choiceMixin :=
+  CanChoiceMixin globalstate_cancel.
+Canonical globalstate_choiceType :=
+  Eval hnf in ChoiceType (GlobalState) globalstate_choiceMixin.
+
+Definition globalstate_countMixin :=
+  CanCountMixin globalstate_cancel.
+Canonical globalstate_countType :=
+  Eval hnf in CountType (GlobalState) globalstate_countMixin.
+Definition globalstate_finMixin :=
+  CanFinMixin globalstate_cancel.
+Canonical globalstate_finType :=
+  Eval hnf in FinType (GlobalState) globalstate_finMixin.
+
+
 
 
 Record World := mkWorld {
