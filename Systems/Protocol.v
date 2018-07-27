@@ -470,12 +470,23 @@ Defined.
 
 
 
-Definition next_round  (state : GlobalState) : GlobalState := let: ((actors, adversary), active, round) := state in 
-  if (eqn active (length actors).+1) 
-  then ((actors, adversary), 0, round.+1)
-  else state.
-
-
+Definition next_round  (state : GlobalState) : GlobalState .
+  (* 
+    Once again: here is the definition of the function,
+    := let: ((actors, adversary), active, round) := state in 
+      if (eqn active n_max_actors.+1) 
+      then ((actors, adversary), 0, round.+1)
+      else state. *)
+      case state => actors adversary active round.
+      case ((nat_of_ord active) == (n_max_actors).+1)  eqn:H.
+        (* we can only update if the current round is less than the maximum rounds*)
+        case ((global_current_round state).+1 < N_rounds) eqn: Hact.
+          exact (mkGlobalState actors adversary (Ordinal (ltn_addr _ valid_n_max_actors)) (Ordinal Hact)).
+        (* if it isn't less than the maximum rounds, just return the state *)
+        exact (state).
+      (* if next round is called on a state, that has not finished execution, it does nothing*)
+      exact (state).
+Defined.
 
 
 
