@@ -1408,10 +1408,10 @@ Definition common_prefix_property (current_w : World) (k r1 r2 : nat) (a1 a2 : '
   (* players a1 a2 adopting the chains at rounds r1, r2 *)
   (exists (w' wr1 : World), 
   (* reachable initWorld w' -> reachable w' wr1 -> reachable wr1 current_w ->   *)
-    adopt_at_round w' wr1 c1 a1 r1) ->
+    adopt_at_round w' wr1 c1 (widen_ord (leq_addr _ _) a1) r1) ->
   (exists (w'' wr2 : World), 
   (* reachable initWorld w'' -> reachable w'' wr2 -> reachable wr2 current_w ->   *)
-    adopt_at_round w'' wr2 c2 a2 r2) ->
+    adopt_at_round w'' wr2 c2 (widen_ord (leq_addr _ _) a2) r2) ->
   (* then pruning k blocks from the head of c1 is a subsequence of c2*)
   prefix (drop k c1) c2.
 
@@ -1424,7 +1424,7 @@ Definition chain_quality_prop_agent (w : World) (l u : nat) (agent : Addr) :=
         length (filter (fun block => match block_is_adversarial block w with 
           | Some (is_adv) => is_adv
           | None => false
-          end) blocks)  <= u)).
+          end) (flatten (map (fun x => match x with Some x' => [:: x'] | None => [::] end) blocks)))  <= u)).
 
 
 Definition chain_quality_property (current_w : World) (l u : nat) (agent : Addr) :=
