@@ -31,6 +31,25 @@ Proof.
     by rewrite addn0.
 Qed.
 
+
+Fixpoint set_tnth (A : Type) (m : nat) (list : m.-tuple A) (a : A) (n : nat) : m.-tuple A.
+Proof.
+    induction  m  as [|m'] eqn: Hm.
+    induction n as [|n''] eqn: Hn.
+        (* 0, 0 *)
+        exact list.
+        (* 0, n.+1 *)
+        exact list.
+    case n eqn: Hn.
+        (* m.+1, 0 *)
+        exact [tuple of a :: (ntuple_tail list)].
+        (* m'.+1, n'.+1 *)
+        exact [tuple of ntuple_head list ::  set_tnth A m' (ntuple_tail list) a n0].
+Defined.
+
+
+
+
 Section fixlist.
     Variable A : eqType.
 Definition fixlist n := n.-tuple (option A).
@@ -141,20 +160,7 @@ Definition fixlist n := n.-tuple (option A).
             | 0, 0 =>  [tuple of [:: Some a] ]
        end. *)
 
-    Fixpoint fixlist_set_nth (m : nat) (list : fixlist  m) (a : A) (n : nat) : fixlist m.
-    Proof.
-        induction  m  as [|m'] eqn: Hm.
-        induction n as [|n''] eqn: Hn.
-            (* 0, 0 *)
-            exact list.
-            (* 0, n.+1 *)
-            exact list.
-        case n eqn: Hn.
-            (* m.+1, 0 *)
-            exact [tuple of (Some a) :: (ntuple_tail list)].
-            (* m'.+1, n'.+1 *)
-            exact [tuple of ntuple_head list ::  @fixlist_set_nth m' (ntuple_tail list) a n0].
-    Defined.
+    Definition fixlist_set_nth (m : nat) (list : fixlist  m) (a : A) (n : nat) : fixlist m := set_tnth list (Some a) n .
 
     (* Definition fixlist_nth (m : nat) (default : A) (list : fixlist m) (n : nat) : A :=
         if n < m then

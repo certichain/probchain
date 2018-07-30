@@ -225,14 +225,16 @@ Canonical localstate_finType :=
       3. A number representing the current round
 *)
 Record GlobalState := mkGlobalState {
-  global_local_states: fixlist [eqType of ([eqType of LocalState] * [eqType of bool])]  n_max_actors ;
+  global_local_states: n_max_actors.-tuple [eqType of ([eqType of LocalState] * [eqType of bool])]  ;
   global_adversary: Adversary adversary_internal_state ;
   global_currently_active: Addr;
   global_current_round: (ordinal N_rounds);
 }.
 
-Definition initLocalStates : fixlist [eqType of ([eqType of LocalState] * [eqType of bool])]  n_max_actors :=
-  fixlist_of _ _ (initLocalState, false).
+Definition initLocalStates := 
+        Tuple 
+          (size_ncons_nil (initLocalState, false) n_max_actors ).
+
 
 
 Definition initGlobalState : GlobalState := mkGlobalState
@@ -390,30 +392,37 @@ Definition world_round_no (w : World) :=
 
 Definition no_corrupted_players (state: GlobalState) :=
     let: actors := global_local_states state in 
-      fixlist_length (fixlist_filter (fun actor => actor.2) actors).
+      length (filter (fun actor => actor.2) actors).
 
 
 
 (* A given world step is an honest activation if the current address
    is to a node which has not been corrupted *)
-Definition honest_activation (state: GlobalState) :=
-    let: actors := global_local_states state in
-    let: active := global_currently_active state in
-    let: default := (initLocalState, false) in
-    let: (actor, is_corrupt) := fixlist_nth default actors active in
-      ~~ is_corrupt.
+Definition honest_activation (state: GlobalState) : bool.
+    case state => actors _ active _.
+    case (active < n_max_actors) eqn: H.
+      case (tnth actors, (Ordinal H)) => f x.
+      apply f in x as pair.
+      case pair => _ is_corrupt.
+      exact (~~ is_corrupt).
+    exact false.
+    Defined.
+
 
 (* A given world step is an adversarial activation if the current address
    is to a node which has been corrupted, or the current address is equal to
    the length of the list 
    this is based on the fact that the bitcoin paper states that in the round
    robin scheduling, once all nodes have activated, the adversary activates *)
-Definition adversary_activation (state: GlobalState) :=
-    let: actors := global_local_states state in
-    let: active := global_currently_active state in
-    let: default := (initLocalState, false) in
-    let: (actor, is_corrupt) := fixlist_nth default actors active in
-      is_corrupt  \/ (n_max_actors = nat_of_ord active).
+Lemma adversary_activation (state: GlobalState): bool.
+    case state => actors _ active _.
+    case (active < n_max_actors) eqn: H.
+      case (tnth actors (Ordinal H)) => _ is_corrupted.
+      exact is_corrupted.
+    case (n_max_actors == active) eqn: H'.
+      exact true.
+    exact false.
+    
 
 
 Lemma round_in_range (active: Addr) : nat_of_ord active != n_max_actors.+1 -> active.+1 < n_max_actors + 2.
@@ -502,7 +511,7 @@ Definition insert_message
     let: active := global_currently_active state in
     let: round := global_current_round state in
     let: default := (initLocalState, false) in
-    let: (actor, corrupted) := fixlist_nth default actors addr in 
+    let: (actor, corrupted) := nth default actors addr in 
     if corrupted 
     then
       let: old_adv_state := adversary_state adversary in
@@ -530,7 +539,7 @@ Definition insert_message
       let: new_message_pool := fixlist_insert message_pool bc in
       let: proof_of_work := honest_proof_of_work actor in 
       let: new_actor := mkLclSt current_chain local_transaction_pool new_message_pool proof_of_work in
-      let: new_actors := fixlist_set_nth actors (new_actor, corrupted) addr in
+      let: new_actors := set_tnth actors (new_actor, corrupted) addr in
       (mkGlobalState new_actors adversary active round)
   .
 
@@ -1343,28 +1352,27 @@ Definition no_successful_rounds (w : World) (from : nat) (to : nat) : nat :=
     (fun round => bounded_successful_round w round)
     (iota from to)).
 
-Definition actor_n_chain_length (w : World) (n : nat) : nat :=
-  let: (actor, is_corrupted) := fixlist_nth initLocalState ((world_global_state w).1.1.1) n in
+Definition actor_n_chain_length (w : World) (n : 'I_n_max_actors) : nat :=
+  let: (actor, is_corrupted) := tnth (global_local_states (world_global_state w)) n in
   length (honest_current_chain actor) .
 
 Definition world_round (w : World) : nat := 
-  let: ((_, _), _, round) := world_global_state w in
-    round
+  let: state := world_global_state w in
+  global_current_round state
 .
 
-Definition actor_n_is_corrupt (w:World) (n:nat) : bool :=
-  let: (actor, is_corrupted) := nth (mkLclSt nil nil nil 0, true) ((world_global_state w).1.1.1) n in
+Definition actor_n_is_corrupt (w:World) (n:'I_n_max_actors) : bool :=
+  let: (actor, is_corrupted) := tnth  (global_local_states (world_global_state w)) n in
   is_corrupted
 .
 
 
 Lemma chain_growth (w : World) (round : nat) (l : nat) :
   (world_round w) = round ->
-  (exists (n : nat), (n < n_max_actors) /\ (actor_n_chain_length w n = l) /\ ~~ (actor_n_is_corrupt w n)) ->
+  (exists (n : 'I_n_max_actors), (n < n_max_actors) /\ (actor_n_chain_length w n = l) /\ ~~ (actor_n_is_corrupt w n)) ->
   (forall (future_w : World), 
     ((world_round future_w) >= round + delta - 1) ->
-    (forall (n : nat), n < n_max_actors -> 
-      ~~ (actor_n_is_corrupt w n) ->
+    (forall (n : 'I_n_max_actors), ~~ (actor_n_is_corrupt w n) ->
       actor_n_chain_length w n >= l + no_successful_rounds w round ((world_round future_w) - 1))).
 Proof.
 Admitted.
@@ -1391,7 +1399,7 @@ Definition adopt_at_round (w' : World) (w : World) (bc : BlockChain) (agent: Add
         else false
     end.
 
-Definition common_prefix_property (current_w : World) (k r1 r2 : nat) (a1 a2 : Addr) (c1 c2 : BlockChain) :=
+Definition common_prefix_property (current_w : World) (k r1 r2 : nat) (a1 a2 : 'I_n_max_actors) (c1 c2 : BlockChain) :=
   (* current w is valid *)
   (world_round_no current_w) >= r2 ->
   r1 <= r2 ->
