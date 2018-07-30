@@ -1,5 +1,5 @@
 From mathcomp.ssreflect
-Require Import ssreflect ssrbool ssrnat seq ssrfun eqtype.
+Require Import ssreflect ssrbool ssrnat eqtype fintype choice ssrfun seq path finfun.
 
 Require Import Coq.Structures.OrderedTypeEx.
 Require Import OrderedType.
@@ -86,3 +86,8 @@ Fixpoint all_consecutive_sequences {A} (xs : list A) (l : nat) (p : list A -> bo
       end.
 
 
+Definition mod_incr (n : nat) (pf: n > 0) (m : 'I_n) : 'I_n. 
+  case_eq (m < n)=> H.
+  exact (Ordinal H).
+  exact (Ordinal pf).
+Qed.

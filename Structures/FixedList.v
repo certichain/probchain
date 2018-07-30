@@ -112,8 +112,26 @@ Definition fixlist n := n.-tuple (option A).
         (* m'.+1, n0.+1 *)
         move=> list.
             exact [tuple of ntuple_head list ::  @fixlist_remove m' (ntuple_tail list) n0].
-Qed.
-  
+    Defined.
+
+    Lemma fixlist_rem (m : nat) (list: fixlist m) (a : A) : fixlist m.
+        induction m.
+            (* if m is 0, return empty list *)
+            exact list.
+        (* assume we have a rem function for lists of length m*)
+        (* consider a list of length m.+1 *)
+        case (ntuple_head list) eqn: H.
+            (* if it's head is not none, *)
+            case (s == a) eqn: H'.
+                (* if the value of the head is equal to the value being removed*)
+                (* return a list with None in the place of the first value, and all subsequent ones removed*)
+                exact [tuple of None :: IHm (ntuple_tail list)].
+            (* if the value of the head is not equal, just keep the head, remve from the tail*)
+            exact [tuple of (Some s) :: IHm (ntuple_tail list)].
+        (* if the value of the head is none, just remove from the tail*)
+        exact [tuple of None :: IHm (ntuple_tail list)].
+    Defined.
+
 
     (* Fixpoint fixlist_set_nth (m : nat) (list : fixlist  m.+1) (a : A) (n : nat) : fixlist m.+1 :=
          match m, n with

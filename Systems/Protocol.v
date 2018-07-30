@@ -156,6 +156,7 @@ Canonical adversary_finType :=
   Eval hnf in FinType (Adversary adversary_internal_state) adversary_finMixin.
 
 
+Definition local_TransactionPool := fixlist Transaction Honest_TransactionPool_size.
 
 (* A node's local state consists of 
     1. it's currently held chain
@@ -164,7 +165,7 @@ Canonical adversary_finType :=
     4. an extra parameter to persist proof of work calculations between rounds. *)
 Record LocalState := mkLclSt {
   honest_current_chain: BlockChain;
-  honest_local_transaction_pool: fixlist Transaction Honest_TransactionPool_size;
+  honest_local_transaction_pool: local_TransactionPool;
   honest_local_message_pool: fixlist [eqType of BlockChain] Honest_MessagePool_size ;
   honest_proof_of_work: ordinal Maximum_proof_of_work;
 }.
@@ -689,7 +690,7 @@ Definition honest_max_valid (state: LocalState) (oracle_state: OracleState) : Bl
   may return a blockrecord (list containing x < MAX_BLOCK_LENGTH) and the transaction pool with
   the corresponding values removed
 *)
-Definition find_maximal_valid_subset  (transactions : TransactionPool) (blk: BlockChain) : (BlockRecord * TransactionPool) :=
+Definition find_maximal_valid_subset  (transactions : local_TransactionPool) (blk: BlockChain) : (BlockRecord * local_TransactionPool) :=
 (* naive approach - iterate through transactions and only include those that are valid 
    specifically it's naive because it assumes that all transactions are delivered in order
     (i.e if invalid, reordering the sequence won't change whether it's valid or not)
@@ -746,13 +747,13 @@ Definition honest_attempt_hash
           if hash < T_Hashing_Difficulty then
             (* New block has been minted *)
             let: new_block := Bl nonce value selected_transactions proof_of_work in
-            let: new_chain := new_block :: best_chain in
+            let: new_chain := fixlist_insert best_chain new_block in
             let: new_state :=
                   mkLclSt 
                     new_chain
                     remaining
-                    (rem best_chain (honest_local_message_pool state))
-                    0 in (* reset the proof of work *)
+                    (fixlist_rem (honest_local_message_pool state) best_chain)
+                    (Ordinal valid_Maximum_proof_of_work) in (* reset the proof of work *)
             (new_state, Some(BroadcastMsg new_chain), new_oracle_state, Some new_block, Some new_chain)
           else
             (* Constructed block did not meet the difficulty level *)
@@ -765,7 +766,7 @@ Definition honest_attempt_hash
                       (honest_current_chain state) 
                       (honest_local_transaction_pool state)
                       (honest_local_message_pool state)
-                      ((honest_proof_of_work state).+1) in
+                      (mod_incr Maximum_proof_of_work valid_Maximum_proof_of_work (honest_proof_of_work state)) in
               (new_state, None, new_oracle_state, None, None)
             else 
               (* Otherwise we need to move the best chain from the message pool to current*)
@@ -773,8 +774,9 @@ Definition honest_attempt_hash
                     mkLclSt 
                       best_chain 
                       (honest_local_transaction_pool state)
-                      (rem best_chain (honest_local_message_pool state))
-                      ((honest_proof_of_work state).+1) in
+                      (fixlist_rem (honest_local_message_pool state) best_chain)
+                      (mod_incr Maximum_proof_of_work valid_Maximum_proof_of_work (honest_proof_of_work state))
+                      in
               (new_state, Some(BroadcastMsg best_chain), new_oracle_state, None, None)
         else 
           if best_chain == (honest_current_chain state)
@@ -784,7 +786,7 @@ Definition honest_attempt_hash
                   mkLclSt 
                     best_chain 
                     (honest_local_transaction_pool state)
-                    (rem best_chain (honest_local_message_pool state))
+                    (fixlist_rem (honest_local_message_pool state) best_chain )
                     (honest_proof_of_work state) in
             (new_state, Some(BroadcastMsg best_chain), oracle_state, None, None)
     .
