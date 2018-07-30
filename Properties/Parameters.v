@@ -40,6 +40,10 @@ Parameter Honest_MessagePool_size: nat.
 
 (* A range from 0 to n where n is the maximum hash value*)
 Definition Hash_value := 2^Hash_length_k.
+Lemma hash_valid_range : 0 < 2 ^ Hash_length_k.
+    by rewrite expn_gt0; apply/orP; left.
+Qed.
+
 
 
 
@@ -56,8 +60,10 @@ Axiom transaction_valid_consistent : forall (x y : Transaction) (ys : seq Transa
     2. the transaction would be invalid for any at all
 *)
 Axiom transaction_inherently_invalid : forall (x : Transaction) (ys : seq Transaction), 
-  not (Transaction_valid x [::]) -> not (Transaction_valid x ys).
+  ~~ (Transaction_valid x [::]) -> ~~ (Transaction_valid x ys).
 
+Axiom transaction_reject_duplicate : forall (x : Transaction) (xs : seq Transaction),
+    x \in xs -> ~~ (Transaction_valid x xs).
 
 
 (* The Blockmap finite structure will be used to store all hashed blocks

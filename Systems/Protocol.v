@@ -681,24 +681,42 @@ Definition honest_max_valid (state: LocalState) (oracle_state: OracleState) : Bl
   (fixlist_unwrap (honest_local_message_pool state)).
 
 
-Definition find_maximal_valid_subset  (transactions : seq Transaction) (blk: BlockChain) : (seq Transaction * seq Transaction) :=
+(* Bitcoin Backbone Paper - Pg.29
+  Parses v as a sequence of transactions and returns the largest subsequence that is valid
+  with respect to the chain, and whoose transactions are not included in xc
+
+  the following function, when given an honest node's transaction pool and chain, 
+  may return a blockrecord (list containing x < MAX_BLOCK_LENGTH) and the transaction pool with
+  the corresponding values removed
+*)
+Definition find_maximal_valid_subset  (transactions : TransactionPool) (blk: BlockChain) : (BlockRecord * TransactionPool) :=
 (* naive approach - iterate through transactions and only include those that are valid 
    specifically it's naive because it assumes that all transactions are delivered in order
     (i.e if invalid, reordering the sequence won't change whether it's valid or not)
    but I believe this is a correct assumption as transactions are delivered immediately *)
    let chain_transactions := BlockChain_unwrap blk in
    foldr
-      (fun transaction prev_pair => 
+      (fun index prev_pair => 
             let: (already_included, remaining) := prev_pair in
-            if Transaction_valid transaction (already_included ++ chain_transactions)
-              then (transaction :: already_included, remaining)
-              else (already_included, transaction :: remaining))
-      ([::], [::])
-      transactions.
+            let: o_transaction := fixlist_get_nth remaining index in
+            if fixlist_length already_included == Transactions_per_block 
+              (* if the block record is full, just skip to the end*)
+              then (already_included, remaining) 
+              (* if it isn't full, *)
+              else match o_transaction with
+                | None =>  (already_included, remaining)
+                (* and the nth field is present*)
+                | Some transaction =>
+                  if Transaction_valid transaction ((fixlist_unwrap already_included) ++ chain_transactions)
+                    (* and the transaction is valid*)
+                    (* insert it into the blockrecord *)
+                    then (fixlist_insert already_included transaction, fixlist_remove remaining index )
+                    (* otherwise don't*)
+                    else (already_included, remaining)
+                end)
+      (initBlockRecord, transactions)
+      (iota 0 TransactionPool_length).
 
-      Lemma hash_valid_range : 0 < 2 ^ Hash_length_k.
-        by rewrite expn_gt0; apply/orP; left.
-      Qed.
 
 Definition retrieve_head_link (b : BlockChain) (oracle_state : OracleState) : option Hashed :=
   match fixlist_unwrap b with

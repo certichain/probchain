@@ -33,7 +33,6 @@ Qed.
 
 Section fixlist.
     Variable A : eqType.
-    Variable n' : nat.
 Definition fixlist n := n.-tuple (option A).
 
     Definition fixlist_empty n : fixlist n :=
@@ -96,29 +95,25 @@ Definition fixlist n := n.-tuple (option A).
     *)
 
 
-    Fixpoint fixlist_remove (m : nat) (list : fixlist m.+1) (n : nat) : fixlist m.+1.
+    Fixpoint fixlist_remove (m : nat) (list : fixlist m) (n : nat) : fixlist m.
         move: list.
         induction  m  as [|m'] eqn: Hm.
         induction n as [|n''] eqn: Hn.
             (* 0, 0 *)
             move=> _.
-            exact [tuple of [:: None]].
+            exact [tuple of [::]].
             (* 0, n.+1 *)
             move=> list.
             exact list.
         case n eqn: Hn.
             (*m'.+1, 0 *)
             move=> list.
-            exact [tuple of ntuple_head list ::  @fixlist_remove m' (ntuple_tail list) n'].
-        (* m'.+1, n'.+1 *)
+            exact [tuple of None :: (ntuple_tail list)].
+        (* m'.+1, n0.+1 *)
         move=> list.
-        case (tnth list (inord m')) eqn: Hs; first last. 
-            (* None *)
-            exact list.
-        (* Some v *)
-        exact [tuple of None :: (ntuple_tail list)].
-    Defined.
-   
+            exact [tuple of ntuple_head list ::  @fixlist_remove m' (ntuple_tail list) n0].
+Qed.
+  
 
     (* Fixpoint fixlist_set_nth (m : nat) (list : fixlist  m.+1) (a : A) (n : nat) : fixlist m.+1 :=
          match m, n with
