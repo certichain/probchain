@@ -7,12 +7,13 @@
 From mathcomp.ssreflect
 Require Import ssreflect ssrbool ssrnat eqtype fintype choice ssrfun seq path finfun.
 
+
 From mathcomp.ssreflect
 Require Import tuple.
 
 
 From Probchain
-Require Import BlockChain OracleState BlockMap InvMisc Parameters FixedList.
+Require Import BlockChain OracleState BlockMap InvMisc Parameters FixedList FixedMap.
 
 Set Implicit Arguments.
 
@@ -311,7 +312,7 @@ Definition initWorld :=
       initMessagePool  
       initWorldMessagePool 
       oraclestate_new 
-      blockmap_new 
+      BlockMap_new 
       initWorldChainHistory.
 
 Definition World_prod w :=
@@ -726,6 +727,72 @@ Definition retrieve_head_link (b : BlockChain) (oracle_state : OracleState) : op
   end.
 
 
+    
+
+Definition update_transaction_pool (addr : Addr) (initial_state : LocalState) (transaction_pool: TransactionPool) : LocalState :=
+  foldr
+  (fun (txMsg : TransactionMessage) state => 
+      match txMsg with
+        | BroadcastTransaction tx => 
+             if tx \in fixlist_unwrap (honest_local_transaction_pool state) 
+              then state
+              else 
+                mkLclSt 
+                  (honest_current_chain state)
+                  (fixlist_insert (honest_local_transaction_pool state) tx)
+                  (honest_local_message_pool state)
+                  (honest_proof_of_work state)
+        | MulticastTransaction (tx, recipients) =>
+          if addr \in (fixlist_unwrap recipients)
+            then if tx \in fixlist_unwrap (honest_local_transaction_pool state) 
+              then state
+              else 
+                mkLclSt 
+                  (honest_current_chain state)
+                  (fixlist_insert (honest_local_transaction_pool state) tx)
+                  (honest_local_message_pool state)
+                  (honest_proof_of_work state)
+            else state
+      end)
+  initial_state
+  (fixlist_unwrap transaction_pool).
+
+Definition update_adversary_transaction_pool  (initial_adv: Adversary adversary_internal_state) (transaction_pool: TransactionPool) : Adversary adversary_internal_state:=
+    foldr 
+      (fun (txMsg : TransactionMessage) adversary => 
+      let: adv_state := adversary_state adversary in
+      let: partial_adv := (adversary_insert_transaction adversary) adv_state in
+        match txMsg with
+          | BroadcastTransaction tx => 
+            let: new_adv_state := partial_adv tx in
+                            mkAdvrs
+                              new_adv_state
+                              (adversary_state_change adversary)
+                              (adversary_insert_transaction adversary)
+                              (adversary_insert_chain adversary)
+                              (adversary_generate_block adversary)
+                              (adversary_provide_block_hash_result adversary)
+                              (adversary_send_chain adversary)
+                              (adversary_send_transaction adversary)
+                              (adversary_last_hashed_round adversary) 
+          | MulticastTransaction (tx, _) =>
+            let: new_adv_state := partial_adv tx in
+                            mkAdvrs
+                              new_adv_state
+                              (adversary_state_change adversary)
+                              (adversary_insert_transaction adversary)
+                              (adversary_insert_chain adversary)
+                              (adversary_generate_block adversary)
+                              (adversary_provide_block_hash_result adversary)
+                              (adversary_send_chain adversary)
+                              (adversary_send_transaction adversary)
+                              (adversary_last_hashed_round adversary) 
+        end)
+      initial_adv
+      (fixlist_unwrap transaction_pool).
+
+
+
 (* Implementation of the bitcoin backbone protocol *)
 Definition honest_attempt_hash  
       (hash_state: Hashed * OracleState) 
@@ -791,69 +858,6 @@ Definition honest_attempt_hash
             (new_state, Some(BroadcastMsg best_chain), oracle_state, None, None)
     .
 
-    
-
-Definition update_transaction_pool (addr : Addr) (initial_state : LocalState) (transaction_pool: TransactionPool) : LocalState :=
-  foldr
-  (fun (txMsg : TransactionMessage) state => 
-      match txMsg with
-        | BroadcastTransaction tx => 
-             if tx \in (honest_local_transaction_pool state) 
-              then state
-              else 
-                mkLclSt 
-                  (honest_current_chain state)
-                  (tx :: (honest_local_transaction_pool state))
-                  (honest_local_message_pool state)
-                  (honest_proof_of_work state)
-        | MulticastTransaction (tx, recipients) =>
-          if addr \in recipients 
-            then if tx \in (honest_local_transaction_pool state) 
-              then state
-              else 
-                mkLclSt 
-                  (honest_current_chain state)
-                  (tx :: (honest_local_transaction_pool state))
-                  (honest_local_message_pool state)
-                  (honest_proof_of_work state)
-            else state
-      end)
-  initial_state
-  transaction_pool.
-
-Definition update_adversary_transaction_pool  (initial_adv: Adversary) (transaction_pool: TransactionPool) : Adversary :=
-    foldr 
-      (fun (txMsg : TransactionMessage) adversary => 
-      let: adv_state := adversary_state adversary in
-      let: partial_adv := (adversary_insert_transaction adversary) adv_state in
-        match txMsg with
-          | BroadcastTransaction tx => 
-            let: new_adv_state := partial_adv tx in
-                            mkAdvrs
-                              new_adv_state
-                              (adversary_state_change adversary)
-                              (adversary_insert_transaction adversary)
-                              (adversary_insert_chain adversary)
-                              (adversary_generate_block adversary)
-                              (adversary_provide_block_hash_result adversary)
-                              (adversary_send_chain adversary)
-                              (adversary_send_transaction adversary)
-                              (adversary_last_hashed_round adversary) 
-          | MulticastTransaction (tx, _) =>
-            let: new_adv_state := partial_adv tx in
-                            mkAdvrs
-                              new_adv_state
-                              (adversary_state_change adversary)
-                              (adversary_insert_transaction adversary)
-                              (adversary_insert_chain adversary)
-                              (adversary_generate_block adversary)
-                              (adversary_provide_block_hash_result adversary)
-                              (adversary_send_chain adversary)
-                              (adversary_send_transaction adversary)
-                              (adversary_last_hashed_round adversary) 
-        end)
-      initial_adv
-      transaction_pool.
 
 
 
@@ -1250,18 +1254,18 @@ Definition successful_round (w : World) (r : nat) : bool :=
   length
     (filter
       (fun block_pair =>
-        let: (block, is_corrupt, hash_round) := block_pair in  
+        let: (is_corrupt, hash_round) := block_pair in  
       (hash_round  == r) && (~~ is_corrupt))
-      (world_block_history w)) > 0.
+      (BlockMap_blocks (world_block_history w))) > 0.
 
 
 Definition unsuccessful_round (w : World) (r : nat) :=
   length
     (filter
       (fun block_pair =>
-        let: (block, is_corrupt, hash_round) := block_pair in  
+        let: (is_corrupt, hash_round) := block_pair in  
       (hash_round  == r) && (~~ is_corrupt))
-      (world_block_history w)) == 0.
+      (BlockMap_blocks (world_block_history w))) == 0.
 
 
 
@@ -1269,64 +1273,66 @@ Definition uniquely_successful_round (w : World) (r : nat) :=
   length
     (filter
       (fun block_pair =>
-        let: (block, is_corrupt, hash_round) := block_pair in  
+        let: (is_corrupt, hash_round) := block_pair in  
       (hash_round  == r) && (~~ is_corrupt))
-      (world_block_history w)) == 1.
+      (BlockMap_blocks (world_block_history w))) == 1.
 
 
 
 Definition bounded_successful_round (w : World) (r : nat) :=
   (* (forallb (r' : nat), (r' < r) && (r' >= r - delta) -> unsuccessful_round w r') &&   *)
-  (forallb (fun r' => unsuccessful_round w r') (iota (r - delta) (r - 1))) &&  
+  (all (fun r' => unsuccessful_round w r') (iota (r - delta) (r - 1))) &&  
     successful_round w r.
 
 
 Definition bounded_uniquely_successful_round (w : World) (r : nat) :=
   (* (forall (r' : nat), ((r' <= r + delta) && (r' >= r - delta) && (r' != r)) -> unsuccessful_round w r') /\ *)
-  (forallb (fun r' => (unsuccessful_round w r') || (r' == r)) (iota (r - delta) (r + delta))) &&
+  (all (fun r' => (unsuccessful_round w r') || (r' == r)) (iota (r - delta) (r + delta))) &&
     (uniquely_successful_round w r).
 
 
 Definition adversarial_block_count (w : World) (r : nat) :=
   length (filter
       (fun block_pair =>
-        let: (block, is_corrupt, hash_round) := block_pair in  
+        let: (is_corrupt, hash_round) := block_pair in  
       (hash_round  == r) && is_corrupt)
-      (world_block_history w)).
+      (BlockMap_blocks (world_block_history w))).
 
 Definition nth_block_is_honest (c : BlockChain) (n : nat) (w : World) :=
-  ~~ (block_is_adversarial (nth (Bl 0 0 [::] 0) c n) w).
+  match (fixlist_get_nth c n) with
+    | Some value => ~~ block_is_adversarial value w
+    | None => false
+  end.
 
 
 Definition nth_block_hashed_in_a_uniquely_successful_round (w : World) (chain : BlockChain) (n : nat) :=
-  if length chain <= n
-    then false
-    else 
-      let: block := (nth (Bl 0 0 [::] 0) chain n) in
-      let: round := block_hash_round block w in
-      bounded_uniquely_successful_round w round.
+      let: o_block := (fixlist_get_nth chain n) in
+      match o_block with
+        | None => None 
+        | Some block => 
+          let: round := block_hash_round block w in
+          Some(bounded_uniquely_successful_round w round)
+        end.
     
 Definition nth_block_is_adversarial (w : World) (chain : BlockChain) (n : nat) :=
-  if length chain <= n 
-    then false
-    else
-      let: block := (nth (Bl 0 0 [::] 0) chain n) in
-      block_is_adversarial block w.
+      let: o_block := (fixlist_get_nth chain n) in
+      match o_block with
+        | None => None
+        | Some block => block_is_adversarial block w
+        end.
+ 
 
-Definition nth_block_equals (w : World) (chain : BlockChain) (n : nat) (block : Block) :=
-  if length chain <= n
-    then false
-    else
-      let: other_block := (nth (Bl 0 0 [::] 0) chain n) in
-      other_block == block.
-
+Definition nth_block_equals (w : World) (chain : BlockChain) (n : nat) (block : option Block) :=
+      let: o_block := (fixlist_get_nth chain n) in
+      o_block == block.
+      
 Definition nth_block (w : World) (chain : BlockChain) (n : nat) :=
-  (nth (Bl 0 0 [::] 0) chain n).
+  (fixlist_get_nth chain n).
 
 Lemma unique_round (w : World) (n : nat) (chain : BlockChain) :
-    chain \in (world_chain_history w) -> length chain > n -> nth_block_is_honest chain n w  -> nth_block_hashed_in_a_uniquely_successful_round w chain n ->
+    chain \in (fixlist_unwrap (world_chain_history w)) -> length chain > n -> nth_block_is_honest chain n w  -> nth_block_hashed_in_a_uniquely_successful_round w chain n ->
     (forall (other_chain : BlockChain), 
-    other_chain \in (world_chain_history w) -> 
+    other_chain \in (fixlist_unwrap (world_chain_history w)) -> 
     length other_chain > n -> 
     nth_block_is_adversarial w other_chain n  \/ nth_block_equals w other_chain n (nth_block w chain n)).
 Admitted.
@@ -1338,7 +1344,7 @@ Definition no_successful_rounds (w : World) (from : nat) (to : nat) : nat :=
     (iota from to)).
 
 Definition actor_n_chain_length (w : World) (n : nat) : nat :=
-  let: (actor, is_corrupted) := nth (mkLclSt nil nil nil 0, false) ((world_global_state w).1.1.1) n in
+  let: (actor, is_corrupted) := fixlist_nth initLocalState ((world_global_state w).1.1.1) n in
   length (honest_current_chain actor) .
 
 Definition world_round (w : World) : nat := 

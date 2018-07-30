@@ -25,10 +25,50 @@ Definition validate_transactions (xs : seq Transaction) : bool :=
 
 Inductive TransactionMessage := 
   | BroadcastTransaction of Transaction
-  | MulticastTransaction of (Transaction * (seq Addr)).
+  | MulticastTransaction of (Transaction * (fixlist [eqType of Addr] n_max_actors)).
 
-Definition TransactionPool := fixlist Transaction TransactionPool_length.
-Definition initTransactionPool : TransactionPool := fixlist_empty Transaction TransactionPool_length .
+Definition transaction_message_sum (m : TransactionMessage) := match m with
+    | MulticastTransaction (addr, bc) =>  inl (addr, bc)
+    | BroadcastTransaction bc      => inr bc
+    end.
+
+Definition sum_transaction_message m := match m with
+    | inl (addr, bc) => MulticastTransaction (addr, bc)
+    | inr bc      => BroadcastTransaction bc
+    end.
+ 
+Lemma transaction_message_cancel : cancel transaction_message_sum sum_transaction_message.
+Proof.
+  case.
+  by [].
+  move=> [addr bc]  //=.
+Qed.
+
+Definition transaction_message_eqMixin :=
+  CanEqMixin transaction_message_cancel.
+Canonical transaction_message_eqType :=
+  Eval hnf in EqType TransactionMessage transaction_message_eqMixin.
+
+Definition transaction_message_choiceMixin :=
+  CanChoiceMixin transaction_message_cancel.
+Canonical transaction_message_choiceType :=
+  Eval hnf in ChoiceType TransactionMessage transaction_message_choiceMixin.
+
+Definition transaction_message_countMixin :=
+  CanCountMixin transaction_message_cancel.
+Canonical transaction_message_countType :=
+  Eval hnf in CountType TransactionMessage transaction_message_countMixin.
+  
+Definition transaction_message_finMixin :=
+  CanFinMixin transaction_message_cancel.
+Canonical transaction_message_finType :=
+  Eval hnf in FinType TransactionMessage transaction_message_finMixin.
+
+
+
+
+Definition TransactionPool := fixlist [eqType of TransactionMessage] TransactionPool_length.
+Definition initTransactionPool : TransactionPool := fixlist_empty [eqType of TransactionMessage] TransactionPool_length .
 
 
 Definition BlockRecord := fixlist Transaction Transactions_per_block.
@@ -241,10 +281,6 @@ Qed.
 Definition message_eqMixin := @EqMixin Message message_eq message_eqP.
 Canonical message_eqType := Eval hnf in EqType Message message_eqMixin.
 
-About sum_enum.
-(*
-  TODO : finitize message
-*)
 Definition message_sum (m : Message) := match m with
     | MulticastMsg addr bc => inl (addr, bc)
     | BroadcastMsg bc      => inr bc
