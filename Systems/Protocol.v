@@ -546,6 +546,7 @@ Definition insert_multicast_message
 
 (* insert the corresponding message into every actor's message pool *)
 Definition broadcast_message (bc : BlockChain) (state: GlobalState) : GlobalState.
+(* TODO(Kiran): Complete this proof. *)
 Admitted. 
 
 
@@ -573,7 +574,7 @@ Definition update_message_pool_queue (message_list_queue: seq (seq Message)) (ne
       (* else branch shouldn't be called, as the queue should always be at a fixed size *)
   else ([::], new_message_list :: nil).
 
-Definition update_adversary_round (adversary : Adversary) (round : nat) : Adversary :=
+Definition update_adversary_round (adversary : Adversary adversary_internal_state) (round : 'I_N_rounds) : Adversary adversary_internal_state :=
   mkAdvrs
     (adversary_state adversary)
     (adversary_state_change adversary)
@@ -591,9 +592,9 @@ Definition update_adversary_round (adversary : Adversary) (round : nat) : Advers
     
 (* Small wrapper around arbitrary adversary strategy function*)
 Definition adversary_attempt_hash 
-    (adversary : Adversary) 
+    (adversary : Adversary adversary_internal_state) 
     (inflight_messages : MessagePool) 
-    (hash_state : Hashed * OracleState) : (Adversary * OracleState * option Block) :=
+    (hash_state : Hashed * OracleState) : (Adversary adversary_internal_state * OracleState * option Block) :=
   let: (new_hash, oracle_state) := hash_state in
   (* Adversary can generate the block however they want *)
   let: (adversary_partial, (nonce, hashed, transactions, pow)) := (adversary_generate_block adversary) (adversary_state adversary) inflight_messages in
@@ -629,7 +630,7 @@ Definition adversary_attempt_hash
 
 
 Definition validate_blockchain_links (bc : BlockChain) (oracle_state : OracleState) : bool :=
-  match bc with
+  match fixlist_unwrap bc with
     | [::] => true (* Vacuously true *)
     | h :: t =>
         let: (_, result) := 
@@ -661,7 +662,7 @@ Definition validate_blockchain (bc : BlockChain) (oracle_state: OracleState) : b
 (* finds the longest valid chain for a node *)
 Definition honest_max_valid (state: LocalState) (oracle_state: OracleState) : BlockChain :=
   foldr 
-  (fun new_chain best_chain => 
+  (fun (new_chain best_chain : BlockChain) => 
     (* First check whether the chain is valid *)
     if validate_blockchain new_chain oracle_state
       (* If it's longer, adopt it *)
@@ -670,14 +671,14 @@ Definition honest_max_valid (state: LocalState) (oracle_state: OracleState) : Bl
           (* in cases where the lengths are equal... *)
           else if length new_chain == length best_chain
             (* Use the equiv of FCR to conclude *)
-            then if BlockChain_compare_lt best_chain new_chain 
+            then if BlockChain_compare_lt best_chain new_chain
               then new_chain
               else best_chain
             else best_chain
       else best_chain 
   )
   (honest_current_chain state)
-  (honest_local_message_pool state).
+  (fixlist_unwrap (honest_local_message_pool state)).
 
 
 Definition find_maximal_valid_subset  (transactions : seq Transaction) (blk: BlockChain) : (seq Transaction * seq Transaction) :=
@@ -695,9 +696,13 @@ Definition find_maximal_valid_subset  (transactions : seq Transaction) (blk: Blo
       ([::], [::])
       transactions.
 
+      Lemma hash_valid_range : 0 < 2 ^ Hash_length_k.
+        by rewrite expn_gt0; apply/orP; left.
+      Qed.
+
 Definition retrieve_head_link (b : BlockChain) (oracle_state : OracleState) : option Hashed :=
-  match b with
-    | [::] => Some(0)
+  match fixlist_unwrap b with
+    | [::] => Some (Ordinal hash_valid_range)
     | h :: t => verify_hash h oracle_state
   end.
 
