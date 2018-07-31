@@ -80,5 +80,33 @@ Section fin_fixmap.
     Qed.
 
 
+    Definition finmap_eqMixin :=
+    CanEqMixin finmap_cancel.
+    Canonical finmap_eqType :=
+    Eval hnf in EqType (finmap) finmap_eqMixin.
+
+    Definition finmap_choiceMixin :=
+    CanChoiceMixin finmap_cancel.
+    Canonical finmap_choiceType :=
+    Eval hnf in ChoiceType (finmap) finmap_choiceMixin.
+
+    Definition finmap_countMixin :=
+    CanCountMixin finmap_cancel.
+    Canonical finmap_countType :=
+    Eval hnf in CountType (finmap) finmap_countMixin.
+    Definition finmap_finMixin :=
+    CanFinMixin finmap_cancel.
+    Canonical finmap_finType :=
+    Eval hnf in FinType (finmap) finmap_finMixin.
+
+    Canonical finmap_of_eqType := Eval hnf in [eqType of (finmap)].
+    Canonical finmap_of_choiceType := Eval hnf in [choiceType of (finmap)].
+    Canonical finmap_of_countType := Eval hnf in [countType of (finmap)].
+    Canonical finmap_of_finType := Eval hnf in [finType of (finmap)].
+
+
+
+
+
 End fin_fixmap.
 

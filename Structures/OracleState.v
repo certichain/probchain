@@ -22,7 +22,7 @@ Definition oraclestate_find k (m : OracleState) := fixmap_find k m.
 
 
 
-Definition oraclestate_put (k: oraclestate_keytype) (v : Hashed) (m: OracleState) :=
+Definition oraclestate_put (k: oraclestate_keytype) (v : Hashed) (m: OracleState) : OracleState :=
   fixmap_put k v m.
 
 
@@ -57,4 +57,8 @@ Definition oraclestate_put (k: oraclestate_keytype) (v : Hashed) (m: OracleState
   Eval hnf in FinType OracleState oraclestate_finMixin.
 
 
+Canonical oraclestate_of_eqType := Eval hnf in [eqType of (OracleState)].
+Canonical oraclestate_of_choiceType := Eval hnf in [choiceType of (OracleState)].
+Canonical oraclestate_of_countType := Eval hnf in [countType of (OracleState)].
+Canonical oraclestate_of_finType := Eval hnf in [finType of (OracleState)].
 

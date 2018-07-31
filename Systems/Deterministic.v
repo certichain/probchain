@@ -5,20 +5,37 @@ Require Import Comp Notationv1 BlockChain Protocol OracleState BlockMap InvMisc 
 
 
 From mathcomp.ssreflect
-Require Import ssreflect ssrnat ssrbool seq fintype eqtype.
+Require Import ssreflect ssrbool ssrnat eqtype fintype choice ssrfun seq path.
 
-Definition example2:=
-    x <- 3;
-    y <-$ [0 ... 3];
+From mathcomp.ssreflect
+Require Import tuple.
+
+
+
+Definition gen_random : Comp Hashed :=
+    y <-$ [0 ... Hash_value ];
     ret y.
-About example2.
+About gen_random.
+
+(* given a random generator, a block and the oracle, 
+   updates the oracle state and returns a new hashed value *)
+Definition hash 
+  (blk : oraclestate_keytype)
+  (oracle : OracleState) : Comp [finType of (OracleState * Hashed)] :=
+ match oraclestate_find blk oracle with
+  | Some(value) => ret (oracle, value)
+  | None => 
+      rnd <-$ gen_random;
+      new_oracle <- oraclestate_put blk rnd oracle;
+      ret (new_oracle, rnd)
+ end.
+
 
 
 Definition honest_attempt_hash  
-      (hash_state: Hashed * OracleState) 
+      (oracle_state:  OracleState) 
       (nonce : Nonce) (state : LocalState) 
-       : (LocalState * option Message * OracleState * option Block * option BlockChain) :=
-      let: (random_value, oracle_state) := hash_state in
+       : option (Comp [finType of (LocalState * option Message * OracleState * option Block * option BlockChain)]) :=
       (* Bitcoin backbone - Algorithm 4 - Line 5 *)
       (* first, find the longest valid chain *)
       let: best_chain := honest_max_valid state oracle_state in
@@ -30,6 +47,9 @@ Definition honest_attempt_hash
           let: (selected_transactions, remaining) := find_maximal_valid_subset transaction_pool best_chain in
           let: proof_of_work := honest_proof_of_work state in
           (* Calculate the hash of the block *)
+          None
+      else None.
+
           let: (new_oracle_state, hash) := hash random_value (value, selected_transactions, proof_of_work) oracle_state in
           if hash < T_Hashing_Difficulty then
             (* New block has been minted *)
@@ -77,6 +97,43 @@ Definition honest_attempt_hash
                     (honest_proof_of_work state) in
             (new_state, Some(BroadcastMsg best_chain), oracle_state, None, None)
     .
+
+Definition adversary_attempt_hash 
+    (adversary : Adversary adversary_internal_state) 
+    (inflight_messages : MessagePool) 
+    (hash_state : Hashed * OracleState) : (Adversary adversary_internal_state * OracleState * option Block) :=
+  let: (new_hash, oracle_state) := hash_state in
+  (* Adversary can generate the block however they want *)
+  let: (adversary_partial, (nonce, hashed, transactions, pow)) := (adversary_generate_block adversary) (adversary_state adversary) inflight_messages in
+  let: (new_oracle_state, result) := hash new_hash (hashed, transactions, pow) oracle_state in
+  let: adversary_new_state := (adversary_provide_block_hash_result adversary) adversary_partial (nonce, hashed, transactions, pow) result in
+  (* let: adversary_new_state := adversary_partial in *)
+    if result < T_Hashing_Difficulty 
+      then 
+        let: block := Bl nonce hashed transactions pow in
+        let: new_adv :=  mkAdvrs
+          adversary_new_state
+          (adversary_state_change adversary)
+          (adversary_insert_transaction adversary)
+          (adversary_insert_chain adversary)
+          (adversary_generate_block adversary)
+          (adversary_provide_block_hash_result adversary)
+          (adversary_send_chain adversary)
+          (adversary_send_transaction adversary)
+          (adversary_last_hashed_round adversary) in
+            (new_adv, new_oracle_state, Some block)
+      else 
+        let: new_adv :=  mkAdvrs 
+          adversary_new_state
+          (adversary_state_change adversary)
+          (adversary_insert_transaction adversary)
+          (adversary_insert_chain adversary)
+          (adversary_generate_block adversary)
+          (adversary_provide_block_hash_result adversary)
+          (adversary_send_chain adversary)
+          (adversary_send_transaction adversary)
+          (adversary_last_hashed_round adversary) in
+            (new_adv, new_oracle_state, None).
 
 
 

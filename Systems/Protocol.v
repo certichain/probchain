@@ -29,18 +29,6 @@ Parameter adversary_internal_send_transaction: {ffun adversary_internal_state ->
 
 
 
-(* given a random generator, a block and the oracle, 
-   updates the oracle state and returns a new hashed value *)
-Definition hash 
-  (rnd : Hashed) 
-  (blk : oraclestate_keytype)
-  (oracle : OracleState) : (OracleState * Hashed) :=
- match oraclestate_find blk oracle with
-  | Some(value) => (oracle, value)
-  | None => let new_oracle := oraclestate_put blk rnd oracle in
-          (new_oracle, rnd)
- end.
-
   
 Definition verify_hash (blk : Block) (oracle : OracleState) : option Hashed := 
    oraclestate_find (block_link blk, block_records blk, block_proof_of_work blk) oracle.
@@ -631,44 +619,6 @@ Definition update_adversary_round (adversary : Adversary adversary_internal_stat
 
 
     
-(* Small wrapper around arbitrary adversary strategy function*)
-Definition adversary_attempt_hash 
-    (adversary : Adversary adversary_internal_state) 
-    (inflight_messages : MessagePool) 
-    (hash_state : Hashed * OracleState) : (Adversary adversary_internal_state * OracleState * option Block) :=
-  let: (new_hash, oracle_state) := hash_state in
-  (* Adversary can generate the block however they want *)
-  let: (adversary_partial, (nonce, hashed, transactions, pow)) := (adversary_generate_block adversary) (adversary_state adversary) inflight_messages in
-  let: (new_oracle_state, result) := hash new_hash (hashed, transactions, pow) oracle_state in
-  let: adversary_new_state := (adversary_provide_block_hash_result adversary) adversary_partial (nonce, hashed, transactions, pow) result in
-  (* let: adversary_new_state := adversary_partial in *)
-    if result < T_Hashing_Difficulty 
-      then 
-        let: block := Bl nonce hashed transactions pow in
-        let: new_adv :=  mkAdvrs
-          adversary_new_state
-          (adversary_state_change adversary)
-          (adversary_insert_transaction adversary)
-          (adversary_insert_chain adversary)
-          (adversary_generate_block adversary)
-          (adversary_provide_block_hash_result adversary)
-          (adversary_send_chain adversary)
-          (adversary_send_transaction adversary)
-          (adversary_last_hashed_round adversary) in
-            (new_adv, new_oracle_state, Some block)
-      else 
-        let: new_adv :=  mkAdvrs 
-          adversary_new_state
-          (adversary_state_change adversary)
-          (adversary_insert_transaction adversary)
-          (adversary_insert_chain adversary)
-          (adversary_generate_block adversary)
-          (adversary_provide_block_hash_result adversary)
-          (adversary_send_chain adversary)
-          (adversary_send_transaction adversary)
-          (adversary_last_hashed_round adversary) in
-            (new_adv, new_oracle_state, None).
-
 
 Definition validate_blockchain_links (bc : BlockChain) (oracle_state : OracleState) : bool :=
   match fixlist_unwrap bc with
@@ -761,7 +711,7 @@ Definition find_maximal_valid_subset  (transactions : local_TransactionPool) (bl
 
 Definition retrieve_head_link (b : BlockChain) (oracle_state : OracleState) : option Hashed :=
   match fixlist_unwrap b with
-    | [::] => Some (Ordinal hash_valid_range)
+    | [::] => Some (Ordinal (ltn0Sn _))
     | h :: t => verify_hash h oracle_state
   end.
 
