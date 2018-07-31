@@ -11,6 +11,7 @@ From mathcomp.ssreflect
 Require Import tuple.
 
 
+Set Implicit Arguments.
 
 Definition gen_random : Comp Hashed :=
     y <-$ [0 ... Hash_value ];
@@ -35,7 +36,7 @@ Definition hash
 Definition honest_attempt_hash  
       (oracle_state:  OracleState) 
       (nonce : Nonce) (state : LocalState) 
-       : option (Comp [finType of (LocalState * option Message * OracleState * option Block * option BlockChain)]) :=
+       : Comp [finType of (option  (LocalState * option Message * OracleState * option Block * option BlockChain))] :=
       (* Bitcoin backbone - Algorithm 4 - Line 5 *)
       (* first, find the longest valid chain *)
       let: best_chain := honest_max_valid state oracle_state in
@@ -47,7 +48,7 @@ Definition honest_attempt_hash
           let: (selected_transactions, remaining) := find_maximal_valid_subset transaction_pool best_chain in
           let: proof_of_work := honest_proof_of_work state in
           (* Calculate the hash of the block *)
-          Some(hash_result <-$ hash (nonce, value, selected_transactions, proof_of_work) oracle_state;
+          (hash_result <-$ hash (nonce, value, selected_transactions, proof_of_work) oracle_state;
           result <- 
               let: (new_oracle_state, hash) := hash_result in
               (if hash < T_Hashing_Difficulty then
@@ -83,20 +84,20 @@ Definition honest_attempt_hash
                           (mod_incr Maximum_proof_of_work valid_Maximum_proof_of_work (honest_proof_of_work state))
                           in
                   (new_state, Some(BroadcastMsg best_chain), new_oracle_state, None, None));
-                  ret result)
+                  ret Some(result))
       (* this is an invalid state - head should always return a value *)
-      else None.
+      else (ret None).
 
 
 
 Definition adversary_attempt_hash 
     (adversary : Adversary adversary_internal_state) 
     (inflight_messages : MessagePool) 
-    (hash_state : Hashed * OracleState) : option (Comp [finType of (Adversary adversary_internal_state * OracleState * option Block)]) :=
+    (hash_state : Hashed * OracleState) : Comp [finType of (Adversary adversary_internal_state * OracleState * option Block)] :=
   let: (new_hash, oracle_state) := hash_state in
   (* Adversary can generate the block however they want *)
   let: (adversary_partial, (nonce, hashed, transactions, pow)) := (adversary_generate_block adversary) (adversary_state adversary) inflight_messages in
-    Some(hash_result <-$ hash (nonce, hashed, transactions, pow) oracle_state;
+    (hash_result <-$ hash (nonce, hashed, transactions, pow) oracle_state;
     result <- 
       let (new_oracle_state, result) := hash_result in
       let: adversary_new_state := (adversary_provide_block_hash_result adversary) adversary_partial (nonce, hashed, transactions, pow) result in
@@ -126,7 +127,7 @@ Definition adversary_attempt_hash
               (adversary_send_transaction adversary)
               (adversary_last_hashed_round adversary) in
                 (new_adv, new_oracle_state, None);
-          ret result).
+          ret (result)).
 
 
 (* Inductive world_step (w w' : World) (random : RndGen) : Prop :=
@@ -371,11 +372,30 @@ Definition adversary_attempt_hash
     | AdversaryEnd 
     .
  *)
+ About set_tnth.
 
-Fixpoint world_step (w : World) (s : seq RndGen) : option (Comp [finType of World]) :=
+ Definition option_insert (A : eqType) (m: nat) (list : fixlist A m) (value: option A) : fixlist A m :=
+  match value with
+    | Some v =>  fixlist_insert list v
+    | None => list
+    end.
+
+
+Definition retrieve_actor (list : n_max_actors.-tuple [eqType of ([eqType of LocalState] * [eqType of bool])])  (addr : Addr) : option (LocalState * bool).
+  case addr eqn: H.
+  case (m < n_max_actors) eqn: H'.
+  exact (Some (tnth list (Ordinal H'))).
+  exact None.
+Defined.
+
+Print retrieve_actor.
+
+
+
+Fixpoint world_step (w : World) (s : seq RndGen) : Comp [finType of (option World)] :=
     match s with
       (* world_step uses the scheduler as it's decreasing argument *)
-      | [::] => Some(ret w)
+      | [::] => ret (Some w)
       | h :: t => 
         match h with
           | RoundEnd => 
@@ -403,16 +423,16 @@ Fixpoint world_step (w : World) (s : seq RndGen) : option (Comp [finType of Worl
                     world_step w' t
             else 
               (* To recieve a round ended when the round has not ended is an invalid result*)
-              None
+              (ret None)
           | HonestTransactionGen (transaction , addr) => 
           (* that the address is a valid uncorrupted one *)
           let: state := world_global_state w in
-           let: actors := global_local_states state in 
-           let: (actor, is_corrupt) := tnth actors addr in 
+          let: actors := global_local_states state in 
+          let: (actor, is_corrupt) := tnth actors addr in 
            if is_corrupt 
             then
               (* recieving an honest transaction gen for a node that has been corrupted is an invalid result *)
-              None
+              (ret None)
             else
               (* that the transaction is valid with respect to the chain of the actor  *)
               let: transactions := BlockChain_unwrap (honest_current_chain actor) in
@@ -431,7 +451,7 @@ Fixpoint world_step (w : World) (s : seq RndGen) : option (Comp [finType of Worl
                       world_step w' t
                   else 
                     (* To recieve an honest transaction gen with an invalid transaction is an invalid result*)
-                    None
+                    (ret None)
 
           | TransactionDrop (to_drop) => 
            (* assert that random is of form TransactionDrop
@@ -454,12 +474,58 @@ Fixpoint world_step (w : World) (s : seq RndGen) : option (Comp [finType of Worl
                   world_step w' t
           else 
             (* To recieve a transaction drop index for an empty index is an invalid result*)
-            None
-          | HonestMintBlock  => None
-          | AdvMintBlock   => None
-          | AdvCorrupt addr => None
-          | AdvBroadcast (addresses) => None
-          | AdvTransactionGen ((addresses)) => None
-          | AdversaryEnd  => None
+            (ret None)
+          | HonestMintBlock  => 
+           (* that the currently active is an uncorrupted node *)
+           if honest_activation (world_global_state w) then
+            let: state := world_global_state w in
+            let: actors := global_local_states state in 
+            let: addr := global_currently_active state in
+            let: adversary := global_adversary state in
+            let: round := global_current_round state in
+            let: maybe_actor_pair := retrieve_actor actors addr in
+            if maybe_actor_pair is Some(pr) then
+              let: (dated_actor, is_corrupt) := pr in 
+              (* Update transactions of activated node - we only read transactions upon minting *)
+              let: actor := update_transaction_pool addr dated_actor (world_transaction_pool w) in
+              (* broadcast if successful - else increment proof of work *)
+              (* an actor attempts a hash with a random value *)
+              nonce <-$ gen_random;
+              maybe_attempt_result <-$  honest_attempt_hash (world_hash w) nonce actor; 
+              result <-$ (if maybe_attempt_result is Some(attempt_result) then
+                  w' <- 
+                    let: (updated_actor, new_message, new_oracle, new_block, new_chain) := attempt_result in 
+                    let: new_actors := set_tnth actors (updated_actor, is_corrupt) addr in 
+                    (* then increment the currently active and perform bookkeeping *) 
+                    let: new_state := mkGlobalState 
+                        new_actors
+                        adversary
+                        addr
+                        round in
+                    let: updated_state := update_round new_state in
+                      mkWorld
+                        updated_state 
+                        (world_transaction_pool w)
+                        (option_insert (world_inflight_pool w) new_message )
+                        (world_message_pool w)
+                        new_oracle
+                        (BlockMap_put_honest_on_success new_block round (world_block_history w))
+                        (option_insert (world_chain_history w) new_chain) ;
+                        nw <-$ (world_step w' t);
+                        ret nw
+                  else
+                    ret None);
+                  ret result
+                else 
+                  (ret None)
+
+          else
+            (* recieving an honest mint block when the currently active node is corrupted is an invalid result*)
+            (ret None)
+          | AdvMintBlock   => (ret None)
+          | AdvCorrupt addr => (ret None)
+          | AdvBroadcast (addresses) => (ret None)
+          | AdvTransactionGen ((addresses)) => (ret None)
+          | AdversaryEnd  => (ret None)
         end
       end.
