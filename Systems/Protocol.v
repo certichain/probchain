@@ -394,7 +394,7 @@ Canonical world_of_finType := Eval hnf in [finType of World].
 
 (* A round is complete if the currently_active index is one greater than the length of the actors array *)
 Definition round_ended (w: World) :=
- nat_of_ord (global_currently_active (world_global_state w)) = n_max_actors + 1. 
+ nat_of_ord (global_currently_active (world_global_state w)) == n_max_actors + 1. 
 
 Definition world_current_addr (w : World) :=
   global_currently_active (world_global_state w).
@@ -592,16 +592,15 @@ Definition deliver_messages
     state 
     messages.
 
+    About fixlist_enqueue.
 
-Definition update_message_pool_queue (message_list_queue: seq (seq Message)) (new_message_list : seq Message) : (seq Message * seq (seq Message)) :=
-  if message_list_queue is h :: t
-      (* remove the last message_list *)
-  then let oldest_message_list := last h t in 
-       let removed_message_queue := belast h t in
-       (* insert the new message_list at the start of the queue *)
-       (oldest_message_list, new_message_list :: removed_message_queue)
-      (* else branch shouldn't be called, as the queue should always be at a fixed size *)
-  else ([::], new_message_list :: nil).
+Definition update_message_pool_queue (message_list_queue: fixlist [eqType of MessagePool] delta) (new_message_list : MessagePool) : (seq Message * (fixlist [eqType of MessagePool] delta)) :=
+  let: (new_message_list, oldest_message_list) := @fixlist_enqueue _ _ (Some new_message_list) message_list_queue in
+  match oldest_message_list with
+    | None => ([::], new_message_list)
+    | Some message_list => (fixlist_unwrap message_list, new_message_list)
+  end.
+
 
 Definition update_adversary_round (adversary : Adversary adversary_internal_state) (round : 'I_N_rounds) : Adversary adversary_internal_state :=
   mkAdvrs

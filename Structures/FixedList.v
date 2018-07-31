@@ -281,7 +281,22 @@ Definition fixlist n := n.-tuple (option A).
     Definition fixlist_index_of (m : nat) (a : A) (list : fixlist m) : option nat := 
         fixlist_index_of' 0 a list.
 
+    (* uses a fixlist like a fixed length queue, inserting at the start and removing from the end*)
+    Fixpoint fixlist_enqueue (m : nat) (a : option A) (list: fixlist m) : (fixlist m * option A).
+     (* :=
+        match m with 
+            | 0     => list  (* simply drop the a *)
+            | m'.+1 => [tuple of a :: fixlist_shiftl' (ntuple_head list) (ntuple_tail list)]
+            end. *)
+        case m eqn: H.
+            exact (list, a).
+        case (@fixlist_enqueue _ (ntuple_head list) (ntuple_tail list)) => shifted_tail output.
+        exact ([tuple of a :: shifted_tail], output).
+    Defined.
 
+    Definition fixlist_shiftl (m : nat) (list: fixlist m) : fixlist m :=
+        let: (result, output) := fixlist_enqueue None list in
+        result.
 
 
     Definition fixlist_unwrap (m : nat) (list : fixlist m) : seq A :=
