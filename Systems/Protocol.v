@@ -25,7 +25,7 @@ Parameter adversary_internal_insert_chain: {ffun adversary_internal_state -> {ff
 Parameter adversary_internal_generate_block: {ffun adversary_internal_state -> {ffun MessagePool -> (adversary_internal_state * (Nonce * Hashed * BlockRecord * ordinal Maximum_proof_of_work))}}.
 Parameter adversary_internal_provide_block_hash_result: {ffun adversary_internal_state -> {ffun (Nonce * Hashed * BlockRecord * ordinal Maximum_proof_of_work) -> {ffun Hashed -> adversary_internal_state}}}.
 Parameter adversary_internal_send_chain: {ffun adversary_internal_state -> (adversary_internal_state * BlockChain)}.
-Parameter adversary_internal_send_transaction: {ffun adversary_internal_state -> (adversary_internal_state * Transaction)}.
+Parameter adversary_internal_send_transaction: {ffun adversary_internal_state -> (adversary_internal_state * Transaction * (fixlist [eqType of 'I_n_max_actors] n_max_actors))}.
 
 
 
@@ -62,7 +62,7 @@ Record Adversary (T : finType) := mkAdvrs {
   (* Required to allow the adversary to broadcast chains *)
   (* I'm not sure how assertions about the blockchain being unable to randomly guess valid blockchains will be made*)
   adversary_send_chain: {ffun T -> (T * BlockChain)};
-  adversary_send_transaction: {ffun T -> (T * Transaction)};
+  adversary_send_transaction: {ffun T -> (T * Transaction * (fixlist [eqType of 'I_n_max_actors] n_max_actors))};
 
   (* adversary_local_transaction_pool: seq Transaction; *)
   (* adversary_local_message_pool: seq BlockChain; *)
@@ -97,7 +97,17 @@ Definition Adversary_prod  (a : Adversary adversary_internal_state) :=
   adversary_last_hashed_round a).
 
 
-Definition prod_Adversary (pair : (adversary_internal_state  * {ffun adversary_internal_state  -> adversary_internal_state } * {ffun adversary_internal_state  -> {ffun Transaction -> adversary_internal_state }} * {ffun adversary_internal_state  -> {ffun BlockChain -> adversary_internal_state }} * {ffun adversary_internal_state  -> {ffun MessagePool -> adversary_internal_state  * (Nonce * Hashed * BlockRecord * 'I_Maximum_proof_of_work)}} * {ffun adversary_internal_state  -> {ffun Nonce * Hashed * BlockRecord * 'I_Maximum_proof_of_work -> {ffun Hashed -> adversary_internal_state }}} * {ffun adversary_internal_state  -> adversary_internal_state  * BlockChain} * {ffun adversary_internal_state  -> adversary_internal_state  * Transaction} * 'I_N_rounds)) := 
+Definition prod_Adversary (pair : 
+  (adversary_internal_state  * 
+  {ffun adversary_internal_state  -> adversary_internal_state } * 
+  {ffun adversary_internal_state  -> {ffun Transaction -> adversary_internal_state }} * 
+  {ffun adversary_internal_state  -> {ffun BlockChain -> adversary_internal_state }} * 
+  {ffun adversary_internal_state  -> {ffun MessagePool -> adversary_internal_state  * (Nonce * Hashed * BlockRecord * 'I_Maximum_proof_of_work)}} * 
+  {ffun adversary_internal_state  -> {ffun Nonce * Hashed * BlockRecord * 'I_Maximum_proof_of_work -> {ffun Hashed -> adversary_internal_state }}} * 
+  {ffun adversary_internal_state  -> adversary_internal_state  * BlockChain} * 
+  {ffun adversary_internal_state   -> (adversary_internal_state   * Transaction * (fixlist [eqType of 'I_n_max_actors] n_max_actors))} * 
+  ordinal N_rounds
+  )) := 
   let: (adversary_state ,
     adversary_state_change ,
     adversary_insert_transaction  ,

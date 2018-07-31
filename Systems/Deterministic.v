@@ -522,7 +522,40 @@ Fixpoint world_step (w : World) (s : seq RndGen) : Comp [finType of (option Worl
           else
             (* recieving an honest mint block when the currently active node is corrupted is an invalid result*)
             (ret None)
-          | AdvMintBlock   => (ret None)
+          | AdvMintBlock   => 
+            (* Note: No guarantees of validity here *)
+            let: state := world_global_state w in
+            let: actors := global_local_states state in 
+            let: addr := global_currently_active state in
+            let: adversary := global_adversary state in
+            let: round := global_current_round state in
+ 
+            let: adv_state := (adversary_state adversary) in
+            let: (new_adv_state, tx) := (adversary_send_transaction adversary) adv_state in
+            let: new_adversary :=
+                              mkAdvrs
+                                new_adv_state
+                                (adversary_state_change adversary)
+                                (adversary_insert_transaction adversary)
+                                (adversary_insert_chain adversary)
+                                (adversary_generate_block adversary)
+                                (adversary_provide_block_hash_result adversary)
+                                (adversary_send_chain adversary)
+                                (adversary_send_transaction adversary)
+                                (adversary_last_hashed_round adversary) in
+            let: new_state := mkGlobalState actors addr adversary round in
+            let: new_transaction_pool := fixlist_insert (world_transaction_pool w) (MulticastTransaction (tx, recipients)) in
+            let: w' := 
+              mkWorld
+                new_state
+                new_transaction_pool
+                (world_inflight_pool w)
+                (world_message_pool w)
+                (world_hash w)
+                (world_block_history w)
+                (world_chain_history w) in
+                world_step w' t
+
           | AdvCorrupt addr => (ret None)
           | AdvBroadcast (addresses) => (ret None)
           | AdvTransactionGen ((addresses)) => (ret None)

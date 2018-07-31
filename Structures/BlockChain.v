@@ -42,7 +42,7 @@ Definition validate_transactions (xs : seq Transaction) : bool :=
 
 Inductive TransactionMessage := 
   | BroadcastTransaction of Transaction
-  | MulticastTransaction of (Transaction * (fixlist [eqType of Addr] n_max_actors)).
+  | MulticastTransaction of (Transaction * (fixlist [eqType of 'I_n_max_actors] n_max_actors)).
 
 Definition transaction_message_sum (m : TransactionMessage) := match m with
     | MulticastTransaction (addr, bc) =>  inl (addr, bc)
@@ -221,7 +221,7 @@ Definition BlockChain_unwrap (b : BlockChain) := flatten (map (fun block => fixl
 
 
 Inductive Message := 
-  | MulticastMsg (addr : fixlist [eqType of Addr] n_max_actors ) (bc : BlockChain)  
+  | MulticastMsg (addr : fixlist [eqType of 'I_n_max_actors] n_max_actors ) (bc : BlockChain)  
   | BroadcastMsg (bc : BlockChain).
 
 
