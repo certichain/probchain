@@ -11,7 +11,7 @@ From Probchain
 Require Import BlockChain InvMisc FixedList FixedMap Parameters.
 
 
-Definition oraclestate_keytype := [eqType of ([eqType of ([eqType of Hashed] * [eqType of BlockRecord])] * (ordinal Maximum_proof_of_work))%type].
+Definition oraclestate_keytype := [eqType of ([eqType of ([eqType of Nonce] * [eqType of Hashed] * [eqType of BlockRecord])] * (ordinal Maximum_proof_of_work))%type].
 
 Definition OracleState := fixmap  oraclestate_keytype  [eqType of Hashed] oraclestate_size.
 

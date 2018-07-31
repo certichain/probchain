@@ -31,7 +31,7 @@ Parameter adversary_internal_send_transaction: {ffun adversary_internal_state ->
 
   
 Definition verify_hash (blk : Block) (oracle : OracleState) : option Hashed := 
-   oraclestate_find (block_link blk, block_records blk, block_proof_of_work blk) oracle.
+   oraclestate_find (block_nonce blk, block_link blk, block_records blk, block_proof_of_work blk) oracle.
 
 
 (*
