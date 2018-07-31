@@ -128,7 +128,7 @@ Canonical block_record_of_finType := Eval hnf in [finType of BlockRecord].
    sequences of actions can be considered *)
 Inductive RndGen  := 
     (* used by Honest Parties to generate transactions - nat specifies which actor *)
-    | HonestTransactionGen of (Transaction * Addr)
+    | HonestTransactionGen of (Transaction * ('I_n_max_actors))
     | TransactionDrop of (ordinal TransactionPool_length)
     (* used by both Honest Parties to mint blocks*)
     (* Hashed represents the return value of the random oracle if the block is new*)
@@ -140,12 +140,12 @@ Inductive RndGen  :=
     | AdvMintBlock 
     (* Used to represent the adversary corrupting players - nat is an index into
        which player to corrupt*)
-    | AdvCorrupt of Addr
+    | AdvCorrupt of ('I_n_max_actors)
     (* used by adversary parties to broadcast chains - nat is an index into 
        the adversaries local blockchain pool*)
-    | AdvBroadcast of (list Addr)
+    | AdvBroadcast of (list ('I_n_max_actors))
     (* Used by adversary parties to create transactions at any round *)
-    | AdvTransactionGen of ((list Addr))
+    | AdvTransactionGen of ((list ('I_n_max_actors)))
     | RoundEnd
     | AdversaryEnd 
     .

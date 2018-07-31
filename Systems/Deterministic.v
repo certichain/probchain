@@ -404,7 +404,35 @@ Fixpoint world_step (w : World) (s : seq RndGen) : option (Comp [finType of Worl
             else 
               (* To recieve a round ended when the round has not ended is an invalid result*)
               None
-          | HonestTransactionGen (tx , addr) => None
+          | HonestTransactionGen (transaction , addr) => 
+          (* that the address is a valid uncorrupted one *)
+          let: state := world_global_state w in
+           let: actors := global_local_states state in 
+           let: (actor, is_corrupt) := tnth actors addr in 
+           if is_corrupt 
+            then
+              (* recieving an honest transaction gen for a node that has been corrupted is an invalid result *)
+              None
+            else
+              (* that the transaction is valid with respect to the chain of the actor  *)
+              let: transactions := BlockChain_unwrap (honest_current_chain actor) in
+                if Transaction_valid transaction transactions
+                  then
+                    let: new_transaction_pool := fixlist_insert (world_transaction_pool w) (BroadcastTransaction transaction) in
+                    let: w' := 
+                      mkWorld
+                        state 
+                        new_transaction_pool
+                        (world_inflight_pool w)
+                        (world_message_pool w)
+                        (world_hash w)
+                        (world_block_history w)
+                        (world_chain_history w) in
+                      world_step w' t
+                  else 
+                    (* To recieve an honest transaction gen with an invalid transaction is an invalid result*)
+                    None
+
           | TransactionDrop (to_drop) => 
            (* assert that random is of form TransactionDrop
            and index is actually an index into the transaction pool 
