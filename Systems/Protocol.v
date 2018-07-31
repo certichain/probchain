@@ -157,7 +157,18 @@ Canonical adversary_finType :=
   Eval hnf in FinType (Adversary adversary_internal_state) adversary_finMixin.
 
 
+Canonical adversary_of_eqType := Eval hnf in [eqType of (Adversary adversary_internal_state)].
+Canonical adversary_of_choiceType := Eval hnf in [choiceType of (Adversary adversary_internal_state)].
+Canonical adversary_of_countType := Eval hnf in [countType of (Adversary adversary_internal_state)].
+Canonical adversary_of_finType := Eval hnf in [finType of (Adversary adversary_internal_state)].
+
+
+
+
 Definition local_TransactionPool := fixlist Transaction Honest_TransactionPool_size.
+
+
+
 
 (* A node's local state consists of 
     1. it's currently held chain
@@ -215,6 +226,11 @@ Definition localstate_finMixin :=
 Canonical localstate_finType :=
   Eval hnf in FinType (LocalState) localstate_finMixin.
 
+
+Canonical local_state_of_eqType := Eval hnf in [eqType of LocalState].
+Canonical local_state_of_choiceType := Eval hnf in [choiceType of LocalState].
+Canonical local_state_of_countType := Eval hnf in [countType of LocalState].
+Canonical local_state_of_finType := Eval hnf in [finType of LocalState].
 
 
 
@@ -285,6 +301,12 @@ Canonical globalstate_finType :=
   Eval hnf in FinType (GlobalState) globalstate_finMixin.
 
 
+Canonical global_state_of_eqType := Eval hnf in [eqType of GlobalState].
+Canonical global_state_of_choiceType := Eval hnf in [choiceType of GlobalState].
+Canonical global_state_of_countType := Eval hnf in [countType of GlobalState].
+Canonical global_state_of_finType := Eval hnf in [finType of GlobalState].
+
+
 
 
 Record World := mkWorld {
@@ -304,6 +326,9 @@ Record World := mkWorld {
   (* Contains every chain ever seen*)
   world_chain_history: fixlist [eqType of BlockChain] ChainHistory_size;
 }.
+
+
+
 Definition initWorldMessagePool := (fixlist_empty [eqType of MessagePool] delta).
 Definition initWorldChainHistory := (fixlist_empty [eqType of BlockChain] ChainHistory_size).
 
@@ -371,6 +396,11 @@ Canonical world_finType :=
   Eval hnf in FinType (World) world_finMixin.
 
 
+Canonical world_of_eqType := Eval hnf in [eqType of World].
+Canonical world_of_choiceType := Eval hnf in [choiceType of World].
+Canonical world_of_countType := Eval hnf in [countType of World].
+Canonical world_of_finType := Eval hnf in [finType of World].
+
 
 
 
@@ -422,7 +452,7 @@ Lemma adversary_activation (state: GlobalState): bool.
     case (n_max_actors == active) eqn: H'.
       exact true.
     exact false.
-    
+Defined. 
 
 
 Lemma round_in_range (active: Addr) : nat_of_ord active != n_max_actors.+1 -> active.+1 < n_max_actors + 2.
@@ -803,70 +833,6 @@ Definition update_adversary_transaction_pool  (initial_adv: Adversary adversary_
 
 
 (* Implementation of the bitcoin backbone protocol *)
-Definition honest_attempt_hash  
-      (hash_state: Hashed * OracleState) 
-      (nonce : Nonce) (state : LocalState) 
-       : (LocalState * option Message * OracleState * option Block * option BlockChain) :=
-      let: (random_value, oracle_state) := hash_state in
-      (* Bitcoin backbone - Algorithm 4 - Line 5 *)
-      (* first, find the longest valid chain *)
-      let: best_chain := honest_max_valid state oracle_state in
-      (* Retrieve the link to the previous block in the chain *)
-      if retrieve_head_link best_chain oracle_state is Some(value)
-        then
-          let: transaction_pool := honest_local_transaction_pool state in
-          (* Find a set of transactions to include in the new block *)
-          let: (selected_transactions, remaining) := find_maximal_valid_subset transaction_pool best_chain in
-          let: proof_of_work := honest_proof_of_work state in
-          (* Calculate the hash of the block *)
-          let: (new_oracle_state, hash) := hash random_value (value, selected_transactions, proof_of_work) oracle_state in
-          if hash < T_Hashing_Difficulty then
-            (* New block has been minted *)
-            let: new_block := Bl nonce value selected_transactions proof_of_work in
-            let: new_chain := fixlist_insert best_chain new_block in
-            let: new_state :=
-                  mkLclSt 
-                    new_chain
-                    remaining
-                    (fixlist_rem (honest_local_message_pool state) best_chain)
-                    (Ordinal valid_Maximum_proof_of_work) in (* reset the proof of work *)
-            (new_state, Some(BroadcastMsg new_chain), new_oracle_state, Some new_block, Some new_chain)
-          else
-            (* Constructed block did not meet the difficulty level *)
-            (* if the longest chain is actually the current chain *)
-            if best_chain == (honest_current_chain state)
-              (* then the only thing to change is to increment the proof of work*)
-              then 
-               let: new_state := 
-                    mkLclSt 
-                      (honest_current_chain state) 
-                      (honest_local_transaction_pool state)
-                      (honest_local_message_pool state)
-                      (mod_incr Maximum_proof_of_work valid_Maximum_proof_of_work (honest_proof_of_work state)) in
-              (new_state, None, new_oracle_state, None, None)
-            else 
-              (* Otherwise we need to move the best chain from the message pool to current*)
-              let: new_state := 
-                    mkLclSt 
-                      best_chain 
-                      (honest_local_transaction_pool state)
-                      (fixlist_rem (honest_local_message_pool state) best_chain)
-                      (mod_incr Maximum_proof_of_work valid_Maximum_proof_of_work (honest_proof_of_work state))
-                      in
-              (new_state, Some(BroadcastMsg best_chain), new_oracle_state, None, None)
-        else 
-          if best_chain == (honest_current_chain state)
-            then (state, None, oracle_state, None, None)
-          else 
-            let: new_state := 
-                  mkLclSt 
-                    best_chain 
-                    (honest_local_transaction_pool state)
-                    (fixlist_rem (honest_local_message_pool state) best_chain )
-                    (honest_proof_of_work state) in
-            (new_state, Some(BroadcastMsg best_chain), oracle_state, None, None)
-    .
-
 
 
 
@@ -1187,7 +1153,7 @@ Proof.
   by [].
   by [].
 Qed.
-
+(* 
 Lemma maintain_corrupt_insert_message (state : GlobalState) (a : Addr) (bc : BlockChain) :
   no_corrupted_players (insert_message a bc state) = no_corrupted_players state.
 Proof.
@@ -1206,7 +1172,7 @@ Proof.
     by [].
     by rewrite H' H.
   by [].
-Qed.
+Qed. *)
 
 Lemma foldr_rec (A B : Type) (P : B -> Set) (f : A -> B -> B)  (b0 : B) (ls : seq A) :
   P b0 -> (forall a b, P b -> P (f a b)) -> P (foldr f b0 ls).
@@ -1217,7 +1183,7 @@ Proof.
 Qed.
 
 
-Lemma maintain_corrupt_deliver_messages (w : World) (l : seq Message) :
+(* Lemma maintain_corrupt_deliver_messages (w : World) (l : seq Message) :
       no_corrupted_players (deliver_messages l (next_round (world_global_state w))) = no_corrupted_players (world_global_state w).
 Proof.
   elim w => //= state _ _ _ _ _ _.
@@ -1234,7 +1200,7 @@ Proof.
     move=> a_1 state_0 H2.
     by rewrite maintain_corrupt_insert_message.
     by rewrite /broadcast_message.
-Qed.
+Qed. *)
 
 
 
@@ -1358,16 +1324,14 @@ Definition actor_n_chain_length (w : World) (n : 'I_n_max_actors) : nat :=
 
 Definition world_round (w : World) : nat := 
   let: state := world_global_state w in
-  global_current_round state
-.
+  global_current_round state.
 
 Definition actor_n_is_corrupt (w:World) (n:'I_n_max_actors) : bool :=
   let: (actor, is_corrupted) := tnth  (global_local_states (world_global_state w)) n in
-  is_corrupted
-.
+  is_corrupted.
 
 
-Lemma chain_growth (w : World) (round : nat) (l : nat) :
+(* Lemma chain_growth (w : World) (round : nat) (l : nat) :
   (world_round w) = round ->
   (exists (n : 'I_n_max_actors), (n < n_max_actors) /\ (actor_n_chain_length w n = l) /\ ~~ (actor_n_is_corrupt w n)) ->
   (forall (future_w : World), 
@@ -1376,7 +1340,7 @@ Lemma chain_growth (w : World) (round : nat) (l : nat) :
       actor_n_chain_length w n >= l + no_successful_rounds w round ((world_round future_w) - 1))).
 Proof.
 Admitted.
-
+ *)
 
 Definition adopt_at_round (w' : World) (w : World) (bc : BlockChain) (agent: Addr) (r : nat) :=
   match r with

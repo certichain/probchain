@@ -16,6 +16,23 @@ Definition Hashed := ordinal_finType Hash_value.
 (* Simmilarly, Addr must be an index into the honest actors, thus not a parameter*)
 Definition Addr := ordinal (n_max_actors + 2).
 
+Canonical nonce_of_eqType := Eval hnf in [eqType of Nonce].
+Canonical nonce_of_choiceType := Eval hnf in [choiceType of Nonce].
+Canonical nonce_of_countType := Eval hnf in [countType of Nonce].
+Canonical nonce_of_finType := Eval hnf in [finType of Nonce].
+
+Canonical hashed_of_eqType := Eval hnf in [eqType of Hashed].
+Canonical hashed_of_choiceType := Eval hnf in [choiceType of Hashed].
+Canonical hashed_of_countType := Eval hnf in [countType of Hashed].
+Canonical hashed_of_finType := Eval hnf in [finType of Hashed].
+
+Canonical addr_of_eqType := Eval hnf in [eqType of Addr].
+Canonical addr_of_choiceType := Eval hnf in [choiceType of Addr].
+Canonical addr_of_countType := Eval hnf in [countType of Addr].
+Canonical addr_of_finType := Eval hnf in [finType of Addr].
+
+
+
 
 Definition validate_transactions (xs : seq Transaction) : bool :=
   match xs with 
@@ -65,6 +82,12 @@ Canonical transaction_message_finType :=
   Eval hnf in FinType TransactionMessage transaction_message_finMixin.
 
 
+Canonical transaction_of_eqType := Eval hnf in [eqType of Transaction].
+Canonical transaction_of_choiceType := Eval hnf in [choiceType of Transaction].
+Canonical transaction_of_countType := Eval hnf in [countType of Transaction].
+Canonical transaction_of_finType := Eval hnf in [finType of Transaction].
+
+
 
 
 Definition TransactionPool := fixlist [eqType of TransactionMessage] TransactionPool_length.
@@ -73,6 +96,23 @@ Definition initTransactionPool : TransactionPool := fixlist_empty [eqType of Tra
 
 Definition BlockRecord := fixlist Transaction Transactions_per_block.
 Definition initBlockRecord : BlockRecord := fixlist_empty Transaction Transactions_per_block.
+
+
+Canonical transaction_pool_of_eqType := Eval hnf in [eqType of TransactionPool].
+Canonical transaction_pool_of_choiceType := Eval hnf in [choiceType of TransactionPool].
+Canonical transaction_pool_of_countType := Eval hnf in [countType of TransactionPool].
+Canonical transaction_pool_of_finType := Eval hnf in [finType of TransactionPool].
+
+
+Canonical block_record_of_eqType := Eval hnf in [eqType of BlockRecord].
+Canonical block_record_of_choiceType := Eval hnf in [choiceType of BlockRecord].
+Canonical block_record_of_countType := Eval hnf in [countType of BlockRecord].
+Canonical block_record_of_finType := Eval hnf in [finType of BlockRecord].
+
+
+
+
+
 
 
 (* RndGen will be passed down from the probabilistic component and used to simulate any probabilistic components *)
@@ -228,13 +268,21 @@ Canonical block_countType := Eval hnf in CountType Block block_countMixin.
 Definition block_finMixin := Finite.Mixin block_countMixin block_enumP.
 Canonical block_finType := Eval hnf in FinType Block block_finMixin.
 
-
+Canonical block_of_eqType := Eval hnf in [eqType of Block].
+Canonical block_of_choiceType := Eval hnf in [choiceType of Block].
+Canonical block_of_countType := Eval hnf in [countType of Block].
+Canonical block_of_finType := Eval hnf in [finType of Block].
 
 
 
 Definition BlockChain := fixlist [eqType of Block] Maximum_blockchain_length.
 Definition initBlockChain := fixlist_empty [eqType of Block] Maximum_blockchain_length.
 (* converts a blockchain into a transaction sequence *)
+
+Canonical block_chain_of_eqType := Eval hnf in [eqType of BlockChain].
+Canonical block_chain_of_choiceType := Eval hnf in [choiceType of BlockChain].
+Canonical block_chain_of_countType := Eval hnf in [countType of BlockChain].
+Canonical block_chain_of_finType := Eval hnf in [finType of BlockChain].
 
 
 
@@ -245,6 +293,10 @@ Definition BlockChain_unwrap (b : BlockChain) := flatten (map (fun block => fixl
 Inductive Message := 
   | MulticastMsg (addr : fixlist [eqType of Addr] n_max_actors ) (bc : BlockChain)  
   | BroadcastMsg (bc : BlockChain).
+
+
+
+
 
 Definition message_eq (m1 m2 : Message) :=
   match m1, m2 with 
@@ -312,11 +364,22 @@ Definition message_finMixin :=
 Canonical message_finType :=
   Eval hnf in FinType Message message_finMixin.
 
+Canonical message_of_eqType := Eval hnf in [eqType of Message].
+Canonical message_of_choiceType := Eval hnf in [choiceType of Message].
+Canonical message_of_countType := Eval hnf in [countType of Message].
+Canonical message_of_finType := Eval hnf in [finType of Message].
+
 
 
 
 Definition MessagePool := fixlist [eqType of Message] MessagePool_length.
 Definition initMessagePool := fixlist_empty [eqType of Message] MessagePool_length.
+
+Canonical message_pool_of_eqType := Eval hnf in [eqType of MessagePool].
+Canonical message_pool_of_choiceType := Eval hnf in [choiceType of MessagePool].
+Canonical message_pool_of_countType := Eval hnf in [countType of MessagePool].
+Canonical message_pool_of_finType := Eval hnf in [finType of MessagePool].
+
 
 
 Parameter BlockChain_compare_lt : BlockChain -> BlockChain -> bool.
