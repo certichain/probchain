@@ -374,39 +374,59 @@ Definition adversary_attempt_hash
 
 Fixpoint world_step (w : World) (s : seq RndGen) : option (Comp [finType of World]) :=
     match s with
+      (* world_step uses the scheduler as it's decreasing argument *)
       | [::] => Some(ret w)
       | h :: t => 
         match h with
           | RoundEnd => 
-        if round_ended w then
-          (*  - we need to reset the currently active node to the start (round-robin) *)
-          let: updated_state := next_round (world_global_state w) in
-          (*  - we need to add the current rounds inflight messages to the message pool *)
-          let: new_inflight_pool := initMessagePool  in
-      
-          let: old_inflight_pool := (world_inflight_pool w) in
-          (* this will pop off the oldest message list, and insert the old inflight pool *)
-          let: (messages_to_be_delivered, new_message_pool) := 
-                  update_message_pool_queue (world_message_pool w) (old_inflight_pool) in
-          (*  - we need to deliver messages older than delta rounds *)
-          let: new_state := deliver_messages messages_to_be_delivered updated_state in
-          let: w' :=  
-            mkWorld 
-              new_state 
-              (world_transaction_pool w) 
-              new_inflight_pool
-              new_message_pool
-              (world_hash w)
-              (world_block_history w)
-              (world_chain_history w) in
-                world_step w' t
-        else 
-          (* To recieve a round ended when the round has not ended is an invalid result*)
-          None
-            
+            if round_ended w then
+              (*  - we need to reset the currently active node to the start (round-robin) *)
+              let: updated_state := next_round (world_global_state w) in
+              (*  - we need to add the current rounds inflight messages to the message pool *)
+              let: new_inflight_pool := initMessagePool  in
           
+              let: old_inflight_pool := (world_inflight_pool w) in
+              (* this will pop off the oldest message list, and insert the old inflight pool *)
+              let: (messages_to_be_delivered, new_message_pool) := 
+                      update_message_pool_queue (world_message_pool w) (old_inflight_pool) in
+              (*  - we need to deliver messages older than delta rounds *)
+              let: new_state := deliver_messages messages_to_be_delivered updated_state in
+              let: w' :=  
+                mkWorld 
+                  new_state 
+                  (world_transaction_pool w) 
+                  new_inflight_pool
+                  new_message_pool
+                  (world_hash w)
+                  (world_block_history w)
+                  (world_chain_history w) in
+                    world_step w' t
+            else 
+              (* To recieve a round ended when the round has not ended is an invalid result*)
+              None
           | HonestTransactionGen (tx , addr) => None
-          | TransactionDrop (to_drop) => None
+          | TransactionDrop (to_drop) => 
+           (* assert that random is of form TransactionDrop
+           and index is actually an index into the transaction pool 
+           then remove that entry*)
+           let: transaction_pool := world_transaction_pool w in
+           let: n := (nat_of_ord to_drop) in
+           let: maybe_transaction := fixlist_get_nth transaction_pool n in
+           if maybe_transaction is Some(tx) then
+            let: new_transaction_pool := fixlist_remove (world_transaction_pool w) n in
+            let: w' := 
+              mkWorld
+                (world_global_state w)
+                new_transaction_pool
+                (world_inflight_pool w)
+                (world_message_pool w)
+                (world_hash w)
+                (world_block_history w)
+                (world_chain_history w) in
+                  world_step w' t
+          else 
+            (* To recieve a transaction drop index for an empty index is an invalid result*)
+            None
           | HonestMintBlock  => None
           | AdvMintBlock   => None
           | AdvCorrupt addr => None

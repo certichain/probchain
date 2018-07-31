@@ -114,6 +114,7 @@ Definition fixlist n := n.-tuple (option A).
     *)
 
 
+    (* remove will remove the nth index of the list *)
     Fixpoint fixlist_remove (m : nat) (list : fixlist m) (n : nat) : fixlist m.
         move: list.
         induction  m  as [|m'] eqn: Hm.
@@ -133,6 +134,7 @@ Definition fixlist n := n.-tuple (option A).
             exact [tuple of ntuple_head list ::  @fixlist_remove m' (ntuple_tail list) n0].
     Defined.
 
+    (* rem will remove all instances of a in the list*)
     Lemma fixlist_rem (m : nat) (list: fixlist m) (a : A) : fixlist m.
         induction m.
             (* if m is 0, return empty list *)
