@@ -1140,7 +1140,7 @@ Definition chain_quality_prop_agent (w : World) (l u : nat) (agent : 'I_n_max_ac
     let: (actor, is_corrupt) := tnth (world_actors w) agent in
     let: current_chain := honest_current_chain actor in
       (~~ is_corrupt) &&
-      (length current_chain > l) &&
+      (fixlist_length current_chain > l) &&
       (* all consecutive sequences of length l, have fewer than u adversarial blocks*)
       (all_consecutive_sequences current_chain l (fun blocks => 
         length (filter (fun block => match block_is_adversarial block w with 
