@@ -178,13 +178,3 @@ Lemma p_unique_round : forall  (s: seq.seq RndGen) (n : nat) (chain : BlockChain
     (p_is_unique_round s n chain) / (p_unique_round_givens s n chain) = probability_constant.
     Admitted.
 
-
-
-Lemma unique_round (w : World) (n : nat) (chain : BlockChain) :
-    chain \in (fixlist_unwrap (world_chain_history w)) -> length chain > n -> nth_block_is_honest chain n w  -> nth_block_hashed_in_a_uniquely_successful_round w chain n ->
-    (forall (other_chain : BlockChain), 
-    other_chain \in (fixlist_unwrap (world_chain_history w)) -> 
-    length other_chain > n -> 
-    nth_block_is_adversarial w other_chain n  \/ nth_block_equals w other_chain n (nth_block w chain n)).
-A
-
