@@ -477,7 +477,7 @@ Fixpoint world_step (w : World) (s : seq RndGen) : Comp [finType of (option Worl
             (ret None)
           | HonestMintBlock  => 
            (* that the currently active is an uncorrupted node *)
-           if honest_activation (world_global_state w) then
+           if honest_activation (world_global_state w) is Some(real_addr) then
             let: state := world_global_state w in
             let: actors := global_local_states state in 
             let: addr := global_currently_active state in
@@ -487,7 +487,7 @@ Fixpoint world_step (w : World) (s : seq RndGen) : Comp [finType of (option Worl
             if maybe_actor_pair is Some(pr) then
               let: (dated_actor, is_corrupt) := pr in 
               (* Update transactions of activated node - we only read transactions upon minting *)
-              let: actor := update_transaction_pool addr dated_actor (world_transaction_pool w) in
+              let: actor := update_transaction_pool real_addr dated_actor (world_transaction_pool w) in
               (* broadcast if successful - else increment proof of work *)
               (* an actor attempts a hash with a random value *)
               nonce <-$ gen_random;
@@ -531,7 +531,7 @@ Fixpoint world_step (w : World) (s : seq RndGen) : Comp [finType of (option Worl
             let: round := global_current_round state in
  
             let: adv_state := (adversary_state adversary) in
-            let: (new_adv_state, tx) := (adversary_send_transaction adversary) adv_state in
+            let: (new_adv_state, tx, recipients) := (adversary_send_transaction adversary) adv_state in
             let: new_adversary :=
                               mkAdvrs
                                 new_adv_state
@@ -543,7 +543,7 @@ Fixpoint world_step (w : World) (s : seq RndGen) : Comp [finType of (option Worl
                                 (adversary_send_chain adversary)
                                 (adversary_send_transaction adversary)
                                 (adversary_last_hashed_round adversary) in
-            let: new_state := mkGlobalState actors addr adversary round in
+            let: new_state := mkGlobalState actors new_adversary addr round in
             let: new_transaction_pool := fixlist_insert (world_transaction_pool w) (MulticastTransaction (tx, recipients)) in
             let: w' := 
               mkWorld
@@ -556,9 +556,130 @@ Fixpoint world_step (w : World) (s : seq RndGen) : Comp [finType of (option Worl
                 (world_chain_history w) in
                 world_step w' t
 
-          | AdvCorrupt addr => (ret None)
-          | AdvBroadcast (addresses) => (ret None)
-          | AdvTransactionGen ((addresses)) => (ret None)
-          | AdversaryEnd  => (ret None)
+          | AdvTransactionGen  => 
+           (* Note: No guarantees of validity here *)
+           let: state := world_global_state w in
+           let: actors := global_local_states state in 
+           let: addr := global_currently_active state in
+           let: adversary := global_adversary state in
+           let: round := global_current_round state in
+ 
+           let: adv_state := (adversary_state adversary) in
+           let: (new_adv_state, tx, recipients) := (adversary_send_transaction adversary) adv_state in
+           let: new_adversary :=
+                               mkAdvrs
+                                new_adv_state
+                                (adversary_state_change adversary)
+                                (adversary_insert_transaction adversary)
+                                (adversary_insert_chain adversary)
+                                (adversary_generate_block adversary)
+                                (adversary_provide_block_hash_result adversary)
+                                (adversary_send_chain adversary)
+                                (adversary_send_transaction adversary)
+                                (adversary_last_hashed_round adversary) in
+            let: new_state := mkGlobalState actors new_adversary addr round in
+            let: new_transaction_pool := fixlist_insert (world_transaction_pool w) (MulticastTransaction (tx, recipients)) in
+           let: w' := 
+            mkWorld
+              new_state
+              new_transaction_pool
+              (world_inflight_pool w)
+              (world_message_pool w)
+              (world_hash w)
+              (world_block_history w)
+              (world_chain_history w) in
+
+                world_step w' t
+
+          | AdvCorrupt addr => 
+          (* That the current active node is a corrupted one *)
+          if adversary_activation (world_global_state w) then
+            (* that the index is valid, and to a uncorrupt node *)
+            let: state := world_global_state w in
+            let: actors := global_local_states state in 
+            let: addr := global_currently_active state in
+            let: adversary := global_adversary state in
+            let: round := global_current_round state in
+            if is_uncorrputed_actor actors addr is Some((real_addr, actor)) then
+              if no_corrupted_players (world_global_state w) < t_max_corrupted then
+                let: new_actors := set_tnth actors (actor, true) real_addr  in 
+                let: new_state := mkGlobalState new_actors adversary addr round in
+                let: w' := 
+                  mkWorld
+                    new_state
+                    (world_transaction_pool w)
+                    (world_inflight_pool w)
+                    (world_message_pool w)
+                    (world_hash w)
+                    (world_block_history w)
+                    (world_chain_history w) in
+                      world_step w' t
+              else
+              (* It is an invalid schedule to have advcorrupt when the adversary isnt' active*)
+                (ret None)
+
+            else 
+              (* It is an invalid schedule to have advcorrupt when the adversary isnt' active*)
+              (ret None)
+            else
+            (* It is an invalid schedule to have advcorrupt when the adversary isnt' active*)
+              (ret None)
+
+          | AdvBroadcast (addresses) => 
+            (* that the currently active node is a corrupted one  *)
+            if adversary_activation (world_global_state w) then
+              (* that the index is valid *)
+              let: state := world_global_state w in
+              let: actors := global_local_states state in 
+              let: addr := global_currently_active state in
+              let: adversary := global_adversary state in
+              let: round := global_current_round state in
+
+              let: adv_state := (adversary_state adversary) in
+              let: (new_adv_state, chain) := (adversary_send_chain adversary) adv_state in
+              let: new_adversary :=
+                                mkAdvrs
+                                  new_adv_state
+                                  (adversary_state_change adversary)
+                                  (adversary_insert_transaction adversary)
+                                  (adversary_insert_chain adversary)
+                                  (adversary_generate_block adversary)
+                                  (adversary_provide_block_hash_result adversary)
+                                  (adversary_send_chain adversary)
+                                  (adversary_send_transaction adversary)
+                                  (adversary_last_hashed_round adversary) in
+              let: new_state := mkGlobalState actors new_adversary addr round in
+              let w' := 
+                mkWorld
+                  new_state
+                  (world_transaction_pool w)
+                  (fixlist_insert (world_inflight_pool w) (MulticastMsg  addresses chain))
+                  (world_message_pool w)
+                  (world_hash w)
+                  (world_block_history w)
+                  (world_chain_history w) in
+                  world_step w' t 
+            else
+              (* It is an invalid schedule to have a adv broadcast when the adversary isn't active*)
+              (ret None)
+          | AdversaryEnd  => 
+          if adversary_activation (world_global_state w)  then
+            (* increment round *)
+            let: updated_state := update_round (world_global_state w) in
+                let: w' := 
+                  mkWorld
+                    (world_global_state w)
+                    (world_transaction_pool w)
+                    (world_inflight_pool w)
+                    (world_message_pool w)
+                    (world_hash w)
+                    (world_block_history w)
+                    (world_chain_history w) in
+                  world_step w' t 
+
+          else
+            (* It is an invalid schedule to have an adversary end when the adversary is not active*)
+            (ret None)
+
         end
       end.

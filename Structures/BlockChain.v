@@ -143,9 +143,9 @@ Inductive RndGen  :=
     | AdvCorrupt of ('I_n_max_actors)
     (* used by adversary parties to broadcast chains - nat is an index into 
        the adversaries local blockchain pool*)
-    | AdvBroadcast of (list ('I_n_max_actors))
+    | AdvBroadcast of (fixlist [eqType of 'I_n_max_actors] n_max_actors) 
     (* Used by adversary parties to create transactions at any round *)
-    | AdvTransactionGen of ((list ('I_n_max_actors)))
+    | AdvTransactionGen 
     | RoundEnd
     | AdversaryEnd 
     .

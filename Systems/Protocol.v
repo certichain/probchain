@@ -426,14 +426,14 @@ Definition no_corrupted_players (state: GlobalState) :=
 
 (* A given world step is an honest activation if the current address
    is to a node which has not been corrupted *)
-Definition honest_activation (state: GlobalState) : bool.
+Definition honest_activation (state: GlobalState) : option 'I_n_max_actors.
     case state => actors _ active _.
     case (active < n_max_actors) eqn: H.
       case (tnth actors, (Ordinal H)) => f x.
       apply f in x as pair.
       case pair => _ is_corrupt.
-      exact (~~ is_corrupt).
-    exact false.
+      exact (Some x).
+    exact None.
     Defined.
 
 
@@ -531,7 +531,7 @@ Defined.
 
 (* insert the corresponding message into the recipient's message pool *)
 Definition insert_message 
-  (addr: Addr) 
+  (addr: 'I_n_max_actors) 
   (bc: BlockChain) 
   (state: GlobalState) : GlobalState := 
     let: actors := global_local_states state in
@@ -573,7 +573,7 @@ Definition insert_message
 
 
 Definition insert_multicast_message 
-  (addresses: fixlist [eqType of Addr] n_max_actors) 
+  (addresses: fixlist _ n_max_actors) 
   (bc: BlockChain) 
   (initial_state: GlobalState) : GlobalState := 
       foldr
@@ -727,7 +727,7 @@ Definition retrieve_head_link (b : BlockChain) (oracle_state : OracleState) : op
 
     
 
-Definition update_transaction_pool (addr : Addr) (initial_state : LocalState) (transaction_pool: TransactionPool) : LocalState :=
+Definition update_transaction_pool (addr : 'I_n_max_actors) (initial_state : LocalState) (transaction_pool: TransactionPool) : LocalState :=
   foldr
   (fun (txMsg : TransactionMessage) state => 
       match txMsg with
@@ -1071,6 +1071,20 @@ Definition world_round (w : World) : nat :=
 Definition actor_n_is_corrupt (w:World) (n:'I_n_max_actors) : bool :=
   let: (actor, is_corrupted) := tnth  (global_local_states (world_global_state w)) n in
   is_corrupted.
+
+Definition is_uncorrputed_actor (actors: n_max_actors.-tuple [eqType of ([eqType of LocalState] * [eqType of bool])]) (addr: Addr) : option ('I_n_max_actors* LocalState).
+  case addr eqn:Haddr.
+    case (m < n_max_actors) eqn: H.
+      case (tnth actors (Ordinal H)) => actor is_corrupt.
+        case is_corrupt eqn: H'.
+          (* if the actor is corrupt *)
+          exact None.
+        (* if the actor is not corrupt *)
+        exact (Some (Ordinal H, actor)).
+      (* if the address is not valid *)
+      exact None.
+Defined.
+
 
 
 (* Lemma chain_growth (w : World) (round : nat) (l : nat) :
