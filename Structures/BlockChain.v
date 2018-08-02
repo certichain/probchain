@@ -155,7 +155,6 @@ Record Block : Type := Bl {
   block_nonce: Nonce;
   block_link: Hashed;
   block_records: BlockRecord;
-  block_proof_of_work: ordinal Maximum_proof_of_work;
   
   (* extra information - can't be kept on block, as it may be modified by the adversary*)
   (* block_is_adversarial: bool; *)
@@ -163,21 +162,16 @@ Record Block : Type := Bl {
 }.
 
 Definition block_prod (b : Block) :=
-  (block_nonce b, block_link b, block_records b, block_proof_of_work b).
-Definition prod_block (product: (Nonce * Hashed * BlockRecord * (ordinal Maximum_proof_of_work))%type) : Block :=
-  let (triple1, pow1) := product in
-    let (tuple1, br1) := triple1 in
+  (block_nonce b, block_link b, block_records b).
+Definition prod_block (product: (Nonce * Hashed * BlockRecord)%type) : Block :=
+    let (tuple1, br1) := product in
       let (n1, h1) := tuple1 in
-        Bl n1 h1 br1 pow1.
+        Bl n1 h1 br1 .
 
  
 
-Definition block_prod_enum := (prod_enum 
-    (prod_finType (prod_finType [finType of Nonce] [finType of Hashed]) [finType of BlockRecord]) 
-    [finType of (ordinal Maximum_proof_of_work)]).
+Definition block_prod_enum := (prod_finType (prod_finType [finType of Nonce] [finType of Hashed]) [finType of BlockRecord]).
 
-Definition block_enum := map prod_block 
-  block_prod_enum. 
 
 
 Lemma block_cancel : cancel block_prod prod_block.

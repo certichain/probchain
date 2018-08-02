@@ -22,8 +22,8 @@ Parameter adversary_internal_initial_state : adversary_internal_state.
 Parameter adversary_internal_state_change : {ffun adversary_internal_state -> adversary_internal_state}.
 Parameter adversary_internal_insert_transaction: {ffun adversary_internal_state -> {ffun Transaction -> adversary_internal_state}}.
 Parameter adversary_internal_insert_chain: {ffun adversary_internal_state -> {ffun BlockChain -> adversary_internal_state}}.
-Parameter adversary_internal_generate_block: {ffun adversary_internal_state -> {ffun MessagePool -> (adversary_internal_state * (Nonce * Hashed * BlockRecord * ordinal Maximum_proof_of_work))}}.
-Parameter adversary_internal_provide_block_hash_result: {ffun adversary_internal_state -> {ffun (Nonce * Hashed * BlockRecord * ordinal Maximum_proof_of_work) -> {ffun Hashed -> adversary_internal_state}}}.
+Parameter adversary_internal_generate_block: {ffun adversary_internal_state -> {ffun MessagePool -> (adversary_internal_state * (Nonce * Hashed * BlockRecord))}}.
+Parameter adversary_internal_provide_block_hash_result: {ffun adversary_internal_state -> {ffun (Nonce * Hashed * BlockRecord) -> {ffun Hashed -> adversary_internal_state}}}.
 Parameter adversary_internal_send_chain: {ffun adversary_internal_state -> (adversary_internal_state * BlockChain)}.
 Parameter adversary_internal_send_transaction: {ffun adversary_internal_state -> (adversary_internal_state * Transaction * (fixlist [eqType of 'I_n_max_actors] n_max_actors))}.
 
@@ -31,7 +31,7 @@ Parameter adversary_internal_send_transaction: {ffun adversary_internal_state ->
 
   
 Definition verify_hash (blk : Block) (oracle : OracleState) : option Hashed := 
-   oraclestate_find (block_nonce blk, block_link blk, block_records blk, block_proof_of_work blk) oracle.
+   oraclestate_find (block_nonce blk, block_link blk, block_records blk) oracle.
 
 
 (*
@@ -53,11 +53,11 @@ Record Adversary (T : finType) := mkAdvrs {
 
   (* Required to allow adversary limited queries to the oracle*)
   (* the adversary can propose a block to be hashed*)
-  adversary_generate_block: {ffun T -> {ffun MessagePool -> (T * (Nonce * Hashed * BlockRecord * ordinal Maximum_proof_of_work ))}};
+  adversary_generate_block: {ffun T -> {ffun MessagePool -> (T * (Nonce * Hashed * BlockRecord))}};
 
   (* the result of the hash is returned to the adversary through this method - is the block necassary? *)
   (* it has to be structured this way, as we can not allow the adversary access to the oracle directly*)
-  adversary_provide_block_hash_result: {ffun T -> {ffun (Nonce * Hashed * BlockRecord * ordinal Maximum_proof_of_work) -> {ffun Hashed -> T}}};
+  adversary_provide_block_hash_result: {ffun T -> {ffun (Nonce * Hashed * BlockRecord) -> {ffun Hashed -> T}}};
 
   (* Required to allow the adversary to broadcast chains *)
   (* I'm not sure how assertions about the blockchain being unable to randomly guess valid blockchains will be made*)
@@ -102,8 +102,8 @@ Definition prod_Adversary (pair :
   {ffun adversary_internal_state  -> adversary_internal_state } * 
   {ffun adversary_internal_state  -> {ffun Transaction -> adversary_internal_state }} * 
   {ffun adversary_internal_state  -> {ffun BlockChain -> adversary_internal_state }} * 
-  {ffun adversary_internal_state  -> {ffun MessagePool -> adversary_internal_state  * (Nonce * Hashed * BlockRecord * 'I_Maximum_proof_of_work)}} * 
-  {ffun adversary_internal_state  -> {ffun Nonce * Hashed * BlockRecord * 'I_Maximum_proof_of_work -> {ffun Hashed -> adversary_internal_state }}} * 
+  {ffun adversary_internal_state  -> {ffun MessagePool -> adversary_internal_state  * (Nonce * Hashed * BlockRecord)}} * 
+  {ffun adversary_internal_state  -> {ffun Nonce * Hashed * BlockRecord -> {ffun Hashed -> adversary_internal_state }}} * 
   {ffun adversary_internal_state  -> adversary_internal_state  * BlockChain} * 
   {ffun adversary_internal_state   -> (adversary_internal_state   * Transaction * (fixlist [eqType of 'I_n_max_actors] n_max_actors))} * 
   ordinal N_rounds
@@ -177,27 +177,23 @@ Record LocalState := mkLclSt {
   honest_current_chain: BlockChain;
   honest_local_transaction_pool: local_TransactionPool;
   honest_local_message_pool: fixlist [eqType of BlockChain] Honest_MessagePool_size ;
-  honest_proof_of_work: ordinal Maximum_proof_of_work;
 }.
 
-Definition initLocalState := mkLclSt initBlockChain (fixlist_empty Transaction Honest_TransactionPool_size) (fixlist_empty [eqType of BlockChain] Honest_MessagePool_size) (Ordinal valid_Maximum_proof_of_work).
+Definition initLocalState := mkLclSt initBlockChain (fixlist_empty Transaction Honest_TransactionPool_size) (fixlist_empty [eqType of BlockChain] Honest_MessagePool_size) .
 
 Definition LocalState_prod (ls : LocalState) :=
   (honest_current_chain ls,
   honest_local_transaction_pool ls,
-  honest_local_message_pool ls,
-  honest_proof_of_work ls).
+  honest_local_message_pool ls).
 
 Definition prod_LocalState pair :=
   let: (honest_current_chain,
   honest_local_transaction_pool,
-  honest_local_message_pool,
-  honest_proof_of_work) := pair in 
+  honest_local_message_pool) := pair in 
   mkLclSt
     honest_current_chain
     honest_local_transaction_pool
-    honest_local_message_pool
-    honest_proof_of_work.
+    honest_local_message_pool.
 
     
 Lemma localstate_cancel : cancel LocalState_prod prod_LocalState .
@@ -565,8 +561,7 @@ Definition insert_message
       state
     else
       let: new_message_pool := fixlist_insert message_pool bc in
-      let: proof_of_work := honest_proof_of_work actor in 
-      let: new_actor := mkLclSt current_chain local_transaction_pool new_message_pool proof_of_work in
+      let: new_actor := mkLclSt current_chain local_transaction_pool new_message_pool in
       let: new_actors := set_tnth actors (new_actor, corrupted) addr in
       (mkGlobalState new_actors adversary active round)
   .
@@ -739,7 +734,6 @@ Definition update_transaction_pool (addr : 'I_n_max_actors) (initial_state : Loc
                   (honest_current_chain state)
                   (fixlist_insert (honest_local_transaction_pool state) tx)
                   (honest_local_message_pool state)
-                  (honest_proof_of_work state)
         | MulticastTransaction (tx, recipients) =>
           if addr \in (fixlist_unwrap recipients)
             then if tx \in fixlist_unwrap (honest_local_transaction_pool state) 
@@ -749,7 +743,6 @@ Definition update_transaction_pool (addr : 'I_n_max_actors) (initial_state : Loc
                   (honest_current_chain state)
                   (fixlist_insert (honest_local_transaction_pool state) tx)
                   (honest_local_message_pool state)
-                  (honest_proof_of_work state)
             else state
       end)
   initial_state

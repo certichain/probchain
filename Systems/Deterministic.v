@@ -48,20 +48,19 @@ Definition honest_attempt_hash
           let: transaction_pool := honest_local_transaction_pool state in
           (* Find a set of transactions to include in the new block *)
           let: (selected_transactions, remaining) := find_maximal_valid_subset transaction_pool best_chain in
-          let: proof_of_work := honest_proof_of_work state in
           (* Calculate the hash of the block *)
-          (hash_result <-$ hash (nonce, value, selected_transactions, proof_of_work) oracle_state;
+          (hash_result <-$ hash (nonce, value, selected_transactions) oracle_state;
           result <- 
               let: (new_oracle_state, hash) := hash_result in
               (if hash < T_Hashing_Difficulty then
-                let: new_block := Bl nonce value selected_transactions proof_of_work in
+                let: new_block := Bl nonce value selected_transactions in
                             let: new_chain := fixlist_insert best_chain new_block in
                             let: new_state :=
                                   mkLclSt 
                                     new_chain
                                     remaining
                                     (fixlist_rem (honest_local_message_pool state) best_chain)
-                                    (Ordinal valid_Maximum_proof_of_work) in (* reset the proof of work *)
+                                    in (* reset the proof of work *)
                             (new_state, Some(BroadcastMsg new_chain), new_oracle_state, Some new_block, Some new_chain)
               else
                 (* Constructed block did not meet the difficulty level *)
@@ -74,7 +73,7 @@ Definition honest_attempt_hash
                           (honest_current_chain state) 
                           (honest_local_transaction_pool state)
                           (honest_local_message_pool state)
-                          (mod_incr Maximum_proof_of_work valid_Maximum_proof_of_work (honest_proof_of_work state)) in
+                          in
                   (new_state, None, new_oracle_state, None, None)
                 else 
                   (* Otherwise we need to move the best chain from the message pool to current*)
@@ -83,7 +82,6 @@ Definition honest_attempt_hash
                           best_chain 
                           (honest_local_transaction_pool state)
                           (fixlist_rem (honest_local_message_pool state) best_chain)
-                          (mod_incr Maximum_proof_of_work valid_Maximum_proof_of_work (honest_proof_of_work state))
                           in
                   (new_state, Some(BroadcastMsg best_chain), new_oracle_state, None, None));
                   ret Some(result))
@@ -98,14 +96,14 @@ Definition adversary_attempt_hash
     (hash_state : Hashed * OracleState) : Comp [finType of (Adversary adversary_internal_state * OracleState * option Block)] :=
   let: (new_hash, oracle_state) := hash_state in
   (* Adversary can generate the block however they want *)
-  let: (adversary_partial, (nonce, hashed, transactions, pow)) := (adversary_generate_block adversary) (adversary_state adversary) inflight_messages in
-    (hash_result <-$ hash (nonce, hashed, transactions, pow) oracle_state;
+  let: (adversary_partial, (nonce, hashed, transactions)) := (adversary_generate_block adversary) (adversary_state adversary) inflight_messages in
+    (hash_result <-$ hash (nonce, hashed, transactions) oracle_state;
     result <- 
       let (new_oracle_state, result) := hash_result in
-      let: adversary_new_state := (adversary_provide_block_hash_result adversary) adversary_partial (nonce, hashed, transactions, pow) result in
+      let: adversary_new_state := (adversary_provide_block_hash_result adversary) adversary_partial (nonce, hashed, transactions) result in
         if result < T_Hashing_Difficulty 
           then 
-            let: block := Bl nonce hashed transactions pow in
+            let: block := Bl nonce hashed transactions in
             let: new_adv :=  mkAdvrs
               adversary_new_state
               (adversary_state_change adversary)
@@ -444,4 +442,3 @@ Fixpoint world_step (w : World) (s : seq RndGen) : Comp [finType of (option Worl
       end.
 
 
-Locate "Pr[ _ ]".
