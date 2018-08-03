@@ -576,16 +576,25 @@ Definition insert_multicast_message
         (AddressList_unwrap addresses).
  
 
+        About foldr.
 
 (* insert the corresponding message into every actor's message pool *)
-Definition broadcast_message (bc : BlockChain) (state: GlobalState) : GlobalState.
-    (* let: actors := global_local_states state in *)
-    (* let: adversary := global_adversary state in *)
-    (* let: active := global_currently_active state in *)
-    (* let: round := global_current_round state in *)
+Definition broadcast_message (bc : BlockChain) (initial_state: GlobalState) : GlobalState :=
+  foldr
+    (fun index state => 
+      let: actors := global_local_states state in
+      let: adversary := global_adversary state in
+      let: active := global_currently_active state in
+      let: round := global_current_round state in
+      let: (actor, is_corrupt) := (tnth actors index) in
+      if is_corrupt then
+        state
+      else
+        insert_message index bc state)
+    initial_state
+    (ord_enum  n_max_actors).
+    
 
-(* TODO(Kiran): Complete this proof. *)
-Admitted. 
 
 
 (* for each message in messages, send to corresponding actor *)
