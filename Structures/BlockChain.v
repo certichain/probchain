@@ -5,7 +5,7 @@ From mathcomp.ssreflect
 Require Import tuple.
 
 From Probchain
-Require Import FixedList Parameters.
+Require Import FixedList AddressList Parameters.
 Set Implicit Arguments.
 
 
@@ -42,7 +42,7 @@ Definition validate_transactions (xs : seq Transaction) : bool :=
 
 Inductive TransactionMessage := 
   | BroadcastTransaction of Transaction
-  | MulticastTransaction of (Transaction * (fixlist [eqType of 'I_n_max_actors] n_max_actors)).
+  | MulticastTransaction of (Transaction * AddressList).
 
 Definition transaction_message_sum (m : TransactionMessage) := match m with
     | MulticastTransaction (addr, bc) =>  inl (addr, bc)
@@ -143,7 +143,7 @@ Inductive RndGen  :=
     | AdvCorrupt of ('I_n_max_actors)
     (* used by adversary parties to broadcast chains - nat is an index into 
        the adversaries local blockchain pool*)
-    | AdvBroadcast of (fixlist [eqType of 'I_n_max_actors] n_max_actors) 
+    | AdvBroadcast of AddressList 
     (* Used by adversary parties to create transactions at any round *)
     | AdvTransactionGen 
     | RoundEnd
@@ -215,7 +215,7 @@ Definition BlockChain_unwrap (b : BlockChain) := flatten (map (fun block => fixl
 
 
 Inductive Message := 
-  | MulticastMsg (addr : fixlist [eqType of 'I_n_max_actors] n_max_actors ) (bc : BlockChain)  
+  | MulticastMsg (addr : AddressList) (bc : BlockChain)  
   | BroadcastMsg (bc : BlockChain).
 
 

@@ -5,8 +5,6 @@ Require Import Coq.Structures.OrderedTypeEx.
 Require Import OrderedType.
 Require Import Eqdep.
 
-From Probchain
-Require Import BlockChain.
 
 
 

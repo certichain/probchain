@@ -13,7 +13,7 @@ Require Import tuple.
 
 
 From Probchain
-Require Import BlockChain OracleState BlockMap InvMisc Parameters FixedList FixedMap.
+Require Import BlockChain AddressList OracleState BlockMap InvMisc Parameters FixedList FixedMap.
 
 Set Implicit Arguments.
 
@@ -25,7 +25,7 @@ Parameter adversary_internal_insert_chain: {ffun adversary_internal_state -> {ff
 Parameter adversary_internal_generate_block: {ffun adversary_internal_state -> {ffun MessagePool -> (adversary_internal_state * (Nonce * Hashed * BlockRecord))}}.
 Parameter adversary_internal_provide_block_hash_result: {ffun adversary_internal_state -> {ffun (Nonce * Hashed * BlockRecord) -> {ffun Hashed -> adversary_internal_state}}}.
 Parameter adversary_internal_send_chain: {ffun adversary_internal_state -> (adversary_internal_state * BlockChain)}.
-Parameter adversary_internal_send_transaction: {ffun adversary_internal_state -> (adversary_internal_state * Transaction * (fixlist [eqType of 'I_n_max_actors] n_max_actors))}.
+Parameter adversary_internal_send_transaction: {ffun adversary_internal_state -> (adversary_internal_state * Transaction * AddressList)}.
 
 
 
@@ -62,7 +62,7 @@ Record Adversary (T : finType) := mkAdvrs {
   (* Required to allow the adversary to broadcast chains *)
   (* I'm not sure how assertions about the blockchain being unable to randomly guess valid blockchains will be made*)
   adversary_send_chain: {ffun T -> (T * BlockChain)};
-  adversary_send_transaction: {ffun T -> (T * Transaction * (fixlist [eqType of 'I_n_max_actors] n_max_actors))};
+  adversary_send_transaction: {ffun T -> (T * Transaction * AddressList)};
 
   (* adversary_local_transaction_pool: seq Transaction; *)
   (* adversary_local_message_pool: seq BlockChain; *)
@@ -105,7 +105,7 @@ Definition prod_Adversary (pair :
   {ffun adversary_internal_state  -> {ffun MessagePool -> adversary_internal_state  * (Nonce * Hashed * BlockRecord)}} * 
   {ffun adversary_internal_state  -> {ffun Nonce * Hashed * BlockRecord -> {ffun Hashed -> adversary_internal_state }}} * 
   {ffun adversary_internal_state  -> adversary_internal_state  * BlockChain} * 
-  {ffun adversary_internal_state   -> (adversary_internal_state   * Transaction * (fixlist [eqType of 'I_n_max_actors] n_max_actors))} * 
+  {ffun adversary_internal_state   -> (adversary_internal_state   * Transaction * AddressList)} * 
   ordinal N_rounds
   )) := 
   let: (adversary_state ,
@@ -175,8 +175,7 @@ Definition local_TransactionPool := fixlist Transaction Honest_TransactionPool_s
     4. an extra parameter to persist proof of work calculations between rounds. *)
 Record LocalState := mkLclSt {
   honest_current_chain: BlockChain;
-  honest_local_transaction_pool: local_TransactionPool;
-  honest_local_message_pool: fixlist [eqType of BlockChain] Honest_MessagePool_size ;
+  honest_local_transaction_pool: local_TransactionPool; honest_local_message_pool: fixlist [eqType of BlockChain] Honest_MessagePool_size ;
 }.
 
 Definition initLocalState := mkLclSt initBlockChain (fixlist_empty Transaction Honest_TransactionPool_size) (fixlist_empty [eqType of BlockChain] Honest_MessagePool_size) .
@@ -568,18 +567,23 @@ Definition insert_message
 
 
 Definition insert_multicast_message 
-  (addresses: fixlist _ n_max_actors) 
+  (addresses: AddressList) 
   (bc: BlockChain) 
   (initial_state: GlobalState) : GlobalState := 
       foldr
         (fun addr state => insert_message addr bc state)
         initial_state
-        (fixlist_unwrap addresses).
+        (AddressList_unwrap addresses).
  
 
 
 (* insert the corresponding message into every actor's message pool *)
 Definition broadcast_message (bc : BlockChain) (state: GlobalState) : GlobalState.
+    (* let: actors := global_local_states state in *)
+    (* let: adversary := global_adversary state in *)
+    (* let: active := global_currently_active state in *)
+    (* let: round := global_current_round state in *)
+
 (* TODO(Kiran): Complete this proof. *)
 Admitted. 
 
@@ -597,7 +601,6 @@ Definition deliver_messages
     state 
     messages.
 
-    About fixlist_enqueue.
 
 Definition update_message_pool_queue (message_list_queue: fixlist [eqType of MessagePool] delta) (new_message_list : MessagePool) : (seq Message * (fixlist [eqType of MessagePool] delta)) :=
   let: (new_message_list, oldest_message_list) := @fixlist_enqueue _ _ (Some new_message_list) message_list_queue in
@@ -735,7 +738,7 @@ Definition update_transaction_pool (addr : 'I_n_max_actors) (initial_state : Loc
                   (fixlist_insert (honest_local_transaction_pool state) tx)
                   (honest_local_message_pool state)
         | MulticastTransaction (tx, recipients) =>
-          if addr \in (fixlist_unwrap recipients)
+          if addr \in (AddressList_unwrap recipients)
             then if tx \in fixlist_unwrap (honest_local_transaction_pool state) 
               then state
               else 

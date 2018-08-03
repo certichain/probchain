@@ -10,6 +10,7 @@ Structures/BlockMap.v
 Structures/FixedList.v
 Structures/FixedMap.v
 Structures/BlockChain.v
+Structures/AddressList.v
 Systems/Deterministic.v
 Systems/Protocol.v
 Properties/InvMisc.v
