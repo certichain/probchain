@@ -102,8 +102,7 @@ Definition honest_attempt_hash
 Definition adversary_attempt_hash 
     (adversary : Adversary adversary_internal_state) 
     (inflight_messages : MessagePool) 
-    (hash_state : Hashed * OracleState) : Comp [finType of (Adversary adversary_internal_state * OracleState * option Block)] :=
-  let: (new_hash, oracle_state) := hash_state in
+    (oracle_state : OracleState) : Comp [finType of (Adversary adversary_internal_state * OracleState * option Block)] :=
   (* Adversary can generate the block however they want *)
   let: (adversary_partial, (nonce, hashed, transactions)) := (adversary_generate_block adversary) (adversary_state adversary) inflight_messages in
     (hash_result <-$ hash (nonce, hashed, transactions) oracle_state;
@@ -186,14 +185,18 @@ Fixpoint world_step (w : World) (s : seq RndGen) : Comp [finType of (option Worl
                   (world_hash w)
                   (world_block_history w)
                   (world_chain_history w) 
-                  (world_adversary_message_quota w)
-                  (world_adversary_transaction_quota w)
-                  (world_honest_transaction_quota w) in
+                  (* At the end of a round, reset the quotas*)
+                  (Ordinal valid_Adversary_max_Message_sends)
+                  (Ordinal valid_Adversary_max_Transaction_sends)
+                  (Ordinal valid_Honest_max_Transaction_sends) in
                     world_step w' t
             else 
               (* To recieve a round ended when the round has not ended is an invalid result*)
               (ret None)
           | HonestTransactionGen (transaction , addr) => 
+            (* Note: As mentioned in Properties/Parameters.v, the quota stands for the exclusive
+             upper bound on the number of messages an adversary can send (hence the - 1)
+             We do this, so that the max_value can be used as an ordinal *)
           if (world_honest_transaction_quota w) < Honest_max_Transaction_sends - 1 then
             (* that the address is a valid uncorrupted one *)
             let: state := world_global_state w in
@@ -305,42 +308,43 @@ Fixpoint world_step (w : World) (s : seq RndGen) : Comp [finType of (option Worl
             (* recieving an honest mint block when the currently active node is corrupted is an invalid result*)
             (ret None)
           | AdvMintBlock   => 
-          (* Todo(Kiran): Fix this - mint block is incorrect *)
+           (* that the currently active node is a corrupted node, increment proof of work *)
+           if adversary_activation (world_global_state w) then
             let: state := world_global_state w in
             let: actors := global_local_states state in 
             let: addr := global_currently_active state in
-            let: adversary := global_adversary state in
+            let: dated_adversary := global_adversary state in
             let: round := global_current_round state in
- 
-            let: adv_state := (adversary_state adversary) in
-            let: (new_adv_state, tx, recipients) := (adversary_send_transaction adversary) adv_state in
-            let: new_adversary :=
-                              mkAdvrs
-                                new_adv_state
-                                (adversary_state_change adversary)
-                                (adversary_insert_transaction adversary)
-                                (adversary_insert_chain adversary)
-                                (adversary_generate_block adversary)
-                                (adversary_provide_block_hash_result adversary)
-                                (adversary_send_chain adversary)
-                                (adversary_send_transaction adversary)
-                                (adversary_last_hashed_round adversary) in
-            let: new_state := mkGlobalState actors new_adversary addr round in
-            let: new_transaction_pool := fixlist_insert (world_transaction_pool w) (MulticastTransaction (tx, recipients)) in
-            let: w' := 
-              mkWorld
-                new_state
-                new_transaction_pool
-                (world_inflight_pool w)
-                (world_message_pool w)
-                (world_hash w)
-                (world_block_history w)
-                (world_chain_history w) 
-                (world_adversary_message_quota w)
-                (world_adversary_transaction_quota w)
-                (world_honest_transaction_quota w)
-                in
-                world_step w' t
+
+            (* assert that last_hashed_round is less than current_round *)
+            if adversary_last_hashed_round dated_adversary < round then
+              let: oracle := (world_hash w) in
+              let: adversary := update_adversary_transaction_pool dated_adversary (world_transaction_pool w) in
+                (* Hash the block suggested by the adversary and inform them of the result *)
+                hash_pair <-$ adversary_attempt_hash adversary (world_inflight_pool w) (oracle); 
+                w' <- (
+                    let: (new_adversary, new_oracle, new_block) := hash_pair in
+                    let: updated_adversary := update_adversary_round new_adversary round in
+                    let: updated_state := mkGlobalState actors updated_adversary addr round in
+                    mkWorld
+                        updated_state 
+                        (world_transaction_pool w)
+                        (world_inflight_pool w) 
+                        (world_message_pool w)
+                        new_oracle
+                        (BlockMap_put_adversarial_on_success new_block round (world_block_history w))
+                        (world_chain_history w)  
+                        (world_adversary_message_quota w)
+                        (world_adversary_transaction_quota w)
+                        (world_honest_transaction_quota w));
+                        nw <-$ (world_step w' t);
+                        ret nw
+            else
+            (* it is an invalid schedule to allow the adversary to hash a block multiple times in a round *)
+             (ret None)
+          else
+            (* It is an invalid schedule to attempt to mint a block when not during an adversarial activation *)
+            (ret None)
 
           | AdvTransactionGen  => 
           (* if the adversary hasn't exceeded their quota *)
@@ -428,6 +432,9 @@ Fixpoint world_step (w : World) (s : seq RndGen) : Comp [finType of (option Worl
 
           | AdvBroadcast (addresses) => 
             (* that the currently active node is a corrupted one  *)
+            (* Note: As mentioned in Properties/Parameters.v, the quota stands for the exclusive
+             upper bound on the number of messages an adversary can send (hence the - 1)
+             We do this, so that the max_value can be used as an ordinal *)
             if adversary_activation (world_global_state w) && ((world_adversary_message_quota w) < Adversary_max_Message_sends - 1) then
               (* that the index is valid *)
               let: state := world_global_state w in
