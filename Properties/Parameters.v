@@ -87,6 +87,9 @@ Axiom valid_N_rounds : 0 < N_rounds.
 
 Parameter oraclestate_size: nat.
 
+(* Note: These quotas stand for the exclusive
+upper bound on the number of messages an adversary can send (hence the - 1)
+We do this, so that the max_value can be used as an ordinal *)
 Parameter Adversary_max_Message_sends : nat.
 Axiom valid_Adversary_max_Message_sends :  0 < Adversary_max_Message_sends.
 Parameter Adversary_max_Transaction_sends : nat.
@@ -104,3 +107,12 @@ Axiom valid_Message_BufferOverflow : Honest_MessagePool_size >  n_max_actors + A
    *)
 
 Axiom valid_Transaction_BufferOverflow : Honest_TransactionPool_size >  n_max_actors + Honest_max_Transaction_sends.
+
+(* Ensure that the chain history is never overflowed*)
+Axiom valid_ChainHistory_BufferOverflow : ChainHistory_size >  (n_max_actors + Adversary_max_Message_sends) * N_rounds.
+(* 
+    Each honest actor mints a block at most once a round, and thus outputs a chain at most once a round.
+    An adversary outputs at most Adversary_max_Message_sends per round,
+    thus even under the worst conditions, the maximum number of blocks that may be produced in a round is
+    (n_max_actors + Adversary_max_message_sends) * N_max_rounds.
+*)

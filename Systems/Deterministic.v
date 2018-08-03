@@ -185,14 +185,18 @@ Fixpoint world_step (w : World) (s : seq RndGen) : Comp [finType of (option Worl
                   (world_hash w)
                   (world_block_history w)
                   (world_chain_history w) 
-                  (world_adversary_message_quota w)
-                  (world_adversary_transaction_quota w)
-                  (world_honest_transaction_quota w) in
+                  (* At the end of a round, reset the quotas*)
+                  (Ordinal valid_Adversary_max_Message_sends)
+                  (Ordinal valid_Adversary_max_Transaction_sends)
+                  (Ordinal valid_Honest_max_Transaction_sends) in
                     world_step w' t
             else 
               (* To recieve a round ended when the round has not ended is an invalid result*)
               (ret None)
           | HonestTransactionGen (transaction , addr) => 
+            (* Note: As mentioned in Properties/Parameters.v, the quota stands for the exclusive
+             upper bound on the number of messages an adversary can send (hence the - 1)
+             We do this, so that the max_value can be used as an ordinal *)
           if (world_honest_transaction_quota w) < Honest_max_Transaction_sends - 1 then
             (* that the address is a valid uncorrupted one *)
             let: state := world_global_state w in
@@ -428,6 +432,9 @@ Fixpoint world_step (w : World) (s : seq RndGen) : Comp [finType of (option Worl
 
           | AdvBroadcast (addresses) => 
             (* that the currently active node is a corrupted one  *)
+            (* Note: As mentioned in Properties/Parameters.v, the quota stands for the exclusive
+             upper bound on the number of messages an adversary can send (hence the - 1)
+             We do this, so that the max_value can be used as an ordinal *)
             if adversary_activation (world_global_state w) && ((world_adversary_message_quota w) < Adversary_max_Message_sends - 1) then
               (* that the index is valid *)
               let: state := world_global_state w in
