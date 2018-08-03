@@ -86,3 +86,18 @@ Axiom valid_N_rounds : 0 < N_rounds.
 
 
 Parameter oraclestate_size: nat.
+
+Parameter Adversary_max_Message_sends : nat.
+Parameter Adversary_max_Transaction_sends : nat.
+Parameter Honest_max_Transaction_sends : nat.
+
+(* Ensure that an adversary can not overflow the buffers *)
+Axiom valid_Message_BufferOverflow : Honest_MessagePool_size >  n_max_actors + Adversary_max_Message_sends.
+(* Buffers are cleared every round.
+   Each honest party sends at most 1 message per round
+   Adversary sends at most Adversary_max_Message_sends per round
+   Hence, provided Honest_messagePool_size > n_max_actors + Adversary_max_Message_sends,
+   the buffer will not overflow
+   *)
+
+Axiom valid_Transaction_BufferOverflow : Honest_TransactionPool_size >  n_max_actors + Honest_max_Transaction_sends.
