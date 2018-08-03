@@ -116,3 +116,14 @@ Axiom valid_ChainHistory_BufferOverflow : ChainHistory_size >  (n_max_actors + A
     thus even under the worst conditions, the maximum number of blocks that may be produced in a round is
     (n_max_actors + Adversary_max_message_sends) * N_max_rounds.
 *)
+
+
+
+(* Ensure that the blockmap is large enough to record every block that may be produced during execution *)
+Axiom valid_BlockHistory_BufferOverflow : BlockHistory_size  > (n_max_actors + 1) * N_rounds.
+(*
+    Every party in the system is permitted 1 query to the hash function per round.
+    As the number of parties are constant, irrespective of the proportion of corrupted nodes,
+    the maximum number of blocks that may be hashed in a round is n_max_actors + 1.
+    (+1) as the adversary can also hash blocks.
+*)
