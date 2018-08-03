@@ -318,6 +318,12 @@ Record World := mkWorld {
   world_block_history: BlockMap;
   (* Contains every chain ever seen*)
   world_chain_history: fixlist [eqType of BlockChain] ChainHistory_size;
+  (* Contains the number of messages sent by the adversary for the current round *)
+  world_adversary_message_quota: (ordinal Adversary_max_Message_sends);
+  (* Contains the number of transactions sent by the adversary for the current round *)
+  world_adversary_transaction_quota: (ordinal Adversary_max_Transaction_sends);
+  (* Contains the number of transactions sent by honest players *)
+  world_honest_transaction_quota: (ordinal Honest_max_Transaction_sends);
 }.
 
 
@@ -333,7 +339,10 @@ Definition initWorld :=
       initWorldMessagePool 
       oraclestate_new 
       BlockMap_new 
-      initWorldChainHistory.
+      initWorldChainHistory
+       (Ordinal valid_Adversary_max_Message_sends)
+       (Ordinal valid_Adversary_max_Transaction_sends)
+       (Ordinal valid_Honest_max_Transaction_sends).
 
 Definition World_prod w :=
   (world_global_state w,
@@ -342,7 +351,10 @@ Definition World_prod w :=
   world_message_pool w,
   world_hash w,
   world_block_history w,
-  world_chain_history w).
+  world_chain_history w,
+  world_adversary_message_quota w,
+  world_adversary_transaction_quota w,
+  world_honest_transaction_quota w).
 
 
 Definition prod_World pair :=
@@ -352,7 +364,10 @@ Definition prod_World pair :=
   world_message_pool,
   world_hash,
   world_block_history,
-  world_chain_history) := pair in
+  world_chain_history,
+  world_adversary_message_quota,
+  world_adversary_transaction_quota,
+  world_honest_transaction_quota) := pair in
     mkWorld
       world_global_state
       world_transaction_pool
@@ -360,7 +375,10 @@ Definition prod_World pair :=
       world_message_pool
       world_hash
       world_block_history
-      world_chain_history.
+      world_chain_history
+      world_adversary_message_quota
+      world_adversary_transaction_quota
+      world_honest_transaction_quota.
 
 
 

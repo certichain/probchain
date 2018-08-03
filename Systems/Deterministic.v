@@ -185,39 +185,49 @@ Fixpoint world_step (w : World) (s : seq RndGen) : Comp [finType of (option Worl
                   new_message_pool
                   (world_hash w)
                   (world_block_history w)
-                  (world_chain_history w) in
+                  (world_chain_history w) 
+                  (world_adversary_message_quota w)
+                  (world_adversary_transaction_quota w)
+                  (world_honest_transaction_quota w) in
                     world_step w' t
             else 
               (* To recieve a round ended when the round has not ended is an invalid result*)
               (ret None)
           | HonestTransactionGen (transaction , addr) => 
-          (* that the address is a valid uncorrupted one *)
-          let: state := world_global_state w in
-          let: actors := global_local_states state in 
-          let: (actor, is_corrupt) := tnth actors addr in 
-           if is_corrupt 
-            then
-              (* recieving an honest transaction gen for a node that has been corrupted is an invalid result *)
-              (ret None)
+          if (world_honest_transaction_quota w) < Honest_max_Transaction_sends - 1 then
+            (* that the address is a valid uncorrupted one *)
+            let: state := world_global_state w in
+            let: actors := global_local_states state in 
+            let: (actor, is_corrupt) := tnth actors addr in 
+            if is_corrupt 
+              then
+                (* recieving an honest transaction gen for a node that has been corrupted is an invalid result *)
+                (ret None)
+              else
+                (* that the transaction is valid with respect to the chain of the actor  *)
+                let: transactions := BlockChain_unwrap (honest_current_chain actor) in
+                  if Transaction_valid transaction transactions
+                    then
+                      let: new_transaction_pool := fixlist_insert (world_transaction_pool w) (BroadcastTransaction transaction) in
+                      let: w' := 
+                        mkWorld
+                          state 
+                          new_transaction_pool
+                          (world_inflight_pool w)
+                          (world_message_pool w)
+                          (world_hash w)
+                          (world_block_history w)
+                          (world_chain_history w)
+                          (world_adversary_message_quota w)
+                          (world_adversary_transaction_quota w)
+                          (mod_incr _ valid_Honest_max_Transaction_sends (world_honest_transaction_quota w)) in
+                        world_step w' t
+                    else 
+                      (* To recieve an honest transaction gen with an invalid transaction is an invalid result*)
+                      (ret None)
             else
-              (* that the transaction is valid with respect to the chain of the actor  *)
-              let: transactions := BlockChain_unwrap (honest_current_chain actor) in
-                if Transaction_valid transaction transactions
-                  then
-                    let: new_transaction_pool := fixlist_insert (world_transaction_pool w) (BroadcastTransaction transaction) in
-                    let: w' := 
-                      mkWorld
-                        state 
-                        new_transaction_pool
-                        (world_inflight_pool w)
-                        (world_message_pool w)
-                        (world_hash w)
-                        (world_block_history w)
-                        (world_chain_history w) in
-                      world_step w' t
-                  else 
-                    (* To recieve an honest transaction gen with an invalid transaction is an invalid result*)
-                    (ret None)
+              (* To recieve an honest transaction gen when the honest transaction quota is exceeded is an invalid state*)
+              (ret None)
 
           | TransactionDrop (to_drop) => 
            (* assert that random is of form TransactionDrop
@@ -236,7 +246,10 @@ Fixpoint world_step (w : World) (s : seq RndGen) : Comp [finType of (option Worl
                 (world_message_pool w)
                 (world_hash w)
                 (world_block_history w)
-                (world_chain_history w) in
+                (world_chain_history w)
+                (world_adversary_message_quota w)
+                (world_adversary_transaction_quota w)
+                (world_honest_transaction_quota w) in
                   world_step w' t
           else 
             (* To recieve a transaction drop index for an empty index is an invalid result*)
@@ -276,7 +289,10 @@ Fixpoint world_step (w : World) (s : seq RndGen) : Comp [finType of (option Worl
                         (world_message_pool w)
                         new_oracle
                         (BlockMap_put_honest_on_success new_block round (world_block_history w))
-                        (option_insert (world_chain_history w) new_chain) ;
+                        (option_insert (world_chain_history w) new_chain) 
+                        (world_adversary_message_quota w)
+                        (world_adversary_transaction_quota w)
+                        (world_honest_transaction_quota w);
                         nw <-$ (world_step w' t);
                         ret nw
                   else
@@ -289,7 +305,7 @@ Fixpoint world_step (w : World) (s : seq RndGen) : Comp [finType of (option Worl
             (* recieving an honest mint block when the currently active node is corrupted is an invalid result*)
             (ret None)
           | AdvMintBlock   => 
-            (* Note: No guarantees of validity here *)
+          (* Todo(Kiran): Fix this - mint block is incorrect *)
             let: state := world_global_state w in
             let: actors := global_local_states state in 
             let: addr := global_currently_active state in
@@ -319,43 +335,58 @@ Fixpoint world_step (w : World) (s : seq RndGen) : Comp [finType of (option Worl
                 (world_message_pool w)
                 (world_hash w)
                 (world_block_history w)
-                (world_chain_history w) in
+                (world_chain_history w) 
+                (world_adversary_message_quota w)
+                (world_adversary_transaction_quota w)
+                (world_honest_transaction_quota w)
+                in
                 world_step w' t
 
           | AdvTransactionGen  => 
-           (* Note: No guarantees of validity here *)
-           let: state := world_global_state w in
-           let: actors := global_local_states state in 
-           let: addr := global_currently_active state in
-           let: adversary := global_adversary state in
-           let: round := global_current_round state in
- 
-           let: adv_state := (adversary_state adversary) in
-           let: (new_adv_state, tx, recipients) := (adversary_send_transaction adversary) adv_state in
-           let: new_adversary :=
-                               mkAdvrs
-                                new_adv_state
-                                (adversary_state_change adversary)
-                                (adversary_insert_transaction adversary)
-                                (adversary_insert_chain adversary)
-                                (adversary_generate_block adversary)
-                                (adversary_provide_block_hash_result adversary)
-                                (adversary_send_chain adversary)
-                                (adversary_send_transaction adversary)
-                                (adversary_last_hashed_round adversary) in
-            let: new_state := mkGlobalState actors new_adversary addr round in
-            let: new_transaction_pool := fixlist_insert (world_transaction_pool w) (MulticastTransaction (tx, recipients)) in
-           let: w' := 
-            mkWorld
-              new_state
-              new_transaction_pool
-              (world_inflight_pool w)
-              (world_message_pool w)
-              (world_hash w)
-              (world_block_history w)
-              (world_chain_history w) in
-
-                world_step w' t
+          (* if the adversary hasn't exceeded their quota *)
+          (* Note: As mentioned in Properties/Parameters.v, the quota stands for the exclusive
+             upper bound on the number of messages an adversary can send (hence the - 1)
+             We do this, so that the max_value can be used as an ordinal 
+             *)
+           if (world_adversary_transaction_quota w) < (Adversary_max_Transaction_sends - 1) then
+            let: state := world_global_state w in
+            let: actors := global_local_states state in 
+            let: addr := global_currently_active state in
+            let: adversary := global_adversary state in
+            let: round := global_current_round state in
+  
+            let: adv_state := (adversary_state adversary) in
+            let: (new_adv_state, tx, recipients) := (adversary_send_transaction adversary) adv_state in
+            let: new_adversary :=
+                                mkAdvrs
+                                  new_adv_state
+                                  (adversary_state_change adversary)
+                                  (adversary_insert_transaction adversary)
+                                  (adversary_insert_chain adversary)
+                                  (adversary_generate_block adversary)
+                                  (adversary_provide_block_hash_result adversary)
+                                  (adversary_send_chain adversary)
+                                  (adversary_send_transaction adversary)
+                                  (adversary_last_hashed_round adversary) in
+              let: new_state := mkGlobalState actors new_adversary addr round in
+              let: new_transaction_pool := fixlist_insert (world_transaction_pool w) (MulticastTransaction (tx, recipients)) in
+            let: w' := 
+              mkWorld
+                new_state
+                new_transaction_pool
+                (world_inflight_pool w)
+                (world_message_pool w)
+                (world_hash w)
+                (world_block_history w)
+                (world_chain_history w) 
+                (world_adversary_message_quota w)
+                (mod_incr _ (valid_Adversary_max_Transaction_sends) (world_adversary_transaction_quota w))
+                (world_honest_transaction_quota w) in
+                  world_step w' t
+          else
+          (* It is an invalid state for a quota to require an adversary to generate a transaction if it has
+             exhausted it's quota*)
+            (ret None)
 
           | AdvCorrupt addr => 
           (* That the current active node is a corrupted one *)
@@ -378,7 +409,11 @@ Fixpoint world_step (w : World) (s : seq RndGen) : Comp [finType of (option Worl
                     (world_message_pool w)
                     (world_hash w)
                     (world_block_history w)
-                    (world_chain_history w) in
+                    (world_chain_history w) 
+                    (world_adversary_message_quota w)
+                    (world_adversary_transaction_quota w)
+                    (world_honest_transaction_quota w)
+                    in
                       world_step w' t
               else
               (* It is an invalid schedule to have advcorrupt when the adversary isnt' active*)
@@ -393,7 +428,7 @@ Fixpoint world_step (w : World) (s : seq RndGen) : Comp [finType of (option Worl
 
           | AdvBroadcast (addresses) => 
             (* that the currently active node is a corrupted one  *)
-            if adversary_activation (world_global_state w) then
+            if adversary_activation (world_global_state w) && ((world_adversary_message_quota w) < Adversary_max_Message_sends - 1) then
               (* that the index is valid *)
               let: state := world_global_state w in
               let: actors := global_local_states state in 
@@ -423,10 +458,15 @@ Fixpoint world_step (w : World) (s : seq RndGen) : Comp [finType of (option Worl
                   (world_message_pool w)
                   (world_hash w)
                   (world_block_history w)
-                  (world_chain_history w) in
+                  (world_chain_history w) 
+                  (mod_incr _ valid_Adversary_max_Message_sends (world_adversary_message_quota w))
+                  (world_adversary_transaction_quota w)
+                  (world_honest_transaction_quota w)
+                  in
                   world_step w' t 
             else
               (* It is an invalid schedule to have a adv broadcast when the adversary isn't active*)
+              (* or when it has exceeded it's quotas for the round*)
               (ret None)
           | AdversaryEnd  => 
           if adversary_activation (world_global_state w)  then
@@ -440,7 +480,11 @@ Fixpoint world_step (w : World) (s : seq RndGen) : Comp [finType of (option Worl
                     (world_message_pool w)
                     (world_hash w)
                     (world_block_history w)
-                    (world_chain_history w) in
+                    (world_chain_history w) 
+                    (world_adversary_message_quota w)
+                    (world_adversary_transaction_quota w)
+                    (world_honest_transaction_quota w)
+                    in
                   world_step w' t 
 
           else
