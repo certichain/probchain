@@ -57,10 +57,13 @@ Definition honest_attempt_hash
                             let: new_chain := fixlist_insert best_chain new_block in
                             let: new_state :=
                                   mkLclSt 
+                          (*  Drop the transaction pool and message pool after activation *)
                                     new_chain
-                                    remaining
-                                    (fixlist_rem (honest_local_message_pool state) best_chain)
-                                    in (* reset the proof of work *)
+                                    (* remaining *)
+                                    (fixlist_empty Transaction Honest_TransactionPool_size) 
+                                    (* (fixlist_rem (honest_local_message_pool state) best_chain) *)
+                                    (fixlist_empty [eqType of BlockChain] Honest_MessagePool_size)
+                                    in 
                             (new_state, Some(BroadcastMsg new_chain), new_oracle_state, Some new_block, Some new_chain)
               else
                 (* Constructed block did not meet the difficulty level *)
@@ -71,8 +74,11 @@ Definition honest_attempt_hash
                   let: new_state := 
                         mkLclSt 
                           (honest_current_chain state) 
-                          (honest_local_transaction_pool state)
-                          (honest_local_message_pool state)
+                          (*  Drop the transaction pool and message pool after activation *)
+                          (* (honest_local_transaction_pool state) *)
+                          (fixlist_empty Transaction Honest_TransactionPool_size) 
+                          (* (honest_local_message_pool state) *)
+                          (fixlist_empty [eqType of BlockChain] Honest_MessagePool_size)
                           in
                   (new_state, None, new_oracle_state, None, None)
                 else 
@@ -80,8 +86,11 @@ Definition honest_attempt_hash
                   let: new_state := 
                         mkLclSt 
                           best_chain 
-                          (honest_local_transaction_pool state)
-                          (fixlist_rem (honest_local_message_pool state) best_chain)
+                          (*  Drop the transaction pool and message pool after activation *)
+                          (* (honest_local_transaction_pool state) *)
+                          (fixlist_empty Transaction Honest_TransactionPool_size) 
+                          (* (fixlist_rem (honest_local_message_pool state) best_chain) *)
+                          (fixlist_empty [eqType of BlockChain] Honest_MessagePool_size)
                           in
                   (new_state, Some(BroadcastMsg best_chain), new_oracle_state, None, None));
                   ret Some(result))
