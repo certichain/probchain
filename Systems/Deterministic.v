@@ -314,6 +314,7 @@ Fixpoint world_step (w : World) (s : seq RndGen) : Comp [finType of (option Worl
                         (world_adversary_transaction_quota w)
                         (world_honest_transaction_quota w)
                         (record_adoption_on_success new_chain round r_addr (world_adoption_history w))
+                         (* (world_adoption_history w) *)
                         ;
                         nw <-$ (world_step w' t);
                         ret nw

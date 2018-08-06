@@ -326,14 +326,14 @@ Record World := mkWorld {
   world_honest_transaction_quota: (ordinal Honest_max_Transaction_sends);
 
   (* Contains a listing of every adoption of a chain *)
-  world_adoption_history: fixlist [eqType of (BlockChain * (ordinal N_rounds * 'I_n_max_actors))] (n_max_actors * N_rounds);
+  world_adoption_history: fixlist [eqType of (BlockChain * ordinal N_rounds * 'I_n_max_actors)] (n_max_actors * N_rounds);
 }.
 
 
 
 Definition initWorldMessagePool := (fixlist_empty [eqType of MessagePool] delta).
 Definition initWorldChainHistory := (fixlist_empty [eqType of BlockChain] ChainHistory_size).
-Definition initWorldAdoptionHistory := (fixlist_empty [eqType of (BlockChain * (ordinal N_rounds * 'I_n_max_actors))] (n_max_actors * N_rounds)).
+Definition initWorldAdoptionHistory := (fixlist_empty [eqType of (BlockChain * ordinal N_rounds * 'I_n_max_actors)] (n_max_actors * N_rounds)).
 
 Definition initWorld := 
     mkWorld   
