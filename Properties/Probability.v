@@ -71,48 +71,65 @@ Lemma p_chain_quality (l u : nat) : forall  (s: seq.seq RndGen) (agent : 'I_n_ma
 
 
 
+Definition adopted_at_round (c : BlockChain) (r : 'I_N_rounds) (w: World) :=
+    (length (filter (fun rec => 
+        let: (chain, round, addr) := rec in
+        (chain == c) && (round == r))
+    (fixlist_unwrap (world_adoption_history w))) > 0)%nat.
 
 
-    About existsb.
-    Locate "_ > _".
-    Print Rlt.
-    Locate "^~".
-
-(* Definition passes_through_consecutive (w w' wfinal : World) (schedule : seq.seq RndGen) :=
-    (existsb (fun (n : nat) =>
-        ((evalDist  
-         (world_step initWorld (take n schedule)) (Some w)) > R0) &&
-        ((evalDist
-            (world_step w (take 1 (drop n schedule))) (Some w')) > R0) &&
-        ((evalDist
-            (world_step w' (drop n.+1 schedule)) (Some wfinal)) > R0)) (iota 0 (length schedule))). *)
-
-(* Definition common_prefix_givens (schedule : seq.seq RndGen) (k r1 r2 : nat) (a1 a2 : 'I_n_max_actors) (c1 c2 : BlockChain) :=
-    w' <-$ world_step initWorld schedule;
+Definition common_prefix_givens 
+    (* Todo: Add typical execution assumption*)
+    (schedule : seq.seq RndGen)  (r : 'I_N_rounds) (c1 c2: BlockChain) (pf: (length c2 >= length c1)%nat ) :=
+    (* Consider two chains c1 c2 st, len(C2) >= len (C1)*)
+    (w' <-$ world_step initWorld schedule;
     r <-
         if w' is Some(current_w) then
-            (world_round_no current_w >= r2) &&
-            ~~ (actor_n_is_corrupt current_w a1) &&
-            ~~ (actor_n_is_corrupt current_w a1) &&
+        (* if c1 is adopted by an honest party at round r and c2 is adopted or diffused at round r*)
+            [&& (adopted_at_round c1 r current_w) & (adopted_at_round c2 r current_w) ]
+        else 
+            false;
+    ret r).
+
+Definition p_common_prefix_givens
+    (schedule : seq.seq RndGen)  (r : 'I_N_rounds)  (c1 c2: BlockChain) (pf: (length c2 >= length c1)%nat ) :=
+    evalDist (common_prefix_givens schedule  r c1 c2 pf) true.
+
+
+Definition has_common_prefix_property
+    (* Todo: Add typical execution assumption*)
+    (* Todo: Assert that k >= 2 eta k f *)
+    (schedule : seq.seq RndGen) (k : nat) (r : 'I_N_rounds) (c1 c2: BlockChain) (pf: (length c2 >= length c1)%nat ) :=
+    (* Consider two chains c1 c2 st, len(C2) >= len (C1)*)
+    (w' <-$ world_step initWorld schedule;
+    r <-
+        if w' is Some(current_w) then
+        (* if c1 is adopted by an honest party at round r and c2 is adopted or diffused at round r*)
+            [&& (adopted_at_round c1 r current_w), 
+                (adopted_at_round c2 r current_w) ,
+               (* then pruning k blocks from the head of c1 will make it a prefix or equal to c2 and visa versa *) 
+               prefix (drop k (BlockChain_unwrap c1)) (BlockChain_unwrap c2) &
+               prefix (drop k (BlockChain_unwrap c2)) (BlockChain_unwrap c1) ]
+        else 
+            false;
+    ret r).
+
+Definition p_has_common_prefix_property
+    (schedule : seq.seq RndGen) (k : nat) (r : 'I_N_rounds)  (c1 c2: BlockChain) (pf: (length c2 >= length c1)%nat ) :=
+    evalDist (has_common_prefix_property schedule k r c1 c2 pf) true.
+
+Lemma common_prefix_property : forall 
+    (s: seq.seq RndGen) (k : nat) (r : 'I_N_rounds) (c1 c2: BlockChain) (pf: (length c2 >= length c1)%nat ),
     
-    (* exists consequtive rounds w' wr1 at r1 in which chain1 is adopted *)
-   (existsb (w' wr1 : World), 
-    (adopt_at_round w' wr1 c1 (widen_ord (leq_addr _ _) a1) r1) && 
+     (p_common_prefix_givens s r c1 c2 pf > R0) ->
+    (* Pr( givens_of result_w AND has_chain_quality_property ) / Pr (givens_of result_w ) = *)
+    (* Pr (result_w has chain_quality_property, given the givens) *)
 
-    )
-  (existsx (w'' wr2 : World), 
-  (* reachable initWorld w'' -> reachable w'' wr2 -> reachable wr2 current_w ->   *)
-    adopt_at_round w'' wr2 c2 (widen_ord (leq_addr _ _) a2) r2) ->
-
-        else false;
-    ret w.
-
-
-
-
-
-
-
+    (p_has_common_prefix_property s k r c1 c2 pf) / (p_common_prefix_givens s r c1 c2 pf ) = probability_constant.
+    Admitted.
+    
+    
+(*
 Definition common_prefix_property (current_w : World) (k r1 r2 : nat) (a1 a2 : 'I_n_max_actors) (c1 c2 : BlockChain) :=
   (* current w is valid *)
   (world_round_no current_w) >= r2 ->
