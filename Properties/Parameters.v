@@ -127,3 +127,9 @@ Axiom valid_BlockHistory_BufferOverflow : BlockHistory_size  > (n_max_actors + 1
     the maximum number of blocks that may be hashed in a round is n_max_actors + 1.
     (+1) as the adversary can also hash blocks.
 *)
+Require Import Reals.
+Parameter Epsilon_concentration_of_blocks : R.
+Parameter Delta_honest_advantage : R.
+Axiom valid_Delta_honest_advantage : Rle (Rdiv (INR t_max_corrupted) (INR (n_max_actors - t_max_corrupted))) (Rminus R1  Delta_honest_advantage).
+Parameter Eta_block_to_round : R.
+Parameter f_probability_honest_success : R.
