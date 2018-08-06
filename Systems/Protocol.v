@@ -316,20 +316,24 @@ Record World := mkWorld {
   world_hash: OracleState;
   (* Contains every block seen *)
   world_block_history: BlockMap;
-  (* Contains every chain ever seen*)
-  world_chain_history: fixlist [eqType of BlockChain] ChainHistory_size;
+  (* Contains every chain ever seen *)
+  world_chain_history: fixlist [eqType of BlockChain ] ChainHistory_size;
   (* Contains the number of messages sent by the adversary for the current round *)
   world_adversary_message_quota: (ordinal Adversary_max_Message_sends);
   (* Contains the number of transactions sent by the adversary for the current round *)
   world_adversary_transaction_quota: (ordinal Adversary_max_Transaction_sends);
   (* Contains the number of transactions sent by honest players *)
   world_honest_transaction_quota: (ordinal Honest_max_Transaction_sends);
+
+  (* Contains a listing of every adoption of a chain *)
+  world_adoption_history: fixlist [eqType of (BlockChain * (ordinal N_rounds * 'I_n_max_actors))] (n_max_actors * N_rounds);
 }.
 
 
 
 Definition initWorldMessagePool := (fixlist_empty [eqType of MessagePool] delta).
 Definition initWorldChainHistory := (fixlist_empty [eqType of BlockChain] ChainHistory_size).
+Definition initWorldAdoptionHistory := (fixlist_empty [eqType of (BlockChain * (ordinal N_rounds * 'I_n_max_actors))] (n_max_actors * N_rounds)).
 
 Definition initWorld := 
     mkWorld   
@@ -342,7 +346,8 @@ Definition initWorld :=
       initWorldChainHistory
        (Ordinal valid_Adversary_max_Message_sends)
        (Ordinal valid_Adversary_max_Transaction_sends)
-       (Ordinal valid_Honest_max_Transaction_sends).
+       (Ordinal valid_Honest_max_Transaction_sends)
+       initWorldAdoptionHistory.
 
 Definition World_prod w :=
   (world_global_state w,
@@ -354,7 +359,8 @@ Definition World_prod w :=
   world_chain_history w,
   world_adversary_message_quota w,
   world_adversary_transaction_quota w,
-  world_honest_transaction_quota w).
+  world_honest_transaction_quota w,
+  world_adoption_history w).
 
 
 Definition prod_World pair :=
@@ -367,7 +373,8 @@ Definition prod_World pair :=
   world_chain_history,
   world_adversary_message_quota,
   world_adversary_transaction_quota,
-  world_honest_transaction_quota) := pair in
+  world_honest_transaction_quota,
+  world_adoption_history) := pair in
     mkWorld
       world_global_state
       world_transaction_pool
@@ -378,7 +385,8 @@ Definition prod_World pair :=
       world_chain_history
       world_adversary_message_quota
       world_adversary_transaction_quota
-      world_honest_transaction_quota.
+      world_honest_transaction_quota
+      world_adoption_history.
 
 
 
@@ -662,20 +670,25 @@ Definition validate_blockchain_links (bc : BlockChain) (oracle_state : OracleSta
         foldr
           (fun pred_block last_pair  => 
             let: (block, has_failed) := last_pair in
+            (* if the foldr has alreday seen a failure*)
             if has_failed
+              (* then just propagate the accumulator, no changes needed*)
               then (pred_block, has_failed)
               else
+              (* otherwise, check that the link of the current block is equal to
+                that of the current_blocks hash *)
                 match verify_hash pred_block oracle_state with
                   | None => (pred_block, true)
                   | Some(hash_value) => 
-                      if block_link block == hash_value 
+                      if (block_link block == hash_value)  && (hash_value < T_Hashing_Difficulty) 
                         then (pred_block, false)
                         else (pred_block, true)
                 end
           )
           (h, false)  
           t
-          in result
+          in 
+          ~~ result
   end.
 
 Definition validate_blockchain (bc : BlockChain) (oracle_state: OracleState) : bool :=

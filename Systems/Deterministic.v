@@ -54,7 +54,7 @@ Definition honest_attempt_hash
               let: (new_oracle_state, hash) := hash_result in
               (if hash < T_Hashing_Difficulty then
                 let: new_block := Bl nonce value selected_transactions in
-                            let: new_chain := fixlist_insert best_chain new_block in
+                            let: (new_chain, _) := fixlist_enqueue (Some new_block) best_chain in
                             let: new_state :=
                                   mkLclSt 
                           (*  Drop the transaction pool and message pool after activation *)
@@ -146,15 +146,25 @@ Definition adversary_attempt_hash
     end.
 
 
-Definition retrieve_actor (list : n_max_actors.-tuple [eqType of ([eqType of LocalState] * [eqType of bool])])  (addr : Addr) : option (LocalState * bool).
+Definition retrieve_actor (list : n_max_actors.-tuple [eqType of ([eqType of LocalState] * [eqType of bool])])  (addr : Addr) : option (LocalState * bool * 'I_n_max_actors).
   case addr eqn: H.
   case (m < n_max_actors) eqn: H'.
-  exact (Some (tnth list (Ordinal H'))).
+  exact (Some ((tnth list (Ordinal H')) , (Ordinal H'))).
   exact None.
 Defined.
 
-Print retrieve_actor.
 
+
+Definition record_adoption_on_success 
+      (blk: option BlockChain) 
+      (round: ordinal N_rounds) 
+      (addr: 'I_n_max_actors) 
+      (ls: fixlist [eqType of (BlockChain * ordinal N_rounds * 'I_n_max_actors)] (n_max_actors * N_rounds))
+      : fixlist [eqType of (BlockChain * ordinal N_rounds * 'I_n_max_actors)] (n_max_actors * N_rounds) :=
+      match blk with
+        | Some chain => (fixlist_insert ls (chain, round, addr))
+        | None => ls
+      end.
 
 
 Fixpoint world_step (w : World) (s : seq RndGen) : Comp [finType of (option World)] :=
@@ -188,7 +198,10 @@ Fixpoint world_step (w : World) (s : seq RndGen) : Comp [finType of (option Worl
                   (* At the end of a round, reset the quotas*)
                   (Ordinal valid_Adversary_max_Message_sends)
                   (Ordinal valid_Adversary_max_Transaction_sends)
-                  (Ordinal valid_Honest_max_Transaction_sends) in
+                  (Ordinal valid_Honest_max_Transaction_sends) 
+                  
+                (world_adoption_history w) 
+                  in
                     world_step w' t
             else 
               (* To recieve a round ended when the round has not ended is an invalid result*)
@@ -223,7 +236,9 @@ Fixpoint world_step (w : World) (s : seq RndGen) : Comp [finType of (option Worl
                           (world_chain_history w)
                           (world_adversary_message_quota w)
                           (world_adversary_transaction_quota w)
-                          (mod_incr _ valid_Honest_max_Transaction_sends (world_honest_transaction_quota w)) in
+                          (mod_incr _ valid_Honest_max_Transaction_sends (world_honest_transaction_quota w))
+                          (world_adoption_history w) 
+                          in
                         world_step w' t
                     else 
                       (* To recieve an honest transaction gen with an invalid transaction is an invalid result*)
@@ -252,7 +267,9 @@ Fixpoint world_step (w : World) (s : seq RndGen) : Comp [finType of (option Worl
                 (world_chain_history w)
                 (world_adversary_message_quota w)
                 (world_adversary_transaction_quota w)
-                (world_honest_transaction_quota w) in
+                (world_honest_transaction_quota w) 
+                (world_adoption_history w) 
+                in
                   world_step w' t
           else 
             (* To recieve a transaction drop index for an empty index is an invalid result*)
@@ -267,7 +284,7 @@ Fixpoint world_step (w : World) (s : seq RndGen) : Comp [finType of (option Worl
             let: round := global_current_round state in
             let: maybe_actor_pair := retrieve_actor actors addr in
             if maybe_actor_pair is Some(pr) then
-              let: (dated_actor, is_corrupt) := pr in 
+              let: (dated_actor, is_corrupt, r_addr) := pr in 
               (* Update transactions of activated node - we only read transactions upon minting *)
               let: actor := update_transaction_pool real_addr dated_actor (world_transaction_pool w) in
               (* broadcast if successful - else increment proof of work *)
@@ -295,7 +312,9 @@ Fixpoint world_step (w : World) (s : seq RndGen) : Comp [finType of (option Worl
                         (option_insert (world_chain_history w) new_chain) 
                         (world_adversary_message_quota w)
                         (world_adversary_transaction_quota w)
-                        (world_honest_transaction_quota w);
+                        (world_honest_transaction_quota w)
+                        (record_adoption_on_success new_chain round r_addr (world_adoption_history w))
+                        ;
                         nw <-$ (world_step w' t);
                         ret nw
                   else
@@ -336,7 +355,9 @@ Fixpoint world_step (w : World) (s : seq RndGen) : Comp [finType of (option Worl
                         (world_chain_history w)  
                         (world_adversary_message_quota w)
                         (world_adversary_transaction_quota w)
-                        (world_honest_transaction_quota w));
+                        (world_honest_transaction_quota w))
+                        (world_adoption_history w) 
+                        ;
                         nw <-$ (world_step w' t);
                         ret nw
             else
@@ -385,7 +406,9 @@ Fixpoint world_step (w : World) (s : seq RndGen) : Comp [finType of (option Worl
                 (world_chain_history w) 
                 (world_adversary_message_quota w)
                 (mod_incr _ (valid_Adversary_max_Transaction_sends) (world_adversary_transaction_quota w))
-                (world_honest_transaction_quota w) in
+                (world_honest_transaction_quota w) 
+                (world_adoption_history w) 
+                in
                   world_step w' t
           else
           (* It is an invalid state for a quota to require an adversary to generate a transaction if it has
@@ -417,6 +440,7 @@ Fixpoint world_step (w : World) (s : seq RndGen) : Comp [finType of (option Worl
                     (world_adversary_message_quota w)
                     (world_adversary_transaction_quota w)
                     (world_honest_transaction_quota w)
+                    (world_adoption_history w) 
                     in
                       world_step w' t
               else
@@ -469,6 +493,7 @@ Fixpoint world_step (w : World) (s : seq RndGen) : Comp [finType of (option Worl
                   (mod_incr _ valid_Adversary_max_Message_sends (world_adversary_message_quota w))
                   (world_adversary_transaction_quota w)
                   (world_honest_transaction_quota w)
+                  (world_adoption_history w) 
                   in
                   world_step w' t 
             else
@@ -491,6 +516,7 @@ Fixpoint world_step (w : World) (s : seq RndGen) : Comp [finType of (option Worl
                     (world_adversary_message_quota w)
                     (world_adversary_transaction_quota w)
                     (world_honest_transaction_quota w)
+                  (world_adoption_history w) 
                     in
                   world_step w' t 
 
