@@ -16,5 +16,6 @@ Systems/Protocol.v
 Properties/InvMisc.v
 Properties/Parameters.v
 Properties/Probability.v
+Properties/ValidSchedule.v
 Probability/Comp.v
 Probability/Notationv1.v

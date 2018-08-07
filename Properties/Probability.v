@@ -194,4 +194,3 @@ Lemma p_unique_round : forall  (s: seq.seq RndGen) (n : nat) (chain : BlockChain
 
     (p_is_unique_round s n chain) / (p_unique_round_givens s n chain) = probability_constant.
     Admitted.
-
