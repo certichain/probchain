@@ -1108,6 +1108,12 @@ Definition actor_n_is_corrupt (w:World) (n:'I_n_max_actors) : bool :=
   let: (actor, is_corrupted) := tnth  (global_local_states (world_global_state w)) n in
   is_corrupted.
 
+Definition actor_n_is_honest (w: World) (n: nat) : bool.
+  case (n < n_max_actors) eqn:H.
+  exact (~~(actor_n_is_corrupt w (Ordinal H))).
+  exact false.
+Defined.
+
 Definition is_uncorrputed_actor (actors: n_max_actors.-tuple [eqType of ([eqType of LocalState] * [eqType of bool])]) (addr: Addr) : option ('I_n_max_actors* LocalState).
   case addr eqn:Haddr.
     case (m < n_max_actors) eqn: H.
@@ -1123,13 +1129,23 @@ Defined.
 
 
 
+
 (* Lemma chain_growth (w : World) (round : nat) (l : nat) :
   (world_round w) = round ->
-  (exists (n : 'I_n_max_actors), (n < n_max_actors) /\ (actor_n_chain_length w n = l) /\ ~~ (actor_n_is_corrupt w n)) ->
+  (exists 
+  (n : 'I_n_max_actors), 
+
+
+  (actor_n_chain_length w n = l) /\ 
+
+  ~~ (actor_n_is_corrupt w n)) 
+  ->
+  
   (forall (future_w : World), 
     ((world_round future_w) >= round + delta - 1) ->
     (forall (n : 'I_n_max_actors), ~~ (actor_n_is_corrupt w n) ->
       actor_n_chain_length w n >= l + no_successful_rounds w round ((world_round future_w) - 1))).
+
 Proof.
 Admitted.
  *)
@@ -1184,4 +1200,22 @@ Definition chain_quality_prop_agent (w : World) (l u : nat) (agent : 'I_n_max_ac
           | None => false
           end) (flatten (map (fun x => match x with Some x' => [:: x'] | None => [::] end) blocks)))  <= u)).
 
+
+Definition no_bounded_successful_rounds (w : World) (from to : nat) :=
+foldr (fun round acc => if bounded_successful_round w round then (acc + 1) else 0) 0 (iota from to)  .
+
+Definition no_bounded_uniquely_successful_rounds (w : World) (from to : nat) :=
+foldr (fun round acc => if bounded_uniquely_successful_round w round then (acc + 1) else 0) 0 (iota from to)  .
+
+Definition all_chains_after_round_have_length_ge (w : World) (s v : nat) :=
+          (all
+                        (fun pr =>
+                            let: (rec_chain, rec_round, rec_actr) := pr in
+                            (* documented after s *)
+                            if ((nat_of_ord rec_round) > s) then
+                                (* has a length of at least *)
+                                (fixlist_length rec_chain >= v)
+                            else 
+                            true)
+                        (fixlist_unwrap (world_adoption_history w))) .
 

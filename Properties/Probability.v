@@ -200,9 +200,14 @@ Lemma common_prefix: forall
 Definition is_unique_round (schedule : seq.seq RndGen) (n : nat) (chain : BlockChain) :=
     o_w' <-$ world_step initWorld schedule;
     r <- if o_w' is Some(w) then
-        (chain \in (fixlist_unwrap (world_chain_history w))) &&
-        (fixlist_length chain > n)%nat &&
-        (nth_block_is_honest chain n w) &&
+        [&& 
+        
+        (chain \in (fixlist_unwrap (world_chain_history w))),
+
+        (fixlist_length chain > n)%nat,
+
+        (nth_block_is_honest chain n w) &
+
         (if (nth_block_hashed_in_a_uniquely_successful_round w chain n) is Some(value) then
             (all (fun other_chain => 
                     if other_chain \in (fixlist_unwrap (world_chain_history w)) then
@@ -212,7 +217,7 @@ Definition is_unique_round (schedule : seq.seq RndGen) (n : nat) (chain : BlockC
                         else true
                     else true
                 ) (fixlist_unwrap (world_chain_history w)))
-        else false)
+        else false)]
     else false;
     ret r.
 
@@ -233,3 +238,96 @@ Lemma unique_round : forall  (s: seq.seq RndGen) (n : nat) (chain : BlockChain),
     (p_is_unique_round s n chain) / (p_unique_round_givens s n chain) = probability_constant.
     Admitted.
 
+
+Definition chain_growth_givens (schedule : seq.seq RndGen) (r l : nat)  :=
+    o_w' <-$ world_step initWorld schedule;
+    r <- if o_w' is some(w) then
+        (* suppose that at round r, an honest party has a chain of length r*)
+        (has 
+            (* there is an actor, with index actor index*)
+            (fun actor_ind => 
+                (* such that, *)
+                [&&
+                (* the actor is honest *)
+                (actor_n_is_honest w actor_ind) &
+                (* and *)
+                (has
+                    (* there is a record *)
+                    (fun pr => 
+                        let: (rec_chain, rec_round, rec_actr)  := pr in 
+                       [&&
+                         (* adopting a chain of length l *)
+                        ((fixlist_length rec_chain)  == l),
+                         (* at round r *)
+                        (nat_of_ord rec_round == r) &
+                        (* by the actor *) 
+                        (nat_of_ord rec_actr == actor_ind) ]
+                    
+                    )
+                (fixlist_unwrap (world_adoption_history w)))]
+            ) 
+            (iota 0 n_max_actors))
+         else
+         false;
+    ret r.
+Definition p_chain_growth_givens (schedule : seq.seq RndGen) (r l : nat)  :=
+    evalDist (chain_growth_givens schedule r l) true.
+
+
+Definition chain_growth_property (w : World) (r l s : nat) :=
+        (* suppose that at round r, an honest party has a chain of length r*)
+        [&& 
+            (has 
+                (* there is an actor, with index actor index*)
+                (fun actor_ind => 
+                    (* such that, *)
+                    [&&
+                    (* the actor is honest *)
+                    (actor_n_is_honest w actor_ind) &
+                    (* and *)
+                    (has
+                        (* there is a record *)
+                        (fun pr => 
+                            let: (rec_chain, rec_round, rec_actr)  := pr in 
+                        [&&
+                            (* adopting a chain of length l *)
+                            ((fixlist_length rec_chain)  == l),
+                            (* at round r *)
+                            (nat_of_ord rec_round == r) &
+                            (* by the actor *) 
+                            (nat_of_ord rec_actr == actor_ind) ]
+                        
+                        )
+                    (fixlist_unwrap (world_adoption_history w)))]
+                ) 
+                (iota 0 n_max_actors)) &
+                (* then every honest party has adopted a chain of length
+                at least l + sum r to s - delta X'i*)
+                let sum_of_delta_rounds := no_bounded_successful_rounds w r (s - delta) in
+                (* forall actors *)
+                    (* for all rounds from s onwards *)
+                        (* every chain adoption*)
+                  all_chains_after_round_have_length_ge w s (l + sum_of_delta_rounds )
+                                ].
+
+
+Definition has_chain_growth_property (schedule : seq.seq RndGen) (r l : nat) (s : nat) :=
+    o_w' <-$ world_step initWorld schedule;
+    r <- if o_w' is some(w) then
+            chain_growth_property w r l s
+         else false;
+    ret r.
+
+
+Definition p_has_chain_growth_property (schedule : seq.seq RndGen) (r l s : nat)  :=
+    evalDist (has_chain_growth_property schedule r l s) true.
+
+
+Lemma chain_growth: forall (schedule : seq.seq RndGen) (r l s : nat),
+    (valid_schedule schedule) ->
+    (s >= r + delta - 1)%nat ->
+
+    (p_chain_growth_givens schedule r l > R0) ->
+
+    (p_has_chain_growth_property schedule r l s) / (p_chain_growth_givens schedule r l) = probability_constant.
+    Admitted.
