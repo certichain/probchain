@@ -174,6 +174,7 @@ Definition empty_bvector n : n.-tuple bool :=
         4. To have advcorrupt of an uncorrupted node
         5. To have advcorrupt when the adversary isnt' active
         6. To have a adv broadcast when the adversary isn't active or 
+        7. for the adversary to hash a block multiple times in a round
 *)
 Definition corrupt_players_check (value : RndGen) (acc: (n_max_actors.-tuple bool * 'I_n_max_actors.+1 * bool)) : option (n_max_actors.-tuple bool * 'I_n_max_actors.+1 * bool) :=
     let: (actors, currently_active, has_hashed) := acc in
@@ -294,20 +295,67 @@ Definition corrupt_players_check_schedule (s : seq RndGen) : bool :=
 
 
 
+(* 
+    this function checks for the following:
+        1. To recieve an honest transaction gen when the honest transaction quota is exceeded
+        2. For an adversary to generate a transaction if it has exhausted it's quota
+        3. To have advcorrupt when the quota has been met
+        4. To have a adv broadcast when it has exceeded it's quotas for the round
+        5. That the schedule never exceeds the max number of rounds
+*)
+Definition quota_check (value : RndGen) (acc: (nat * nat * nat * nat * nat)) : option (nat * nat * nat * nat * nat) :=
+    let: (n_corrupt, honest_transactions, adv_messages, adv_transactions, n_rounds) := acc in
+        match value with
+            (* that honest transactions is less than honest max transaction sends - 1 *)
+            | HonestTransactionGen (tx, addr) => 
+                if honest_transactions < Honest_max_Transaction_sends - 1 then
+                    Some(n_corrupt, honest_transactions.+1, adv_messages, adv_transactions, n_rounds)
+                else
+                    None
+            (* always valid *)
+            | TransactionDrop (txPool_ind) => Some(acc)
+            (* always valid *)
+            | HonestMintBlock => Some(acc)
+            (* always valid *)
+            | AdvMintBlock    => Some(acc)
+            (* that n_corrupted is less than t_max_corrupted -1 *)
+            | AdvCorrupt addr => 
+                if n_corrupt < t_max_corrupted - 1 then
+                    Some(n_corrupt.+1, honest_transactions, adv_messages,adv_transactions, n_rounds)
+                else
+                    None
+            (* that adv_messages is less than Adversary_max_Message_sends - 1 *)
+            | AdvBroadcast addr_list => 
+                if adv_messages < Adversary_max_Message_sends - 1 then
+                    Some(n_corrupt, honest_transactions, adv_messages.+1,adv_transactions, n_rounds)
+                else
+                    None
+            (* that adv_transactions is less than Adversary_max_Transaction_sends - 1 *)
+            | AdvTransactionGen  => 
+                if adv_transactions < Adversary_max_Transaction_sends - 1 then
+                    Some(n_corrupt, honest_transactions, adv_messages,adv_transactions.+1, n_rounds)
+                else
+                    None
+            (* reset the quotas - except no corrupted *)
+            | RoundEnd => 
+                if n_rounds < N_rounds - 1 then
+                    Some(n_corrupt, 0, 0, 0, n_rounds.+1)
+                else
+                    None
+            (* always valid *)
+            | AdversaryEnd  =>  Some(acc)
+        end
+.
 
-
-
+Definition quota_check_schedule (s: seq RndGen) : bool :=
+    isSome (
+        foldr
+        (fun rnd acc => if acc is Some(pr) then quota_check rnd pr else None)
+        (Some (0, 0, 0, 0, 0))
+        s).
 (*
     To recieve an honest transaction gen with an invalid transaction
-    To recieve an honest transaction gen when the honest transaction quota is exceeded
 
     To recieve a transaction drop index for an empty index
     for an Honest party to call hash on an invalid chain
-
-    for the adversary to hash a block multiple times in a round
-    For an adversary to generate a transaction if it has exhausted it's quota
-    To have advcorrupt when the quota has been met
-
-    To have a adv broadcast when it has exceeded it's quotas for the round
-
 *)
