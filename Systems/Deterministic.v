@@ -185,6 +185,13 @@ exhausted it's quota*)
 (* It is an invalid schedule to have a adv broadcast when the adversary isn't active or when it has exceeded it's quotas for the round*)
 (* It is an invalid schedule to have an adversary end when the adversary is not active*)
 *)
+Definition Addr_to_index (a : Addr) : option ('I_n_max_actors).
+  case a => m _.
+  case (m < n_max_actors) eqn:H.
+  exact (Some (Ordinal H)).
+  exact None.
+Defined.
+
 
 Fixpoint world_step (w : World) (s : seq RndGen) : Comp [finType of (option World)] :=
   match s with
@@ -353,14 +360,15 @@ Fixpoint world_step (w : World) (s : seq RndGen) : Comp [finType of (option Worl
             let: round := global_current_round state in
 
             (* assert that last_hashed_round is less than current_round *)
-            if adversary_last_hashed_round dated_adversary < round then
+            (* or that the currently active node is not the adversary but a corrupted node *)
+            if (adversary_last_hashed_round dated_adversary < round) || (isSome (Addr_to_index addr)) then
               let: oracle := (world_hash w) in
               let: adversary := update_adversary_transaction_pool dated_adversary (world_transaction_pool w) in
                 (* Hash the block suggested by the adversary and inform them of the result *)
                 hash_pair <-$ adversary_attempt_hash adversary (world_inflight_pool w) (oracle); 
                 w' <- (
                     let: (new_adversary, new_oracle, new_block) := hash_pair in
-                    let: updated_adversary := update_adversary_round new_adversary round in
+                    let: updated_adversary := if (isSome (Addr_to_index addr)) then new_adversary else update_adversary_round new_adversary round in
                     let: updated_state := mkGlobalState actors updated_adversary addr round in
                     mkWorld
                         updated_state 
