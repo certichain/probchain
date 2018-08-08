@@ -14,7 +14,7 @@ Require Import Bvector.
 
 
 From Probchain
-Require Import Deterministic Comp Notationv1 BlockChain Protocol OracleState BlockMap InvMisc Parameters FixedList FixedMap.
+Require Import ValidSchedule Deterministic Comp Notationv1 BlockChain Protocol OracleState BlockMap InvMisc Parameters FixedList FixedMap.
 
 Set Implicit Arguments.
 
@@ -26,6 +26,7 @@ Variable probability_constant : R.
 Definition chain_quality_givens (schedule : seq.seq RndGen) (l u : nat) (agent : 'I_n_max_actors) :=
     o_w' <-$ world_step initWorld schedule;
     (* the schedule produces a world *)
+    (* this first if should always return true if the schedule has been validated *)
     v <- if o_w' is Some(w')  then
         let: (actor, is_corrupt) := (tnth (world_actors w') agent) in
         let: current_chain := honest_current_chain actor in
@@ -60,7 +61,8 @@ Definition p_has_chain_quality_property (s : seq.seq RndGen) (l u : nat) (agent 
     the selected actors chain is longer than l
 *)
 Lemma p_chain_quality (l u : nat) : forall  (s: seq.seq RndGen) (agent : 'I_n_max_actors),
-   (* Forall schedules, *)
+   (* Forall *valid* schedules, *)
+   (valid_schedule s) -> 
    (* if the schedule is capable of producing worlds satisfying the givens *)
     (p_chain_quality_givens s l u agent > R0) ->
     (* Pr( givens_of result_w AND has_chain_quality_property ) / Pr (givens_of result_w ) = *)
@@ -80,7 +82,7 @@ Definition adopted_at_round (c : BlockChain) (r : 'I_N_rounds) (w: World) :=
 
 Definition common_prefix_givens 
     (* Todo: Add typical execution assumption*)
-    (schedule : seq.seq RndGen)  (r : 'I_N_rounds) (c1 c2: BlockChain) (pf: (length c2 >= length c1)%nat ) :=
+    (schedule : seq.seq RndGen)  (r : 'I_N_rounds) (c1 c2: BlockChain)  :=
     (* Consider two chains c1 c2 st, len(C2) >= len (C1)*)
     (w' <-$ world_step initWorld schedule;
     r <-
@@ -92,14 +94,14 @@ Definition common_prefix_givens
     ret r).
 
 Definition p_common_prefix_givens
-    (schedule : seq.seq RndGen)  (r : 'I_N_rounds)  (c1 c2: BlockChain) (pf: (length c2 >= length c1)%nat ) :=
-    evalDist (common_prefix_givens schedule  r c1 c2 pf) true.
+    (schedule : seq.seq RndGen)  (r : 'I_N_rounds)  (c1 c2: BlockChain)  :=
+    evalDist (common_prefix_givens schedule  r c1 c2 ) true.
 
 
 Definition has_common_prefix_property
     (* Todo: Add typical execution assumption*)
     (* Todo: Assert that k >= 2 eta k f *)
-    (schedule : seq.seq RndGen) (k : nat) (r : 'I_N_rounds) (c1 c2: BlockChain) (pf: (length c2 >= length c1)%nat ) :=
+    (schedule : seq.seq RndGen) (k : nat) (r : 'I_N_rounds) (c1 c2: BlockChain)  :=
     (* Consider two chains c1 c2 st, len(C2) >= len (C1)*)
     (w' <-$ world_step initWorld schedule;
     r <-
@@ -115,17 +117,20 @@ Definition has_common_prefix_property
     ret r).
 
 Definition p_has_common_prefix_property
-    (schedule : seq.seq RndGen) (k : nat) (r : 'I_N_rounds)  (c1 c2: BlockChain) (pf: (length c2 >= length c1)%nat ) :=
-    evalDist (has_common_prefix_property schedule k r c1 c2 pf) true.
+    (schedule : seq.seq RndGen) (k : nat) (r : 'I_N_rounds)  (c1 c2: BlockChain)  :=
+    evalDist (has_common_prefix_property schedule k r c1 c2 ) true.
 
-Lemma common_prefix_property : forall 
-    (s: seq.seq RndGen) (k : nat) (r : 'I_N_rounds) (c1 c2: BlockChain) (pf: (length c2 >= length c1)%nat ),
-    
-     (p_common_prefix_givens s r c1 c2 pf > R0) ->
+Lemma common_prefix: forall 
+    (s: seq.seq RndGen) (k : nat) (r : 'I_N_rounds) (c1 c2: BlockChain) ,
+
+   (valid_schedule s) -> 
+
+    ((length c2 >= length c1)%nat ) ->
+     (p_common_prefix_givens s r c1 c2 > R0) ->
     (* Pr( givens_of result_w AND has_chain_quality_property ) / Pr (givens_of result_w ) = *)
     (* Pr (result_w has chain_quality_property, given the givens) *)
 
-    (p_has_common_prefix_property s k r c1 c2 pf) / (p_common_prefix_givens s r c1 c2 pf ) = probability_constant.
+    (p_has_common_prefix_property s k r c1 c2 ) / (p_common_prefix_givens s r c1 c2 ) = probability_constant.
     Admitted.
     
     
@@ -185,10 +190,13 @@ Definition p_is_unique_round (schedule : seq.seq RndGen) (n : nat) (chain : Bloc
     evalDist (is_unique_round schedule n chain) true.
 
 
-Lemma p_unique_round : forall  (s: seq.seq RndGen) (n : nat) (chain : BlockChain),
+Lemma unique_round : forall  (s: seq.seq RndGen) (n : nat) (chain : BlockChain),
    (* Forall schedules, *)
    (* if the schedule is capable of producing worlds satisfying the givens *)
+   (valid_schedule s) -> 
+
     (p_unique_round_givens s n chain > R0) ->
+
     (* Pr( givens_of result_w AND has_chain_quality_property ) / Pr (givens_of result_w ) = *)
     (* Pr (result_w has chain_quality_property, given the givens) *)
 

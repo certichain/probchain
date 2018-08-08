@@ -5,13 +5,13 @@ Require Import Comp Notationv1 BlockChain Protocol OracleState BlockMap InvMisc 
 
 
 
+
 From mathcomp.ssreflect
 Require Import ssreflect ssrbool ssrnat eqtype fintype finfun choice ssrfun seq path.
 
 From mathcomp.ssreflect
 Require Import tuple.
 
-(* Todo: Update world_step to allow an adversary to hash multiple times during its execution*)
 
 
 Record ScheduleAccumulator := mkScheduleAcc {
