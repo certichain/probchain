@@ -1285,7 +1285,10 @@ Definition copy_occurred (w : World) (from to : nat) :=
           round \in (iota from to))
     (BlockMap_pairs (world_block_history w))))).
 
-
+(* TODO: Bitcoin backbone proof uses more strict formulation of these 
+  stating not that nodes are hashed in different rounds, but rather in terms
+  of their position in chains
+*)
 Definition prediction_occurred (w : World) (from to : nat)  : bool :=
   has 
     (fun pr1 =>
