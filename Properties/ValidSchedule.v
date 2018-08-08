@@ -359,3 +359,6 @@ Definition quota_check_schedule (s: seq RndGen) : bool :=
     To recieve a transaction drop index for an empty index
     for an Honest party to call hash on an invalid chain
 *)
+
+Definition valid_schedule (s : seq RndGen) : bool :=
+        [&& (rounds_correct_schedule s), (corrupt_players_check_schedule s) & (quota_check_schedule s)].
