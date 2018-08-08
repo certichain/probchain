@@ -161,6 +161,7 @@ Definition p_has_common_prefix_property
 
 Lemma common_prefix: forall 
     (s: seq.seq RndGen) (k : nat) (r : 'I_N_rounds) (c1 c2: BlockChain) ,
+    (INR k >= (INR 2) * f_probability_honest_success * Eta_block_to_round * (INR Hash_length_k ) + (INR (2 * delta))) ->
 
    (valid_schedule s) -> 
 

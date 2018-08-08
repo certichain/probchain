@@ -1091,10 +1091,6 @@ Lemma unique_round (w : World) (n : nat) (chain : BlockChain) :
 Admitted.
 
 
-Definition no_successful_rounds (w : World) (from : nat) (to : nat) : nat :=
-  length(filter
-    (fun round => bounded_successful_round w round)
-    (iota from to)).
 
 Definition actor_n_chain_length (w : World) (n : 'I_n_max_actors) : nat :=
   let: (actor, is_corrupted) := tnth (global_local_states (world_global_state w)) n in
@@ -1107,7 +1103,6 @@ Definition world_round (w : World) : nat :=
 Definition actor_n_is_corrupt (w:World) (n:'I_n_max_actors) : bool :=
   let: (actor, is_corrupted) := tnth  (global_local_states (world_global_state w)) n in
   is_corrupted.
-
 Definition actor_n_is_honest (w: World) (n: nat) : bool.
   case (n < n_max_actors) eqn:H.
   exact (~~(actor_n_is_corrupt w (Ordinal H))).
@@ -1171,7 +1166,7 @@ Definition adopt_at_round (w' : World) (w : World) (bc : BlockChain) (agent: Add
         else false
     end.
 
-Definition common_prefix_property (current_w : World) (k r1 r2 : nat) (a1 a2 : 'I_n_max_actors) (c1 c2 : BlockChain) :=
+(* Definition common_prefix_property (current_w : World) (k r1 r2 : nat) (a1 a2 : 'I_n_max_actors) (c1 c2 : BlockChain) :=
   (* current w is valid *)
   (world_round_no current_w) >= r2 ->
   r1 <= r2 ->
@@ -1186,9 +1181,9 @@ Definition common_prefix_property (current_w : World) (k r1 r2 : nat) (a1 a2 : '
     adopt_at_round w'' wr2 c2 (widen_ord (leq_addr _ _) a2) r2) ->
   (* then pruning k blocks from the head of c1 is a subsequence of c2*)
   prefix (drop k c1) c2.
+ *)
 
-
-Definition chain_quality_prop_agent (w : World) (l u : nat) (agent : 'I_n_max_actors) := 
+(* Definition chain_quality_prop_agent (w : World) (l u : nat) (agent : 'I_n_max_actors) := 
     let: (actor, is_corrupt) := tnth (world_actors w) agent in
     let: current_chain := honest_current_chain actor in
       (~~ is_corrupt) &&
@@ -1199,13 +1194,28 @@ Definition chain_quality_prop_agent (w : World) (l u : nat) (agent : 'I_n_max_ac
           | Some (is_adv) => is_adv
           | None => false
           end) (flatten (map (fun x => match x with Some x' => [:: x'] | None => [::] end) blocks)))  <= u)).
+ *)
+
+Definition no_adversarial_blocks (w: World) (from to : nat) : nat:= 
+  foldr (fun round acc => acc + adversarial_block_count w round) 0 (iota from to).
 
 
-Definition no_bounded_successful_rounds (w : World) (from to : nat) :=
-foldr (fun round acc => if bounded_successful_round w round then (acc + 1) else 0) 0 (iota from to)  .
+Definition no_successful_rounds (w : World) (from : nat) (to : nat) : nat :=
+  length(filter
+    (fun round => successful_round w round)
+    (iota from to)).
 
-Definition no_bounded_uniquely_successful_rounds (w : World) (from to : nat) :=
-foldr (fun round acc => if bounded_uniquely_successful_round w round then (acc + 1) else 0) 0 (iota from to)  .
+Definition no_bounded_successful_rounds (w : World) (from : nat) (to : nat) : nat :=
+  length(filter
+    (fun round => bounded_successful_round w round)
+    (iota from to)).
+
+Definition no_bounded_uniquely_successful_rounds (w : World) (from : nat) (to : nat) : nat :=
+  length(filter
+    (fun round => bounded_uniquely_successful_round w round)
+    (iota from to)).
+
+
 
 Definition all_chains_after_round_have_length_ge (w : World) (s v : nat) :=
           (all
