@@ -146,7 +146,19 @@ Check (n_max_actors.-tuple bool).
 
 
 
+Definition addr_to_index (ind: 'I_n_max_actors.+1) : option 'I_n_max_actors.
+    case ind eqn: H.    
+    case (m < n_max_actors) eqn: H'.
+    exact (Some (Ordinal H')).
+    exact None.
+Defined.
 
+
+Definition incr_index_to_addr (ind: 'I_n_max_actors) : 'I_n_max_actors.+1.
+    case ind => m  Hlt.
+    rewrite -ltnS in Hlt.
+    exact (Ordinal Hlt).
+Defined.
 (* 
     this checks for the following:
         1. To recieving an honest transaction gen for a node that has been corrupted
@@ -156,18 +168,114 @@ Check (n_max_actors.-tuple bool).
         5. To have advcorrupt when the adversary isnt' active
         6. To have a adv broadcast when the adversary isn't active or 
 *)
-
-Definition corrupt_players_check (value : RndGen) (acc: (n_max_actors.-tuple bool)) : option (n_max_actors.-tuple bool) :=
+Definition corrupt_players_check (value : RndGen) (acc: (n_max_actors.-tuple bool * 'I_n_max_actors.+1 * bool)) : option (n_max_actors.-tuple bool * 'I_n_max_actors.+1 * bool) :=
+    let: (actors, currently_active, has_hashed) := acc in
         match value with
-            | HonestTransactionGen (tx, addr) => Some(acc) 
+            (* addr must index into an uncorrupted node *)
+            | HonestTransactionGen (tx, addr) => 
+                if tnth actors addr then
+                    (* Addr generating the transaction is corrupted, invalid schedule *)
+                    None
+                else
+                    Some(acc) 
+            (* always valid *)
             | TransactionDrop (txPool_ind) => Some(acc)
-            | HonestMintBlock => Some(acc)
-            | AdvMintBlock    => Some(acc)
-            | AdvCorrupt addr => Some(acc)
-            | AdvBroadcast addr_list => Some(acc)
-            | AdvTransactionGen  => Some(acc)
-            | RoundEnd => Some(acc)
-            | AdversaryEnd  => Some(acc)
+            (* currently active must be an index, and not be corrupted *)
+            | HonestMintBlock => 
+                if addr_to_index currently_active is Some(r_addr) then
+                   if tnth actors r_addr then
+                      (* Node is corrupted, invalid schedule *)
+                      None
+                    else
+                      (* node is not corrupted, valid schedule - incr the currently active*)
+                      Some(actors, (incr_index_to_addr r_addr), has_hashed)
+                else
+                    (* currently active node is the adversary, invalid schedule*)
+                    None
+            (* if currently active is an index, it must be corrupted 
+                if the currently active is not an index, the adversary must not have hashed already    
+            *)
+            | AdvMintBlock    => 
+                if addr_to_index currently_active is Some(r_addr) then
+                    if tnth actors r_addr then
+                        (* Valid schedule, currently active node is corrupted for advmint*)
+                        Some(actors, (incr_index_to_addr r_addr), has_hashed)
+                    else
+                        (* active node is not corrupted for advmint - invalid*)
+                        None
+                else
+                    if has_hashed then 
+                        (* invalid schedule, adversary attempted to hash twice in it's main activation*)
+                        None
+                    else
+                        (* valid schedule, adversary has not hashed before *)
+                        Some(actors, currently_active, true)
+            (* 
+                if the currently active is an index, it must be corrupted
+                the address being selected must be uncorrupted  
+            *)
+            | AdvCorrupt addr => 
+                if tnth actors addr then
+                    (* Invalid schedule, adversary attempted to corrupt a corrupted node *)
+                    None
+                else
+                    if addr_to_index currently_active is Some(r_addr) then
+                        if tnth actors r_addr then
+                            (* valid schedule, adversarial node active when adv corrupt *)
+                            Some (set_tnth actors true addr, currently_active, has_hashed)
+                        else
+                            (* invalid schedule, honest node active when adv corrupt*)
+                            None
+                    else
+                        (* valid schedule, main adversary active when adv corrupt *)
+                        Some (set_tnth actors true addr, currently_active, has_hashed)
+            (* 
+                if the currently active is an index, it must be corrupted  
+            *)
+            | AdvBroadcast addr_list => 
+                if addr_to_index currently_active is Some(r_addr) then
+                    if tnth actors r_addr then
+                        (* valid schedule - currently active is corrupted *)
+                        Some (acc)
+                    else
+                        (* invalid schedule - currently active is not corrupted *)
+                        None
+                else
+                    (* valid schedule - currently active the adversary *)
+                    Some (acc)
+            (* 
+                if the currently active is an index, it must be corrupted
+            *)
+            | AdvTransactionGen  => 
+                 if addr_to_index currently_active is Some(r_addr) then
+                    if tnth actors r_addr then
+                        (* valid schedule - currently active is corrupted *)
+                        Some (acc)
+                    else
+                        (* invalid schedule - currently active is not corrupted *)
+                        None
+                else
+                    (* valid schedule - currently active the adversary *)
+                    Some (acc)
+            (*  
+                the currently active must not be an index
+                reset the currently selected node 
+            *)
+            | RoundEnd => 
+                if addr_to_index currently_active is Some(r_addr) then
+                    (* invalid schedule - currently active is not adversary *)
+                    None
+                else
+                    Some(actors, (Ordinal (@ltn0Sn _)), false)
+            (* 
+                the currently active must not be an index
+            *)
+            | AdversaryEnd  => 
+                if addr_to_index currently_active is Some(r_addr) then
+                    (* invalid schedule - currently active is not adversary *)
+                    None
+                else
+                    Some(actors, currently_active, false)
         end
 .
 
