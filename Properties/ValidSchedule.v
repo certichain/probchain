@@ -159,6 +159,13 @@ Definition incr_index_to_addr (ind: 'I_n_max_actors) : 'I_n_max_actors.+1.
     rewrite -ltnS in Hlt.
     exact (Ordinal Hlt).
 Defined.
+
+Definition empty_bvector n : n.-tuple bool :=
+        @Tuple n
+            (bool) 
+            (ncons n false [::])
+            (size_ncons_nil false n).
+
 (* 
     this checks for the following:
         1. To recieving an honest transaction gen for a node that has been corrupted
@@ -279,7 +286,11 @@ Definition corrupt_players_check (value : RndGen) (acc: (n_max_actors.-tuple boo
         end
 .
 
-
+Definition corrupt_players_check_schedule (s : seq RndGen) : bool :=
+    isSome (foldr
+        (fun rnd acc => if acc is Some(pr) then corrupt_players_check rnd pr else None)
+        (Some (empty_bvector n_max_actors, (Ordinal (@ltn0Sn _)), false))
+        s).
 
 
 
