@@ -22,8 +22,14 @@ Definition BlockMap_new : BlockMap := fixmap_empty BlockMap_keytype BlockMap_val
 Definition BlockMap_find (bl : Block) (map : BlockMap) : option BlockMap_valuetype := 
     fixmap_find bl map.
 
-Definition BlockMap_blocks (bmap : BlockMap) : seq (bool * nat) :=
+Definition BlockMap_records (bmap : BlockMap) : seq (bool * nat) :=
     map (fun pair => let: (b, or) := pair in (b, nat_of_ord or)) (fixlist_unwrap (fixmap_value bmap)).
+
+Definition BlockMap_blocks (bmap : BlockMap) : seq Block :=
+    (fixlist_unwrap (fixmap_key bmap)).
+
+Definition BlockMap_pairs (bmap: BlockMap) : seq (Block * (bool * nat)) :=
+    zip (BlockMap_blocks bmap) (BlockMap_records bmap).
 
 Definition BlockMap_put_honest (bl : Block) (round: (ordinal N_rounds)) (map: BlockMap) :=
     fixmap_put (bl) (false, round) map.

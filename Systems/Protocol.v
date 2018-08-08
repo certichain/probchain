@@ -1009,7 +1009,7 @@ Definition successful_round (w : World) (r : nat) : bool :=
       (fun block_pair =>
         let: (is_corrupt, hash_round) := block_pair in  
       (hash_round  == r) && (~~ is_corrupt))
-      (BlockMap_blocks (world_block_history w))) > 0.
+      (BlockMap_records (world_block_history w))) > 0.
 
 
 Definition unsuccessful_round (w : World) (r : nat) :=
@@ -1018,7 +1018,7 @@ Definition unsuccessful_round (w : World) (r : nat) :=
       (fun block_pair =>
         let: (is_corrupt, hash_round) := block_pair in  
       (hash_round  == r) && (~~ is_corrupt))
-      (BlockMap_blocks (world_block_history w))) == 0.
+      (BlockMap_records (world_block_history w))) == 0.
 
 
 
@@ -1028,7 +1028,7 @@ Definition uniquely_successful_round (w : World) (r : nat) :=
       (fun block_pair =>
         let: (is_corrupt, hash_round) := block_pair in  
       (hash_round  == r) && (~~ is_corrupt))
-      (BlockMap_blocks (world_block_history w))) == 1.
+      (BlockMap_records (world_block_history w))) == 1.
 
 
 
@@ -1049,7 +1049,7 @@ Definition adversarial_block_count (w : World) (r : nat) :=
       (fun block_pair =>
         let: (is_corrupt, hash_round) := block_pair in  
       (hash_round  == r) && is_corrupt)
-      (BlockMap_blocks (world_block_history w))).
+      (BlockMap_records (world_block_history w))).
 
 Definition nth_block_is_honest (c : BlockChain) (n : nat) (w : World) :=
   match (fixlist_get_nth c n) with
@@ -1229,3 +1229,87 @@ Definition all_chains_after_round_have_length_ge (w : World) (s v : nat) :=
                             true)
                         (fixlist_unwrap (world_adoption_history w))) .
 
+Definition insertion_occurred (w : World) (from to : nat)  : bool :=
+  has 
+    (fun pr1 =>
+      let: (b1, ( is_adv, r1))  := pr1 in
+      has 
+      (fun pr2 => 
+        let: (b2, ( is_adv, r2))  := pr2 in
+        has
+        (fun pr3 =>
+          let: (b3, ( is_adv, r3))  := pr3 in
+          (* given three blocks, such that *)
+          [&&
+            (* root -> .. -> [b1] -> [b2] -> .... -> head*) (* block 1 was hashed first *) (r1 < r2), 
+            (* block 2 was hashed second *)
+            (* block 3 was hashed last *)
+            (r2 < r3), 
+
+            (* such that r1, r2, r3 are all in the range[from..to]*)
+            (r1 \in (iota from to)),
+            (r2 \in (iota from to)),
+            (r3 \in (iota from to)),
+            
+            (* block 1 connects to block 2 *)
+             (if verify_hash b1 (world_hash w) is Some(hash_b1) then
+              (block_link b2 == hash_b1)
+             else false),
+
+            (* but block 1 also connects to block 3 *)
+             (if verify_hash b1 (world_hash w) is Some(hash_b1) then
+              (block_link b3 == hash_b1)
+             else false) &
+
+            (* and block 3 connects to block 2 *)
+             (if verify_hash b3 (world_hash w) is Some(hash_b3) then
+              (block_link b2 == hash_b3)
+             else false)
+          ]
+        
+        )
+        (BlockMap_pairs (world_block_history w))
+      )
+        (BlockMap_pairs (world_block_history w))
+    )
+    (BlockMap_pairs (world_block_history w)).
+
+
+(* if the same block is made multiple times *)
+Definition copy_occurred (w : World) (from to : nat) :=
+  ~~ (uniq (map (fun pr => 
+          let: (bl, (is_adv, round))  := pr in
+          bl)
+  (filter (fun pr => 
+          let: (bl, (is_adv, round))  := pr in
+          round \in (iota from to))
+    (BlockMap_pairs (world_block_history w))))).
+
+
+Definition prediction_occurred (w : World) (from to : nat)  : bool :=
+  has 
+    (fun pr1 =>
+      let: (b1, ( is_adv, r1))  := pr1 in
+      has 
+      (fun pr2 => 
+        let: (b2, ( is_adv, r2))  := pr2 in
+         (* given two blocks, such that *)
+          [&&
+            (* root -> .. -> [b1] -> [b2] -> .... -> head*)
+            (* block 1 was hashed first *)
+            (* block 2 was hashed second *)
+            (r1 < r2), 
+            (* such that r1, r2 are all in the range[from..to]*)
+            (r1 \in (iota from to)),
+            (r2 \in (iota from to)) &
+            
+            (* but block 2 connects to block 1 *)
+             (if verify_hash b2 (world_hash w) is Some(hash_b2) then
+              (block_link b1 == hash_b2)
+             else false)
+          ]
+        
+        )
+        (BlockMap_pairs (world_block_history w))
+    )
+    (BlockMap_pairs (world_block_history w)).
