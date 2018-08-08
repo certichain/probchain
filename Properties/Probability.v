@@ -22,6 +22,32 @@ Set Implicit Arguments.
 Variable probability_constant : R.
 
 
+Definition schedule_produces_none (s: seq.seq RndGen) :=
+    o_w' <-$ world_step initWorld s;
+    r <- if o_w' is Some(w) then false else true;
+    ret r.
+Definition p_schedule_produces_none (s:seq.seq RndGen) :=
+    evalDist (schedule_produces_none s) true.
+
+Lemma valid_schedules_can_not_fail : forall (s: seq.seq RndGen),
+    (valid_schedule s) ->
+    p_schedule_produces_none s = R0.
+    (* Todo: Complete this proof. *)
+Admitted.
+
+
+
+
+
+
+
+
+(*
+- - - - - - - - - - - - - - - - - - - - 
+          Chain Quality Lemma
+- - - - - - - - - - - - - - - - - - - - 
+*)
+
 (* The chain quality lemma is defined, given that... *)
 Definition chain_quality_givens (schedule : seq.seq RndGen) (l u : nat) (agent : 'I_n_max_actors) :=
     o_w' <-$ world_step initWorld schedule;
@@ -73,11 +99,24 @@ Lemma p_chain_quality (l u : nat) : forall  (s: seq.seq RndGen) (agent : 'I_n_ma
 
 
 
+
+
+
+
+
+
+(*
+- - - - - - - - - - - - - - - - - - - - 
+          Common Prefix Lemma
+- - - - - - - - - - - - - - - - - - - - 
+*)
+
 Definition adopted_at_round (c : BlockChain) (r : 'I_N_rounds) (w: World) :=
     (length (filter (fun rec => 
         let: (chain, round, addr) := rec in
         (chain == c) && (round == r))
     (fixlist_unwrap (world_adoption_history w))) > 0)%nat.
+
 
 
 Definition common_prefix_givens 
@@ -133,25 +172,16 @@ Lemma common_prefix: forall
     (p_has_common_prefix_property s k r c1 c2 ) / (p_common_prefix_givens s r c1 c2 ) = probability_constant.
     Admitted.
     
-    
-(*
-Definition common_prefix_property (current_w : World) (k r1 r2 : nat) (a1 a2 : 'I_n_max_actors) (c1 c2 : BlockChain) :=
-  (* current w is valid *)
-  (world_round_no current_w) >= r2 ->
-  r1 <= r2 ->
-  (a1 < n_max_actors) -> (a2 < n_max_actors) ->
-  ~~ (actor_n_is_corrupt current_w a1) -> ~~ (actor_n_is_corrupt current_w a1) ->
-  (* players a1 a2 adopting the chains at rounds r1, r2 *)
-  (exists (w' wr1 : World), 
-  (* reachable initWorld w' -> reachable w' wr1 -> reachable wr1 current_w ->   *)
-    adopt_at_round w' wr1 c1 (widen_ord (leq_addr _ _) a1) r1) ->
-  (exists (w'' wr2 : World), 
-  (* reachable initWorld w'' -> reachable w'' wr2 -> reachable wr2 current_w ->   *)
-    adopt_at_round w'' wr2 c2 (widen_ord (leq_addr _ _) a2) r2) ->
-  (* then pruning k blocks from the head of c1 is a subsequence of c2*)
-  prefix (drop k c1) c2.
 
- *)
+
+
+
+
+(*
+- - - - - - - - - - - - - - - - - - - - 
+          Unique Round Lemma
+- - - - - - - - - - - - - - - - - - - - 
+*)
 
  Definition unique_round_givens (schedule : seq.seq RndGen) (n : nat) (chain : BlockChain) :=
     o_w' <-$ world_step initWorld schedule;
@@ -202,3 +232,4 @@ Lemma unique_round : forall  (s: seq.seq RndGen) (n : nat) (chain : BlockChain),
 
     (p_is_unique_round s n chain) / (p_unique_round_givens s n chain) = probability_constant.
     Admitted.
+
