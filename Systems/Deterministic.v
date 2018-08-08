@@ -260,8 +260,9 @@ Fixpoint world_step (w : World) (s : seq RndGen) : Comp [finType of (option Worl
                         in
                       world_step w' t
                   else 
-                    (* To recieve an honest transaction gen with an invalid transaction is an invalid result*)
-                    (ret None)
+                    (* To recieve an honest transaction gen with an invalid transaction 
+                        treated as a idle step*)
+                    (world_step w t)
           else
             (* To recieve an honest transaction gen when the honest transaction quota is exceeded is an invalid state*)
             (ret None)
@@ -291,8 +292,9 @@ Fixpoint world_step (w : World) (s : seq RndGen) : Comp [finType of (option Worl
               in
                 world_step w' t
         else 
-          (* To recieve a transaction drop index for an empty index is an invalid result*)
-          (ret None)
+          (* To recieve a transaction drop index for an empty index is 
+            an invalid state, and will be treated as an idle step*)
+          world_step w t
         | HonestMintBlock  => 
           (* that the currently active is an uncorrupted node *)
           if honest_activation (world_global_state w) is Some(real_addr) then
