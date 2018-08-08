@@ -33,24 +33,25 @@ Definition initScheduleAccumulator := mkScheduleAcc  0 0 false.
     we also know that following a adversary end it is okay to round end
 *)
 
-(* this schedule bind checks for the following:
+(* 
+    this checks for the following:
      1. To have an adversary end when the adversary is not active
      2. To recieve a round ended when the round has not ended
 *)
 
-Definition round_management_check (value : RndGen) (acc: ScheduleAccumulator) : option ScheduleAccumulator :=
-        let current_round := acc_current_round acc in
-        let current_addr := acc_current_addr acc in
-        let adversary_ended := acc_adversary_ended acc in
+Definition round_management_check (value : RndGen) (acc: (nat * nat * bool)) : option (nat * nat * bool) :=
+        let: (current_round, current_addr, adversary_ended) := acc in
         match value with
+            (* can occur whenever *)
             | HonestTransactionGen (tx, addr) => Some(acc) 
+            (* can occur whenever (with regards to round end) *)
             | TransactionDrop (txPool_ind) => Some(acc)
+            (* current_addr should be in the range 0 <= .. < n_max_actors *)
             | HonestMintBlock => 
                 (* 
                     if any of
                         - current address has exceeded the number of actors
                         - the adversary has ended
-                    when you get a honest mint
                     the schedule is invalid.
                 *)
                 if [|| (current_addr >= n_max_actors) | adversary_ended ] then
@@ -58,7 +59,8 @@ Definition round_management_check (value : RndGen) (acc: ScheduleAccumulator) : 
                 else
                     (*Note: this condition means that current_addr could not equal n_max_actors*)
                     (* so we are safe to increment the current address *)
-                    Some(mkScheduleAcc current_round current_addr.+1 adversary_ended)
+                    Some(current_round, current_addr.+1, adversary_ended)
+            (* current_addr should be in the range 0 <= .. <= n_max_actors *)
             | AdvMintBlock    => 
                 (*
                     if any of
@@ -78,10 +80,34 @@ Definition round_management_check (value : RndGen) (acc: ScheduleAccumulator) : 
                         Some(acc)
                     else
                        (* this means this hash is being called by an corrupted party, so increment the round *)
-                        Some(mkScheduleAcc current_round current_addr.+1 adversary_ended)
-            | AdvCorrupt addr => Some(acc)
-            | AdvBroadcast addr_list => Some(acc)
+                        Some(current_round, current_addr.+1, adversary_ended)
+            (* can only occur when current_addr is in the range or adversary has not ended *)
+            | AdvCorrupt addr => 
+                (*
+                    if any of
+                      - the current addr exceeds the number of players
+                        (means addr = n_max_actors.+1 which implies the adversary has ended their round )
+                      - the adversary has ended
+                *)
+                if [|| (current_addr > n_max_actors) | adversary_ended ] then
+                    None
+                else
+                    Some(acc)
+            (* can only occur when current_addr is in the range or adversary has not ended *)
+            | AdvBroadcast addr_list => 
+                 (*
+                    if any of
+                      - the current addr exceeds the number of players
+                        (means addr = n_max_actors.+1 which implies the adversary has ended their round )
+                      - the adversary has ended
+                *)
+                if [|| (current_addr > n_max_actors) | adversary_ended ] then
+                    None
+                else
+                    Some(acc)
+            (* can occur whenever *)
             | AdvTransactionGen  => Some(acc)
+            (* current_addr should be in the range n_max_actors.+1 *)
             | RoundEnd => 
              (* 
                 if any of
@@ -92,7 +118,8 @@ Definition round_management_check (value : RndGen) (acc: ScheduleAccumulator) : 
              if [|| current_addr != n_max_actors.+1 | ~~ adversary_ended ] then
                None
             else  
-                Some(mkScheduleAcc current_round.+1 0 false)
+                Some(current_round.+1, 0, false)
+            (* current_addr should be n_max_actors *)
             | AdversaryEnd  => 
             (* 
                 if any of
@@ -104,26 +131,64 @@ Definition round_management_check (value : RndGen) (acc: ScheduleAccumulator) : 
             if [|| current_addr != n_max_actors | adversary_ended ] then
                None
             else  
-                Some(mkScheduleAcc current_round current_addr.+1 true)
+                Some(current_round, current_addr.+1, true)
+        end
+.
+
+Definition rounds_correct_schedule (s : seq RndGen) : bool :=
+    isSome (foldr
+        (fun rnd state => if state is Some(pr) then round_management_check rnd pr else None)
+        (Some (0, 0, false))
+        s).
+
+
+Check (n_max_actors.-tuple bool).
+
+
+
+
+(* 
+    this checks for the following:
+        1. To recieving an honest transaction gen for a node that has been corrupted
+        2. recieving an honest mint block when the currently active node is corrupted
+        3. To attempt to mint a block when not during an adversarial activation
+        4. To have advcorrupt of an uncorrupted node
+        5. To have advcorrupt when the adversary isnt' active
+        6. To have a adv broadcast when the adversary isn't active or 
+*)
+
+Definition corrupt_players_check (value : RndGen) (acc: (n_max_actors.-tuple bool)) : option (n_max_actors.-tuple bool) :=
+        match value with
+            | HonestTransactionGen (tx, addr) => Some(acc) 
+            | TransactionDrop (txPool_ind) => Some(acc)
+            | HonestMintBlock => Some(acc)
+            | AdvMintBlock    => Some(acc)
+            | AdvCorrupt addr => Some(acc)
+            | AdvBroadcast addr_list => Some(acc)
+            | AdvTransactionGen  => Some(acc)
+            | RoundEnd => Some(acc)
+            | AdversaryEnd  => Some(acc)
         end
 .
 
 
-(* Definition valid_schedule (schedule : seq RndGen) : bool := *)
-    (* isSome (foldr schedule_step (Some initScheduleAccumulator) schedule). *)
+
+
+
+
+
 
 (*
-    To recieving an honest transaction gen for a node that has been corrupted
     To recieve an honest transaction gen with an invalid transaction
     To recieve an honest transaction gen when the honest transaction quota is exceeded
+
     To recieve a transaction drop index for an empty index
     for an Honest party to call hash on an invalid chain
-    recieving an honest mint block when the currently active node is corrupted
+
     for the adversary to hash a block multiple times in a round
-    To attempt to mint a block when not during an adversarial activation
     For an adversary to generate a transaction if it has exhausted it's quota
-    To have advcorrupt when the adversary isnt' active
-    To have advcorrupt of an uncorrupted node
     To have advcorrupt when the quota has been met
-    To have a adv broadcast when the adversary isn't active or when it has exceeded it's quotas for the round
+
+    To have a adv broadcast when it has exceeded it's quotas for the round
+
 *)
