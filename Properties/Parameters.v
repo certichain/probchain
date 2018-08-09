@@ -47,6 +47,7 @@ Qed.
 
 
 
+
 (* Ensures that valid sequences of transactions are well formed *)
 Axiom transaction_valid_consistent : forall (x y : Transaction) (ys : seq Transaction), 
     Transaction_valid x (y :: ys) -> Transaction_valid y ys.
@@ -83,6 +84,23 @@ Parameter ChainHistory_size : nat.
 (* Defines the number of rounds being considered *)
 Parameter N_rounds : nat.
 Axiom valid_N_rounds : 0 < N_rounds.
+
+
+
+(*
+    N_rounds * n_max_actors is a upper bound on the number of blocks hashed throughout the system.
+*)
+Lemma valid_N_rounds_mul_n_max_actors : 0 <  N_rounds * n_max_actors.
+Proof.
+  rewrite muln_gt0.
+  apply /andP.
+  split.
+  exact valid_N_rounds.
+  exact valid_n_max_actors.
+Qed.  
+
+
+
 
 
 Parameter oraclestate_size: nat.

@@ -1183,10 +1183,13 @@ Definition adopt_at_round (w' : World) (w : World) (bc : BlockChain) (agent: Add
   prefix (drop k c1) c2.
  *)
 
-(* Definition chain_quality_prop_agent (w : World) (l u : nat) (agent : 'I_n_max_actors) := 
+Definition chain_quality_property (w : World) (l u : nat) (agent : 'I_n_max_actors) := 
+  (* states that... *)
     let: (actor, is_corrupt) := tnth (world_actors w) agent in
     let: current_chain := honest_current_chain actor in
+       (* the current actor is not corrupt *)
       (~~ is_corrupt) &&
+       (* the length of the actors chain is longer than length *)
       (fixlist_length current_chain > l) &&
       (* all consecutive sequences of length l, have fewer than u adversarial blocks*)
       (all_consecutive_sequences current_chain l (fun blocks => 
@@ -1194,26 +1197,57 @@ Definition adopt_at_round (w' : World) (w : World) (bc : BlockChain) (agent: Add
           | Some (is_adv) => is_adv
           | None => false
           end) (flatten (map (fun x => match x with Some x' => [:: x'] | None => [::] end) blocks)))  <= u)).
- *)
 
-Definition no_adversarial_blocks (w: World) (from to : nat) : nat:= 
+
+
+
+Definition no_adversarial_blocks' (w: World) (from to : nat) : nat:= 
   foldr (fun round acc => acc + adversarial_block_count w round) 0 (iota from to).
 
+Definition no_adversarial_blocks (w: World) (from to : nat) : 'I_(N_rounds * n_max_actors). 
+  case ((no_adversarial_blocks' w from to) < (N_rounds * n_max_actors)) eqn: H.
+  exact (Ordinal H).
+  exact (Ordinal valid_N_rounds_mul_n_max_actors).
+Defined.
 
-Definition no_successful_rounds (w : World) (from : nat) (to : nat) : nat :=
+Definition no_successful_rounds' (w : World) (from : nat) (to : nat) : nat :=
   length(filter
     (fun round => successful_round w round)
     (iota from to)).
 
-Definition no_bounded_successful_rounds (w : World) (from : nat) (to : nat) : nat :=
+
+Definition no_successful_rounds (w: World) (from to : nat) : 'I_N_rounds. 
+  case ((no_successful_rounds' w from to) < N_rounds) eqn: H.
+  exact (Ordinal H).
+  exact (Ordinal valid_N_rounds).
+Defined.
+
+
+Definition no_bounded_successful_rounds' (w : World) (from : nat) (to : nat) : nat :=
   length(filter
     (fun round => bounded_successful_round w round)
     (iota from to)).
 
-Definition no_bounded_uniquely_successful_rounds (w : World) (from : nat) (to : nat) : nat :=
+Definition no_bounded_successful_rounds (w: World) (from to : nat) : 'I_N_rounds. 
+  case ((no_bounded_successful_rounds' w from to) < N_rounds ) eqn: H.
+  exact (Ordinal H).
+  exact (Ordinal valid_N_rounds).
+Defined.
+
+
+
+
+Definition no_bounded_uniquely_successful_rounds' (w : World) (from : nat) (to : nat) : nat :=
   length(filter
     (fun round => bounded_uniquely_successful_round w round)
     (iota from to)).
+
+Definition no_bounded_uniquely_successful_rounds (w: World) (from to : nat) : 'I_N_rounds. 
+  case ((no_bounded_successful_rounds' w from to) < N_rounds) eqn: H.
+  exact (Ordinal H).
+  exact (Ordinal valid_N_rounds).
+Defined.
+
 
 
 

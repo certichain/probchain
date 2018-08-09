@@ -73,7 +73,7 @@ Definition has_chain_quality_property (s: seq.seq RndGen) (l u : nat) (agent : '
     o_current_w <-$ world_step initWorld s;
     result <- if o_current_w is Some(current_w) then 
         (((fixlist_length (honest_current_chain (fst (tnth (world_actors current_w) agent)))) > l)%nat &&
-    chain_quality_prop_agent current_w l u agent) else false;
+    chain_quality_property current_w l u agent) else false;
     ret result.
 
 Definition p_has_chain_quality_property (s : seq.seq RndGen) (l u : nat) (agent : 'I_n_max_actors) :=
@@ -332,3 +332,79 @@ Lemma chain_growth: forall (schedule : seq.seq RndGen) (r l s : nat),
 
     (p_has_chain_growth_property schedule r l s) / (p_chain_growth_givens schedule r l) = probability_constant.
     Admitted.
+
+Definition comp_no_adversarial_blocks (schedule : seq.seq RndGen) (from to : nat) :=
+    o_w' <-$ world_step initWorld schedule;
+    r <- if o_w' is some(w) then
+            no_adversarial_blocks w from to
+        else
+            (Ordinal valid_N_rounds_mul_n_max_actors);
+    ret r.    
+
+Definition expected_no_adversarial_blocks (schedule : seq.seq RndGen) (from to : nat) :=
+    expected_value (comp_no_adversarial_blocks schedule from to).
+
+Definition comp_no_successful_rounds (schedule : seq.seq RndGen) (from to : nat) :=
+    o_w' <-$ world_step initWorld schedule;
+    r <- if o_w' is some(w) then
+            no_successful_rounds w from to
+        else
+            (Ordinal valid_N_rounds);
+    ret r.    
+
+
+Definition expected_no_successful_rounds (schedule : seq.seq RndGen) (from to : nat) :=
+    expected_value (comp_no_successful_rounds schedule from to).
+
+Definition comp_no_bounded_successful_rounds (schedule : seq.seq RndGen) (from to : nat) :=
+    o_w' <-$ world_step initWorld schedule;
+    r <- if o_w' is some(w) then
+            no_bounded_successful_rounds w from to
+        else
+            (Ordinal valid_N_rounds);
+    ret r.    
+
+Definition expected_no_bounded_successful_rounds (schedule : seq.seq RndGen) (from to : nat) :=
+    expected_value (comp_no_bounded_successful_rounds schedule from to).
+
+Definition comp_no_bounded_uniquely_successful_rounds (schedule : seq.seq RndGen) (from to : nat) :=
+    o_w' <-$ world_step initWorld schedule;
+    r <- if o_w' is some(w) then
+            no_bounded_uniquely_successful_rounds w from to
+        else
+            (Ordinal valid_N_rounds);
+    ret r.    
+
+
+Definition expected_no_bounded_uniquely_successful_rounds (schedule : seq.seq RndGen) (from to : nat) :=
+    expected_value (comp_no_bounded_uniquely_successful_rounds schedule from to).
+
+Definition unwrap_computation (schedule:seq.seq RndGen) : dist [finType of World] :=
+    evalDist (
+        o_w' <-$ world_step initWorld schedule;
+        r <- if o_w' is some(w) then
+                w
+            else
+                (*should never happen*)
+                initWorld;
+        ret r).
+
+About no_bounded_uniquely_successful_rounds.
+
+(* Given a world w, produced by a schedule s, asserts that typical_execution holds *)
+Definition typical_execution (w : World) (schedule : seq.seq RndGen) (from to : nat) :=
+    (* (R1 - eps) * E[ X'(S) ] < X'(S)*)
+    (R1 - Epsilon_concentration_of_blocks) * (expected_no_bounded_successful_rounds schedule from to) < INR (nat_of_ord (no_bounded_successful_rounds w from to)) /\
+    (* X(S) < (1 + eps)E[ X(S) ],*)
+    INR (nat_of_ord (no_successful_rounds w from to)) < (R1 + Epsilon_concentration_of_blocks) * (expected_no_successful_rounds schedule from to) /\
+    (* (1 - eps) * E[ Y'(S) ] < Y'(S) *)
+    (R1 - Epsilon_concentration_of_blocks) * (expected_no_bounded_uniquely_successful_rounds schedule from to) < INR (nat_of_ord (no_bounded_uniquely_successful_rounds w from to)) /\
+    (* Z (S) < (1 + eps) E[ Z(S) ] *)
+    INR (nat_of_ord (no_adversarial_blocks w from to)) < (R1 + Epsilon_concentration_of_blocks) * (expected_no_adversarial_blocks schedule from to) /\
+    (* no insertion occurred *)
+    ~~ (insertion_occurred w from to) /\
+    (* no copies occurred *)
+    ~~ (copy_occurred w from to) /\
+    (* no predictions occurred *)
+    ~~ (prediction_occurred w from to).
+    
