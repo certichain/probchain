@@ -31,9 +31,29 @@ Definition p_schedule_produces_none (s:seq.seq RndGen) :=
 
 Lemma valid_schedules_can_not_fail : forall (s: seq.seq RndGen),
     (valid_schedule s) ->
-    p_schedule_produces_none s = R0.
+    p_schedule_produces_none s = 0.
     (* Todo: Complete this proof. *)
+    move => schedule is_valid.
+    induction schedule.
+        (* if the schedule is [::] *)
+        rewrite /p_schedule_produces_none/schedule_produces_none/world_step//=.
+        rewrite /Dist1.d /Dist1.f /DistBind.f //=.
+        (* rewrite /makeDist. *)
+        rewrite unlock => //.
+        move: (INR_eq0 0) => [_ HINR].
+        induction  (index_enum _) => //=.
+        destruct a =>// .
+        rewrite HINR =>//.
+        by rewrite mulR0 add0R IHl.
+        rewrite HINR => //.
+        by rewrite mul0R add0R IHl.
+    (* if the schedule isn't empty *) 
+    rewrite /p_schedule_produces_none/schedule_produces_none/world_step//.
+    rewrite /Dist1.d /Dist1.f /DistBind.f //=.
+
+
 Admitted.
+
 
 
 
