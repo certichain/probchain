@@ -10,11 +10,10 @@ From mathcomp.ssreflect
 Require Import ssreflect ssrbool ssrnat eqtype fintype finfun choice ssrfun seq path.
 
 From mathcomp.ssreflect
-Require Import tuple.
+Require Import tuple. 
 
 
-
-
+Set Implicit Arguments.
 (* 
     this checks for the following:
      1. To have an adversary end when the adversary is not active
@@ -134,6 +133,61 @@ Definition rounds_correct_schedule (s : seq RndGen) : bool :=
         Qed.
            
 
+        Lemma r_valid_n_max_actors : ~~ (n_max_actors <= 0).
+        Proof.
+            rewrite -ltnNge.
+            exact valid_n_max_actors.
+        Qed.
+
+    Lemma rounds_correct_weaken_r (x : RndGen) (xs : seq RndGen) : 
+        rounds_correct_schedule (rcons xs x) -> rounds_correct_schedule xs.
+        Proof.
+                 have H : (n_max_actors <= 0) = false.
+                    apply /negP/negP.
+                    exact r_valid_n_max_actors.
+           move: x .
+            elim/last_ind:  xs => //= xs x .
+            case xs => [//=| xs'].
+            move=> H0.
+            rewrite /rounds_correct_schedule.
+            destruct x => //=.
+            by destruct p.
+            by rewrite (@ifF _ ((_ <= _) || _)); [|rewrite H].
+            by case (0 == _).
+            move=> x.
+            case x => //=.
+            by destruct p.
+            by rewrite ifF; [|rewrite H] ; compute; [rewrite if_same|].
+            case (0 == _) => //=.
+            by rewrite ifT; [| apply/orP; right].
+            rewrite ifT => //=.
+            apply/orP; left.
+            rewrite eq_sym -lt0n; exact valid_n_max_actors.
+            (* move=> x.
+            move: (H0 AdversaryEnd).
+            rewrite /rounds_correct_schedule.
+            destruct x => //=. by destruct p.
+            rewrite (@ifF _ ((_ <= _) || _ )) => //=.
+            rewrite -eq_sym.
+            rewrite -lt0n.
+            rewrite (@ifF _ ((_ ! ))); [|rewrite H].
+            rewrite /round_management_check.
+            case n_max_actors => //=.
+            move=>n.
+            case n.
+            case (0 != _) => //=.
+            rewrite ifT.
+            move=> x Hc.
+            case 
+
+            move: Hc (Hc) => /rounds_correct_weaken .
+
+            => //= xs x1 IHn x.
+            rewrite /rounds_correct_schedule.
+            case xs => //=. *)
+            (* Todo Kiran Complete this proof*)
+        Admitted.
+ 
 
 
 Definition addr_to_index (ind: 'I_n_max_actors.+1) : option 'I_n_max_actors.
