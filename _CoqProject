@@ -2,13 +2,20 @@
 -Q Systems Probchain
 -Q Properties Probchain
 -Q Probability Probchain
+-Q infotheo infotheo
 -arg "-w -notation-overridden,-local-declaration,-redundant-canonical-projection,-projection-no-head-constant"
 
 Structures/OracleState.v
 Structures/BlockMap.v
+Structures/FixedList.v
+Structures/FixedMap.v
 Structures/BlockChain.v
+Structures/AddressList.v
+Systems/Deterministic.v
 Systems/Protocol.v
 Properties/InvMisc.v
-Properties/InvBlock.v
+Properties/Parameters.v
+Properties/Probability.v
+Properties/ValidSchedule.v
 Probability/Comp.v
-
+Probability/Notationv1.v

@@ -1,0 +1,2 @@
+infotheo/%.vio: 
+	$(MAKE) -f infotheo/Makefile quick

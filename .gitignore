@@ -31,5 +31,5 @@ nra.cache
 **/.*.sw?
 **/#*#
 *.d
-
+Makefile.coq
 Makefile.coq.conf
