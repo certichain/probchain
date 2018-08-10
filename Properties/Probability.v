@@ -32,6 +32,7 @@ Definition p_schedule_produces_none (s:seq.seq RndGen) :=
 Lemma valid_schedules_can_not_fail : forall (s: seq.seq RndGen),
     (valid_schedule s) ->
     p_schedule_produces_none s = 0.
+    move: (INR_eq0 0) => [_ HINR].
     (* Todo: Complete this proof. *)
     move => schedule is_valid.
     induction schedule.
@@ -40,7 +41,6 @@ Lemma valid_schedules_can_not_fail : forall (s: seq.seq RndGen),
         rewrite /Dist1.d /Dist1.f /DistBind.f //=.
         (* rewrite /makeDist. *)
         rewrite unlock => //.
-        move: (INR_eq0 0) => [_ HINR].
         induction  (index_enum _) => //=.
         destruct a =>// .
         rewrite HINR =>//.
@@ -48,9 +48,19 @@ Lemma valid_schedules_can_not_fail : forall (s: seq.seq RndGen),
         rewrite HINR => //.
         by rewrite mul0R add0R IHl.
     (* if the schedule isn't empty *) 
-    rewrite /p_schedule_produces_none/schedule_produces_none/world_step//.
-    rewrite /Dist1.d /Dist1.f /DistBind.f //=.
-
+    rewrite /valid_schedule in is_valid.
+    case/andP: is_valid.
+    move=> Hrnds_correct /andP [Hcrpt_correct Hquota_correct].
+    destruct a.
+    - (* if the next schedule is a HonstTransactionGen*)
+        rewrite /p_schedule_produces_none/schedule_produces_none/evalDist.
+        rewrite /Dist1.d /Dist1.f /DistBind.d /DistBind.f //=.
+        destruct p.
+        rewrite (ifT ).
+        destruct (tnth initLocalStates o) as [actor is_corrupt] eqn: H.
+        rewrite ifF =>// .
+        case (Transaction_valid _ _ ) => //.
+        destruct b => //=.
 
 Admitted.
 

@@ -14,24 +14,6 @@ Require Import tuple.
 
 
 
-Record ScheduleAccumulator := mkScheduleAcc {
-    (* Used for validating the number of rounds doesn't exceed the limit*)
-    acc_current_round : nat;
-    (* Used for validating that honest blocks are hashed at the right round*)
-    acc_current_addr: nat;
-    (* Used for validating that the rounds only end at the right time*)
-    acc_adversary_ended: bool;
-     
-}.
-
-
-Definition initScheduleAccumulator := mkScheduleAcc  0 0 false.
-
-
-(*
-    We know that following a honest mint block, the current addr is increased.
-    we also know that following a adversary end it is okay to round end
-*)
 
 (* 
     this checks for the following:
@@ -142,7 +124,15 @@ Definition rounds_correct_schedule (s : seq RndGen) : bool :=
         s).
 
 
-Check (n_max_actors.-tuple bool).
+    Lemma rounds_correct_weaken (x : RndGen) (xs : seq RndGen) : 
+        rounds_correct_schedule (x :: xs) -> rounds_correct_schedule xs.
+        Proof.
+            move: x .
+            induction xs => //= x.
+            rewrite /rounds_correct_schedule.
+            destruct x => //=; destruct (foldr _ ) => //=; destruct (round_management_check _ ) => //=.
+        Qed.
+           
 
 
 
@@ -287,12 +277,23 @@ Definition corrupt_players_check (value : RndGen) (acc: (n_max_actors.-tuple boo
         end
 .
 
+
+
 Definition corrupt_players_check_schedule (s : seq RndGen) : bool :=
     isSome (foldr
         (fun rnd acc => if acc is Some(pr) then corrupt_players_check rnd pr else None)
         (Some (empty_bvector n_max_actors, (Ordinal (@ltn0Sn _)), false))
         s).
 
+    Lemma corrupt_players_weaken (x : RndGen) (xs : seq RndGen) : 
+        corrupt_players_check_schedule (x :: xs) -> corrupt_players_check_schedule xs.
+        Proof.
+            move: x .
+            induction xs => //= x.
+            rewrite /corrupt_players_check_schedule .
+            destruct x => //=; destruct (foldr _ ) => //=; destruct (corrupt_players_check_schedule  _ ) => //=; destruct (corrupt_players_check _) => //=.
+        Qed.
+ 
 
 
 (* 
@@ -353,6 +354,17 @@ Definition quota_check_schedule (s: seq RndGen) : bool :=
         (fun rnd acc => if acc is Some(pr) then quota_check rnd pr else None)
         (Some (0, 0, 0, 0, 0))
         s).
+
+    Lemma quota_check_weaken (x : RndGen) (xs : seq RndGen) : 
+        quota_check_schedule (x :: xs) -> quota_check_schedule xs.
+        Proof.
+            move: x .
+            induction xs => //= x.
+            rewrite /quota_check_schedule .
+            destruct x => //=; destruct (foldr _ ) => //; destruct (quota_check_schedule _ ) => //; destruct (quota_check _) => //. 
+        Qed.
+ 
+
 (*
     To recieve an honest transaction gen with an invalid transaction
 
@@ -362,3 +374,12 @@ Definition quota_check_schedule (s: seq RndGen) : bool :=
 
 Definition valid_schedule (s : seq RndGen) : bool :=
         [&& (rounds_correct_schedule s), (corrupt_players_check_schedule s) & (quota_check_schedule s)].
+
+    Lemma valid_schedule_weaken (x : RndGen) (xs : seq RndGen) : 
+        valid_schedule (x :: xs) -> valid_schedule xs.
+        Proof.
+            rewrite /valid_schedule.
+            move=>/andP [ /rounds_correct_weaken Hrounds_correct /andP [/corrupt_players_weaken  Hcorrupt_pls /quota_check_weaken  Hquota_check]] .
+            by apply/andP; split; [ | apply/andP; split].
+        Qed.
+ 
