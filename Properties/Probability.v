@@ -46,6 +46,7 @@ Lemma valid_schedules_can_not_fail_weak : forall (x: RndGen) (xs: seq.seq RndGen
     p_schedule_produces_none (rcons xs x) = 0.
 Admitted.
 
+
 Lemma valid_schedules_can_not_fail : forall (s: seq.seq RndGen),
     (valid_schedule s) ->
     p_schedule_produces_none s = 0.
@@ -65,9 +66,9 @@ Lemma valid_schedules_can_not_fail : forall (s: seq.seq RndGen),
         rewrite HINR => //.
         by rewrite mul0R add0R IHl.
     (* if the schedule isn't empty *) 
-        move=> schedule evnt .
+        move=> schedule evnt H .
             destruct schedule => //=; last first.
-            (* move=> Hind H'.
+            move=> Hind H'.
             move=> H.
             case r => //. 
             move=> H H0.
@@ -98,7 +99,7 @@ Lemma valid_schedules_can_not_fail : forall (s: seq.seq RndGen),
             rewrite /world_step//=.
 
             move=> p.
-    (* rewrite the assumption *)
+    rewrite the assumption
         (* move: (is_valid) => Hsch_a. *)
         (* move: (@valid_schedule_weaken _ _ Hsch_a) => Hsch. *)
         (* apply IHschedule in Hsch as Hschedule_none. *)
@@ -109,7 +110,7 @@ Lemma valid_schedules_can_not_fail : forall (s: seq.seq RndGen),
         move: (@quota_check_weaken _ _ Hqc_a) => Hqc.
         move: (@corrupt_players_weaken _ _ Hcc_a) => Hcc.
     destruct a.
-    - (* if the next schedule is a HonstTransactionGen*)
+    - (* if the next schedule is a HonstTransactionGen
         move: Hschedule_none.
         rewrite /p_schedule_produces_none/schedule_produces_none/evalDist.
         rewrite /Dist1.d /Dist1.f /DistBind.d /DistBind.f //=.
