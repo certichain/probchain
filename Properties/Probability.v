@@ -41,19 +41,80 @@ Lemma valid_schedules_can_not_fail_weak : forall (x: RndGen) (xs: seq.seq RndGen
     valid_schedule xs  ->
     p_schedule_produces_none (xs) = 0 ->
     (* we extend this sequence by a value which keeps it valid*)
-    valid_schedule (rcons xs x) ->
+    valid_schedule (x :: xs) ->
     (* this extended schedule  also never produces none *)
-    p_schedule_produces_none (rcons xs x) = 0.
+    p_schedule_produces_none (x :: xs) = 0.
+Proof.
+    rewrite /valid_schedule/p_schedule_produces_none/schedule_produces_none.
+    move=> x xs /andP [ Hr_chck /andP [Hp_chck Hq_chck]] H_psch /andP [xHr_chck /andP [xHp_chck xHq_chck]].
+    move: xHq_chck xHp_chck xHr_chck H_psch .
+    case x.
+    rewrite /evalDist/=.
+    rewrite /evalDist /Dist1.d /Dist1.f /DistBind.f //=.
+    elim xs => //=.
+    rewrite unlock => //= [[tx addr]] xHq_chck xHp_chck xHr_chck .
+    rewrite /evalDist /Dist1.d /Dist1.f /DistBind.f //=.
+    rewrite unlock //=.
+    elim (index_enum) => //=. 
+    move=> a l.
+    destruct a => //=.
+    rewrite ifT.
+    rewrite mulR0.
+    move=> _ _.
+    destruct (tnth _) as [act is_corrupt ].
+    rewrite ifF.
+    case (Transaction_valid _) => //=.
+
+    (* induction index_enum => //=.
+    rewrite IHl //=.
+    rewrite /evalDist /Dist1.d /Dist1.f /DistBind.f //=.
+    rewrite /evalDist /Dist1.d /Dist1.f /DistBind.f //=.
+    rewrite addR0.
+    rewrite  /DistBind.d //=.
+    rewrite /evalDist /Dist1.d /Dist1.f /DistBind.f //=.
+    rewrite  /DistBind.d //=.
+    rewrite /evalDist /Dist1.d /Dist1.f /DistBind.f //=.
+
+    case xs => //=.
+    rewrite /evalDist /Dist1.d /Dist1.f /DistBind.f //=.
+    rewrite unlock  //=.
+    induction index_enum => //=.
+    rewrite mul0R.
+    rewrite /evalDist /Dist1.d /Dist1.f /DistBind.f //=.
+    by rewrite addR0.
+    destruct a => //=.
+      by  rewrite mulR0 mulR0 addR0.
+      rewrite addR0 mul0R add0R.
+      
+    rewrite IHl0.
+    rewrite /reducebig.
+    case a0 => //=.
+
+    rewrite /evalDist /Dist1.d /Dist1.f /DistBind.f //=.
+    rewrite unlock => //= [[tx addr]] xHq_chck xHp_chck xHr_chck .
+    elim (index_enum) => //=.
+    apply eq_bigr.
+    move=> w worlds Hind Hbase .
+    destruct w => //=.
+    rewrite mulR0.
+    induction worlds => //=.
+    apply/bigop_unlock.
+    Search _ reducebig. *)
+
 Admitted.
 
 
 Lemma valid_schedules_can_not_fail : forall (s: seq.seq RndGen),
     (valid_schedule s) ->
     p_schedule_produces_none s = 0.
-    move: (INR_eq0 0) => [_ HINR].
+    (* Just quickly make a rewrite rule for INR*)
+        move: (INR_eq0 0) => [_ H_temp].
+        have HINR : (@eq nat O O). by [].
+        apply H_temp in HINR.
+        clear H_temp.
     (* Todo: Complete this proof. *)
     move => schedule .
-    elim/last_ind: schedule.
+    elim: schedule.
         (* if the schedule is [::] *)
         rewrite /p_schedule_produces_none/schedule_produces_none/world_step//=.
         rewrite /Dist1.d /Dist1.f /DistBind.f //=.
@@ -66,67 +127,101 @@ Lemma valid_schedules_can_not_fail : forall (s: seq.seq RndGen),
         rewrite HINR => //.
         by rewrite mul0R add0R IHl.
     (* if the schedule isn't empty *) 
-        move=> schedule evnt H .
-            destruct schedule => //=; last first.
-            move=> Hind H'.
-            move=> H.
-            case r => //. 
-            move=> H H0.
-            rewrite /p_schedule_produces_none/schedule_produces_none//=. 
-            destruct p.
-            case ( _ < _)%nat.
-            destruct (tnth initLocalStates _ ) as [actor is_corrupt].
-            rewrite ifF.
-            case (Transaction_valid _ ) eqn: HTxvalid.
-            rewrite /valid_schedule/rounds_correct_schedule/corrupt_players_check_schedule/quota_check_schedule//=.
-            rewrite /round_management_check/corrupt_players_check/quota_check//=.
-            move=> IHn.
-            move=>/andP[Hround_check b].
-            move: IHn.
-            rewrite /p_schedule_produces_none.
-            rewrite /schedule_produces_none//=.
-            destruct p.
-            case ( _ < _)%nat.
-            destruct (tnth initLocalStates _ ) as [actor is_corrupt].
-            rewrite ifF.
-            case (Transaction_valid _ ) eqn: HTxvalid.
-            case schedule => //.
-            move=> Hvschd.
-
-            destruct evnt => //=.
-            rewrite /p_schedule_produces_none.
-            rewrite /schedule_produces_none.
-            rewrite /world_step//=.
-
-            move=> p.
-    rewrite the assumption
-        (* move: (is_valid) => Hsch_a. *)
-        (* move: (@valid_schedule_weaken _ _ Hsch_a) => Hsch. *)
-        (* apply IHschedule in Hsch as Hschedule_none. *)
-        (* rewrite /valid_schedule in is_valid. *)
-        case/andP: is_valid.
-        move=> Hrc_a/andP [Hcc_a Hqc_a].
-        move: (@rounds_correct_weaken _ _ Hrc_a) => Hrc.
-        move: (@quota_check_weaken _ _ Hqc_a) => Hqc.
-        move: (@corrupt_players_weaken _ _ Hcc_a) => Hcc.
-    destruct a.
-    - (* if the next schedule is a HonstTransactionGen
-        move: Hschedule_none.
-        rewrite /p_schedule_produces_none/schedule_produces_none/evalDist.
-        rewrite /Dist1.d /Dist1.f /DistBind.d /DistBind.f //=.
+        move=> evnt schedule H valid_combination.
+        apply valid_schedule_weaken in valid_combination as Hvalid_base.
+        apply H in Hvalid_base .
+        destruct evnt => //=.
+        move: (Hvalid_base).
+        (* unfold p_schedule_produces_none in Hvalid_base.
+        rewrite /p_schedule_produces_none/schedule_produces_none//=. 
+        move=>  valid_base.
         destruct p.
-        rewrite (ifT ).
-        destruct (tnth initLocalStates o) as [actor is_corrupt] eqn: H.
-        rewrite ifF =>// .
-        case (Transaction_valid _ _ ) => //=.
-        move=> Hschedule_none.
-
-        induction schedule .
-            simpl.
-            rewrite unlock => //=.
-            induction  (index_enum _) => //=.
+        rewrite /evalDist.
+        rewrite /Dist1.d /Dist1.f /DistBind.f //=.
+        rewrite unlock .
+        induction (index_enum _) => //=.
+            rewrite IHl //=.
             destruct a => //=.
-            rewrite Hschedule_none. *)
+            rewrite HINR //= .
+            by rewrite addR0 mulR0. 
+
+        move: valid_base IHl.
+        rewrite /DistBind.f.
+        rewrite unlock //=.
+
+        rewrite mulR1 addR0.
+        destruct (index_enum _) => //=.
+
+        destruct s0 => //=.
+        
+        have Hrew: Dist1.f false true = 0%R.
+          by  compute.
+        rewrite Hrew mulR0 add0R.
+        rewrite ifT.
+        destruct (tnth  _ ) as [actor is_corrupt].
+        rewrite ifF.
+        case (Transaction_valid _) => //=.
+        rewrite mulR0 add0R.
+        rewrite /Dist1.f.
+        move=> ->.
+
+        rewrite unlock.
+        rewrite HINR.
+
+        move=> valid_base //=.
+
+        by rewrite mul0R addR0.
+        apply valid_base in IHl.
+
+        rewrite /valid_schedule/rounds_correct_schedule/corrupt_players_check_schedule/quota_check_schedule//=.
+        rewrite /round_management_check/corrupt_players_check/quota_check//=.
+        move=> IHn.
+        move=>/andP[Hround_check b].
+        move: IHn.
+        rewrite /p_schedule_produces_none.
+        rewrite /schedule_produces_none//=.
+        destruct p.
+        case ( _ < _)%nat.
+        destruct (tnth initLocalStates _ ) as [actor is_corrupt].
+        rewrite ifF.
+        case (Transaction_valid _ ) eqn: HTxvalid.
+        case schedule => //.
+        move=> Hvschd.
+
+        destruct evnt => //=.
+        rewrite /p_schedule_produces_none.
+        rewrite /schedule_produces_none.
+        rewrite /world_step//=.
+
+        move=> p.
+rewrite the assumption
+    (* move: (is_valid) => Hsch_a. *)
+    (* move: (@valid_schedule_weaken _ _ Hsch_a) => Hsch. *)
+    (* apply IHschedule in Hsch as Hschedule_none. *)
+    (* rewrite /valid_schedule in is_valid. *)
+    case/andP: is_valid.
+    move=> Hrc_a/andP [Hcc_a Hqc_a].
+    move: (@rounds_correct_weaken _ _ Hrc_a) => Hrc.
+    move: (@quota_check_weaken _ _ Hqc_a) => Hqc.
+    move: (@corrupt_players_weaken _ _ Hcc_a) => Hcc.
+destruct a.
+- (* if the next schedule is a HonstTransactionGen
+    move: Hschedule_none.
+    rewrite /p_schedule_produces_none/schedule_produces_none/evalDist.
+    rewrite /Dist1.d /Dist1.f /DistBind.d /DistBind.f //=.
+    destruct p.
+    rewrite (ifT ).
+    destruct (tnth initLocalStates o) as [actor is_corrupt] eqn: H.
+    rewrite ifF =>// .
+    case (Transaction_valid _ _ ) => //=.
+    move=> Hschedule_none.
+
+    induction schedule .
+        simpl.
+        rewrite unlock => //=.
+        induction  (index_enum _) => //=.
+        destruct a => //=.
+        rewrite Hschedule_none. *) *)
 
 Admitted.
 
