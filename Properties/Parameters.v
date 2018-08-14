@@ -105,15 +105,32 @@ Qed.
 
 Parameter oraclestate_size: nat.
 
+
+Lemma ltNn {n} :  0 < n - 1 -> 0 < n.
+Proof.
+    rewrite subn_gt0.
+    move => /(ltn_addr 1).
+    rewrite addnS addn0 ltnS //=.
+Qed.
+
+
 (* Note: These quotas stand for the exclusive
 upper bound on the number of messages an adversary can send (hence the - 1)
 We do this, so that the max_value can be used as an ordinal *)
 Parameter Adversary_max_Message_sends : nat.
-Axiom valid_Adversary_max_Message_sends :  0 < Adversary_max_Message_sends.
+Axiom valid_Adversary_max_Message_sends_strong :  0 < (Adversary_max_Message_sends - 1).
+Definition valid_Adversary_max_Message_sends := ltNn valid_Adversary_max_Message_sends_strong .
+
 Parameter Adversary_max_Transaction_sends : nat.
-Axiom valid_Adversary_max_Transaction_sends :  0 < Adversary_max_Transaction_sends.
+Axiom valid_Adversary_max_Transaction_sends_strong :  0 < (Adversary_max_Transaction_sends - 1).
+Definition valid_Adversary_max_Transaction_sends := ltNn valid_Adversary_max_Transaction_sends_strong .
+
+
 Parameter Honest_max_Transaction_sends : nat.
-Parameter valid_Honest_max_Transaction_sends : 0 < Honest_max_Transaction_sends.
+Parameter valid_Honest_max_Transaction_sends_strong : 0 < (Honest_max_Transaction_sends - 1).
+Definition valid_Honest_max_Transaction_sends := ltNn valid_Honest_max_Transaction_sends_strong .
+
+
 
 (* Ensure that an adversary can not overflow the buffers *)
 Axiom valid_Message_BufferOverflow : Honest_MessagePool_size >  n_max_actors + Adversary_max_Message_sends.
