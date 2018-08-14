@@ -26,8 +26,9 @@ Definition schedule_produces_none (s: seq.seq RndGen) :=
     o_w' <-$ world_step initWorld s;
     r <- if o_w' is Some(w) then false else true;
     ret r.
+
 Definition p_schedule_produces_none (s:seq.seq RndGen) :=
-    evalDist (schedule_produces_none s) true.
+    evalDist (world_step initWorld s) None.
 
 
     (* Wil complete later, first need to check whether it works *)
@@ -35,8 +36,98 @@ Lemma valid_weaken : forall (x: RndGen)(xs: seq.seq RndGen),
     valid_schedule (rcons xs x) -> valid_schedule xs.
     Admitted.
 
+Lemma valid_schedule_trivial : p_schedule_produces_none [::] = 0.
+Proof.
+    by  rewrite /p_schedule_produces_none//=.
+Qed.
+
+Lemma local_state_base_nth addr : tnth initLocalStates addr = (initLocalState, false).
+Proof.
+  rewrite (tnth_nth (initLocalState, false)).
+  rewrite /initLocalStates.
+  destruct addr as [m Hm].
+  rewrite /tnth/ncons/ssrnat.iter//=.
+  move: m Hm.
+  elim n_max_actors => //=.
+  move=> n IHn m .
+  case m => //=.
+Qed.
+
+
+Lemma valid_schedules_can_not_fail_base : forall (x: RndGen),
+    (* [::] is a valid schedule *)
+    (* [::] never produces none *)
+    (* we extend the sequence by a value which keeps it valid *)
+    valid_schedule ([:: x]) ->
+    (* this extended schedule also never produces none *)
+    p_schedule_produces_none ([:: x]) = 0.
+Proof.
+  (* first, let's destructure [&&] into it's principal components *)
+  move => x /andP [ Hr_chck /andP [Hp_chck Hq_chck]].
+  rewrite /valid_schedule/p_schedule_produces_none/schedule_produces_none.
+  (* prove the property for each type of schedule*)
+
+
+  rewrite /evalDist /Dist1.d /Dist1.f /DistBind.f .
+  apply prsumr_eq0P.
+  move=> o_w Ho_w .
+  apply Rmult_le_pos => //=.
+    case (eq_op o_w _) => //=.
+    exact (Rle_refl (INR 0)).
+    ecase (evalDist (match o_w with
+            | Some _ => _
+            | None => _
+          end)).
+    move=> dist H //=.
+    destruct dist as [f Hf_ge] => //=.
+
+    move=> w _.
+    destruct w => //; last first.
+      by  rewrite mul0R.
+    rewrite -/evalDist /makeDist //=.
+
+    move: Hq_chck Hp_chck Hr_chck.
+  case x.
+   (* Honest Transaction Gen *)
+    - move=> [tx addr] Hr_chck Hp_chck Hq_chck //=.
+
+      rewrite /evalDist /Dist1.d /Dist1.f /DistBind.f //=.
+      (* P [ w = initWorld ] * P [ world_step w [:: x ] ]*)
+      case (eq_op (w) (initWorld)) eqn: H.
+        (* if w == initWorld *)
+        (* we need to rewrite that expression so it matches our goal *)
+        move: H => /eqP Hw_eqw.
+        rewrite Hw_eqw.
+        have: (eq_op (Some initWorld) (Some initWorld)) = true.
+          by  apply /eqP.
+        move => -> //=.
+        rewrite mul1R. 
+        rewrite ifT.
+        destruct (tnth _) as [actor is_corrupt] eqn:H .
+        rewrite ifF.
+        (* Having assumed all that, irrespective of whether the transaction is valid, the output is not None *)
+        by  case (Transaction_valid _) eqn: Htx_Variable  => //=.
+
+        move: H.
+        rewrite local_state_base_nth => H.
+          by  injection H.
+        exact (valid_Honest_max_Transaction_sends_strong).
+
+      move: H => /eqP H.
+      have: (eq_op (Some w) (Some initWorld)) = false.
+      apply /eqP.
+      by  injection.
+
+      move=> -> //=.
+      by  rewrite mul0R.
+    (* Transaction drop *)
+    - move=> [ind Hind] Hr_chck Hp_chck Hq_chck.
+
+
+Admitted.
+
     (* equiv? formulation of the valid schedules property *)
-Lemma valid_schedules_can_not_fail_weak : forall (x: RndGen) (xs: seq.seq RndGen),
+Lemma valid_schedules_can_not_fail_ind : forall (x: RndGen) (xs: seq.seq RndGen),
     (* we have a valid sequence which never produces none *)
     valid_schedule xs  ->
     p_schedule_produces_none (xs) = 0 ->
@@ -47,23 +138,24 @@ Lemma valid_schedules_can_not_fail_weak : forall (x: RndGen) (xs: seq.seq RndGen
 Proof.
     rewrite /valid_schedule/p_schedule_produces_none/schedule_produces_none.
     move=> x xs /andP [ Hr_chck /andP [Hp_chck Hq_chck]] H_psch /andP [xHr_chck /andP [xHp_chck xHq_chck]].
-    move: xHq_chck xHp_chck xHr_chck H_psch .
+    move:  H_psch .
     case x.
     rewrite /evalDist/=.
     rewrite /evalDist /Dist1.d /Dist1.f /DistBind.f //=.
-    elim xs => //=.
-    rewrite unlock => //= [[tx addr]] xHq_chck xHp_chck xHr_chck .
     rewrite /evalDist /Dist1.d /Dist1.f /DistBind.f //=.
-    rewrite unlock //=.
-    elim (index_enum) => //=. 
-    move=> a l.
-    destruct a => //=.
-    rewrite ifT.
-    rewrite mulR0.
-    move=> _ _.
-    destruct (tnth _) as [act is_corrupt ].
-    rewrite ifF.
-    case (Transaction_valid _) => //=.
+    (* elim xs => //=. *)
+    (* rewrite unlock => //= [[tx addr]] xHq_chck xHp_chck xHr_chck . *)
+    (* rewrite /evalDist /Dist1.d /Dist1.f /DistBind.f //=. *)
+    (* rewrite unlock //=. *)
+    (* elim (index_enum) => //=.  *)
+    (* move=> a l. *)
+    (* destruct a => //=. *)
+    (* rewrite ifT. *)
+    (* rewrite mulR0. *)
+    (* move=> _ _. *)
+    (* destruct (tnth _) as [act is_corrupt ]. *)
+    (* rewrite ifF. *)
+    (* c ase (Transaction_valid _) => //=.*)
 
     (* induction index_enum => //=.
     rewrite IHl //=.
@@ -119,19 +211,19 @@ Lemma valid_schedules_can_not_fail : forall (s: seq.seq RndGen),
         rewrite /p_schedule_produces_none/schedule_produces_none/world_step//=.
         rewrite /Dist1.d /Dist1.f /DistBind.f //=.
         (* rewrite /makeDist. *)
-        rewrite unlock => //.
-        induction  (index_enum _) => //=.
-        destruct a =>// .
-        rewrite HINR =>//.
-        by rewrite mulR0 add0R IHl.
-        rewrite HINR => //.
-        by rewrite mul0R add0R IHl.
-    (* if the schedule isn't empty *) 
-        move=> evnt schedule H valid_combination.
-        apply valid_schedule_weaken in valid_combination as Hvalid_base.
-        apply H in Hvalid_base .
-        destruct evnt => //=.
-        move: (Hvalid_base).
+    (*     rewrite unlock => //. *)
+    (*     induction  (index_enum _) => //=. *)
+    (*     destruct a =>// . *)
+    (*     rewrite HINR =>//. *)
+    (*     by rewrite mulR0 add0R IHl. *)
+    (*     rewrite HINR => //. *)
+    (*     by rewrite mul0R add0R IHl. *)
+    (* (* if the schedule isn't empty *)  *)
+    (*     move=> evnt schedule H valid_combination. *)
+    (*     apply valid_schedule_weaken in valid_combination as Hvalid_base. *)
+    (*     apply H in Hvalid_base . *)
+    (*     destruct evnt => //=. *)
+    (*     move: (Hvalid_base). *)
         (* unfold p_schedule_produces_none in Hvalid_base.
         rewrite /p_schedule_produces_none/schedule_produces_none//=. 
         move=>  valid_base.
