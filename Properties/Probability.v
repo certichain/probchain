@@ -53,20 +53,20 @@ Proof.
   case m => //=.
 Qed.
 
+Require Import Coq.Logic.FunctionalExtensionality.
+Require Import Coq.Logic.ProofIrrelevance.
+
 Lemma honest_max_activation_base : honest_activation (world_global_state initWorld) = Some (Ordinal valid_n_max_actors).
  Proof.
-   rewrite /honest_activation.
-   rewrite   /initWorld //=.
-   case: (0 < n_max_actors)%nat.
-   move: valid_n_max_actors.
-
-   case (0 < n_max_actors)%nat.
-
-   rewrite ifT.
-   case (Ordinal _).
-
-  Admitted.
-
+ rewrite /honest_activation.
+ rewrite /initWorld //=.
+ move: valid_n_max_actors=>E. 
+ move: (@Ordinal n_max_actors 0)=>o.
+ suff X: (fun H => Some (o H)) = fun _ => Some (o E).               
+ - by rewrite X; rewrite E.
+ apply: functional_extensionality=>G.
+ by rewrite (proof_irrelevance _ E G).
+Qed.
 
 Lemma valid_schedules_can_not_fail_base : forall (x: RndGen),
     (* [::] is a valid schedule *)

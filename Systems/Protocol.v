@@ -450,12 +450,10 @@ Definition no_corrupted_players (state: GlobalState) :=
 Definition honest_activation (state: GlobalState) : option 'I_n_max_actors.
     case state => actors _ active _.
     case (active < n_max_actors) eqn: H.
-      case (tnth actors, (Ordinal H)) => f x.
-      apply f in x as pair.
-      case pair => _ is_corrupt.
-      exact (Some x).
+    move: (tnth actors) (Ordinal H) => f x.
+    by exact (Some x).
     exact None.
-    Defined.
+Defined.
 
 
 (* A given world step is an adversarial activation if the current address
