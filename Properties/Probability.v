@@ -53,6 +53,20 @@ Proof.
   case m => //=.
 Qed.
 
+Lemma honest_max_activation_base : honest_activation (world_global_state initWorld) = Some (Ordinal valid_n_max_actors).
+ Proof.
+   rewrite /honest_activation.
+   rewrite   /initWorld //=.
+   case: (0 < n_max_actors)%nat.
+   move: valid_n_max_actors.
+
+   case (0 < n_max_actors)%nat.
+
+   rewrite ifT.
+   case (Ordinal _).
+
+  Admitted.
+
 
 Lemma valid_schedules_can_not_fail_base : forall (x: RndGen),
     (* [::] is a valid schedule *)
@@ -85,7 +99,7 @@ Proof.
   (* now we have a distribution, we need to split it open to view the lemmas it contains *)
   move=> [f Hf_ge] H //=.
   move=> w _.
-  (* using the lemmas bundled with a dist, the proof intros  trivial. *)
+  (* using the lemmas bundled with a dist, the proof is  trivial. *)
   destruct w => //; last first.
     by  rewrite mul0R.
   rewrite -/evalDist /makeDist //=.
@@ -123,7 +137,10 @@ Proof.
     - move=> [ind Hind] Hr_chck Hp_chck Hq_chck.
       by  case (fixlist_get_nth _) => //.
     (* Honest Transaction Gen *)
-    - move=> Hr_chck Hp_chck Hq_chck.
+    - move=> Hr_chck Hp_chck Hq_chck //.
+
+      rewrite valid_n_max_actors.
+      rewrite (@ifT _ (_ < _)%nat).
 
 
 
