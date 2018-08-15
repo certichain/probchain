@@ -65,63 +65,66 @@ Proof.
   (* first, let's destructure [&&] into it's principal components *)
   move => x /andP [ Hr_chck /andP [Hp_chck Hq_chck]].
   rewrite /valid_schedule/p_schedule_produces_none/schedule_produces_none.
-  (* prove the property for each type of schedule*)
+  rewrite /evalDist /Dist1.d /Dist1.f /DistBind.f.
 
-
-  rewrite /evalDist /Dist1.d /Dist1.f /DistBind.f .
+  (* Convert our goal from (\sum x in X, [ f x ]) = 0 to forall x, f x = 0*)
   apply prsumr_eq0P.
   move=> o_w Ho_w .
+  (* To do this conversion, we need to quickly prove that our distribution function is strictly positive *)
+  (* we'll do this by showing that each component of the product forming the distribution is positive *)
   apply Rmult_le_pos => //=.
-    case (eq_op o_w _) => //=.
+  (* first, for (isSome world) - trivial*)
+  case (eq_op o_w _) => //=.
     exact (Rle_refl (INR 0)).
-    ecase (evalDist (match o_w with
-            | Some _ => _
-            | None => _
-          end)).
-    move=> dist H //=.
-    destruct dist as [f Hf_ge] => //=.
+  (* now for the evaluation of the world step function *)
+  (* as the result of evalDist is a dist (which contains all proofs we need), we don't care what goes on inside it *)
+  ecase (evalDist (match o_w with
+          | Some _ => _
+          | None => _
+        end)).
+  (* now we have a distribution, we need to split it open to view the lemmas it contains *)
+  move=> [f Hf_ge] H //=.
+  move=> w _.
+  (* using the lemmas bundled with a dist, the proof intros  trivial. *)
+  destruct w => //; last first.
+    by  rewrite mul0R.
+  rewrite -/evalDist /makeDist //=.
+  (* conversion done *)
 
-    move=> w _.
-    destruct w => //; last first.
-      by  rewrite mul0R.
-    rewrite -/evalDist /makeDist //=.
+  (* if the world is none, the result is 0, trivially*)
+  case (eq_op _ _) eqn: H; last first => //=.
+    by  rewrite mul0R.
+  rewrite mul1R.
+  (* thus, w must equal initworld - let's just rewrite our expressions to reflect this*)
+  move/eqP: H =>  H.
+  injection H.
+  clear H.
+  move=> ->.
 
-    move: Hq_chck Hp_chck Hr_chck.
+  move: Hq_chck Hp_chck Hr_chck.
+  (* prove the property for each type of schedule*)
   case x.
    (* Honest Transaction Gen *)
     - move=> [tx addr] Hr_chck Hp_chck Hq_chck //=.
 
       rewrite /evalDist /Dist1.d /Dist1.f /DistBind.f //=.
-      (* P [ w = initWorld ] * P [ world_step w [:: x ] ]*)
-      case (eq_op (w) (initWorld)) eqn: H.
-        (* if w == initWorld *)
-        (* we need to rewrite that expression so it matches our goal *)
-        move: H => /eqP Hw_eqw.
-        rewrite Hw_eqw.
-        have: (eq_op (Some initWorld) (Some initWorld)) = true.
-          by  apply /eqP.
-        move => -> //=.
-        rewrite mul1R. 
-        rewrite ifT.
-        destruct (tnth _) as [actor is_corrupt] eqn:H .
-        rewrite ifF.
-        (* Having assumed all that, irrespective of whether the transaction is valid, the output is not None *)
-        by  case (Transaction_valid _) eqn: Htx_Variable  => //=.
+      rewrite ifT.
+      destruct (tnth _) as [actor is_corrupt] eqn:H .
+      rewrite ifF.
+      (* Having assumed all that, irrespective of whether the transaction is valid, the output is not None *)
+      by  case (Transaction_valid _) eqn: Htx_Variable  => //=.
 
-        move: H.
-        rewrite local_state_base_nth => H.
-          by  injection H.
-        exact (valid_Honest_max_Transaction_sends_strong).
+      move: H.
+      rewrite local_state_base_nth => H.
+        by  injection H.
+      exact (valid_Honest_max_Transaction_sends_strong).
 
-      move: H => /eqP H.
-      have: (eq_op (Some w) (Some initWorld)) = false.
-      apply /eqP.
-      by  injection.
-
-      move=> -> //=.
-      by  rewrite mul0R.
     (* Transaction drop *)
     - move=> [ind Hind] Hr_chck Hp_chck Hq_chck.
+      by  case (fixlist_get_nth _) => //.
+    (* Honest Transaction Gen *)
+    - move=> Hr_chck Hp_chck Hq_chck.
+
 
 
 Admitted.
