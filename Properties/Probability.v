@@ -62,8 +62,8 @@ Lemma honest_max_activation_base : honest_activation (world_global_state initWor
  rewrite /initWorld //=.
  move: valid_n_max_actors=>E. 
  move: (@Ordinal n_max_actors 0)=>o.
- suff X: (fun H => Some (o H)) = fun _ => Some (o E).               
- - by rewrite X; rewrite E.
+ suff X : (fun H => if (tnth initLocalStates (o H)).2 then None else Some (o H)) = fun _ =>  if (tnth initLocalStates (o E)).2 then None else Some (o E).               
+   by rewrite X; rewrite E local_state_base_nth.
  apply: functional_extensionality=>G.
  by rewrite (proof_irrelevance _ E G).
 Qed.
@@ -139,8 +139,8 @@ Proof.
     (* Honest Transaction Gen *)
     - move=> Hr_chck Hp_chck Hq_chck //.
 
-      rewrite valid_n_max_actors.
-      rewrite (@ifT _ (_ < _)%nat).
+      (* rewrite valid_n_max_actors. *)
+      (* rewrite (@ifT _ (_ < _)%nat). *)
 
 
 

@@ -447,13 +447,27 @@ Definition no_corrupted_players (state: GlobalState) :=
 
 (* A given world step is an honest activation if the current address
    is to a node which has not been corrupted *)
-Definition honest_activation (state: GlobalState) : option 'I_n_max_actors.
-    case state => actors _ active _.
-    case (active < n_max_actors) eqn: H.
-    move: (tnth actors) (Ordinal H) => f x.
-    by exact (Some x).
-    exact None.
-Defined.
+Definition honest_activation (state: GlobalState) : option 'I_n_max_actors :=
+    match state with
+    | {|
+      global_local_states := actors;
+      global_currently_active := active
+    |} =>
+        (* if the index is valid *)
+        (if (active < n_max_actors)%N as b return ((active < n_max_actors)%N = b -> option 'I_n_max_actors)
+          then
+            fun H : (active < n_max_actors)%N = true =>
+              (* if the actor is corrupted *)
+              if 
+                (tnth actors (Ordinal (n:=n_max_actors) (m:=active) H)).2
+              (* it is not an honest activation *)
+              then None
+              (* otherwise return an index into the list *)
+              else Some (Ordinal (n:=n_max_actors) (m:=active) H)
+        (* if the index is invalid, return None as well *)
+        else fun _ : (active < n_max_actors)%N = false => None) (erefl (active < n_max_actors)%N)
+    end. 
+
 
 
 (* A given world step is an adversarial activation if the current address
