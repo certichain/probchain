@@ -18,9 +18,19 @@ Require Import ValidSchedule Deterministic Comp Notationv1 BlockChain Protocol O
 
 Set Implicit Arguments.
 
-(* Todo(Kiran) Replace this with the actual constant*)
 Variable probability_constant : R.
 
+Lemma Rle_big_eqP (A : finType) (f g : A -> R) (P : pred A) :
+   (forall i : A, P i -> f i <= g i) ->
+   \rsum_(i | P i) g i = \rsum_(i | P i) f i <->
+   (forall i : A, P i -> g i = f i).
+Proof.
+  move=> hf; split => [/Rle_big_eq H//=|].
+    by  exact (H hf).
+    move=> H.
+    About eq_bigr.
+      by  exact (@eq_bigr _ _ _ A _ P  g f H).
+Qed.
 
 Definition schedule_produces_none (s: seq.seq RndGen) :=
     o_w' <-$ world_step initWorld s;
@@ -67,6 +77,8 @@ Lemma honest_max_activation_base : honest_activation (world_global_state initWor
  apply: functional_extensionality=>G.
  by rewrite (proof_irrelevance _ E G).
 Qed.
+
+
 
 Lemma valid_schedules_can_not_fail_base : forall (x: RndGen),
     (* [::] is a valid schedule *)
@@ -139,9 +151,59 @@ Proof.
     (* Honest Transaction Gen *)
     - move=> Hr_chck Hp_chck Hq_chck //.
 
-      (* rewrite valid_n_max_actors. *)
-      (* rewrite (@ifT _ (_ < _)%nat). *)
+      rewrite honest_max_activation_base local_state_base_nth //=.
+      rewrite /evalDist /Dist1.d /Dist1.f /DistBind.f //=.
+      rewrite /evalDist /Dist1.d /Dist1.f /DistBind.f //=.
+      apply prsumr_eq0P.
+      move=> addr Haddr.
+      apply Rmult_le_pos => //=.
+      apply rsumr_ge0.
+      move => summand _.
+      case (eq_op addr summand) => //=; last first.
+        by  rewrite mulR0; exact (Rle_refl (INR 0)).
+      rewrite mulR1 /Uniform.f.
+      apply divR_ge0 => //=.
+      rewrite card_ord.
+      apply lt_0_INR.
+      by  exact (Nat.lt_0_succ _).
+      apply rsumr_ge0.
+      move=> prod _.
+      rewrite -/evalDist /Dist1.d /Dist1.f /DistBind.f //=.
+      apply Rmult_le_pos => //=.
+        case (evalDist _) => f Hpos.
+        by destruct f => //=.
+      apply rsumr_ge0 => o_w' _.
+      case (eq_op None o_w') eqn: H.
+      move/eqP: H=><-//=.
+      rewrite mulR1.
+        by case (evalDist _) => f Hpos; destruct f.
+      rewrite H//mulR0; by exact (Rle_refl (INR 0)).
+      move=> value _.
+      apply /eqP.
+      rewrite mulR_eq0.
+      apply /orP.
+      right.
+      apply/eqP.
+      apply prsumr_eq0P.
+      move=> value_1 _.
+      apply Rmult_le_pos => //=.
+        by case (evalDist _) => f Hpos; destruct f.
 
+
+  forall x y : R, (x * y == 0) = (x == 0) || (y == 0)
+      Search _ "mulR".
+      About Dist1.f1.
+      rewrite (Dist1.f1 value).
+
+Dist1.f1 : forall (A : finType) (a : A), \rsum_(b in A) Dist1.f (A:=A) a b = 1
+      destruct prod.
+      destruct s as [H].
+      destruct s.
+      destruct s.
+      destruct s.
+
+      move=> [| ].
+      Search _ "rsum".
 
 
 Admitted.
@@ -473,7 +535,7 @@ Lemma common_prefix: forall
     (* Pr( givens_of result_w AND has_chain_quality_property ) / Pr (givens_of result_w ) = *)
     (* Pr (result_w has chain_quality_property, given the givens) *)
 
-    (p_has_common_prefix_property s k r c1 c2 ) / (p_common_prefix_givens s r c1 c2 ) = probability_constant.
+    (p_has_common_prefix_property s k r c1 c2 ) = (p_common_prefix_givens s r c1 c2 ) * probability_constant.
     Admitted.
     
 
