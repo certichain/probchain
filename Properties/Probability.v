@@ -121,10 +121,32 @@ Proof.
     by rewrite mulR1 mulR0 add0R addR0.
     by rewrite mulR0 add0R add0R.
   (* Now for the inductive case *)
-    move=> x xs //.
-    rewrite /evalDist/DistBind.d/DistBind.f/makeDist//.
+    move=> x xs IHn//.
+    rewrite /evalDist/DistBind.d/DistBind.f/makeDist//=.
+    rewrite -addRA_rsum.
+    rewrite -addRA_rsum.
+    apply Rle_big_eqP; move=> o_w' _ //.
+    case (f o_w'); case (g o_w'); rewrite /Dist1.f => //=.
+    rewrite mulR0 mulR1 add0R add0R.
+      by apply Rle_refl.
+    rewrite mulR0 mulR1 addR0 addR0.
+    by apply Rle_refl.
+    rewrite mulR0 mulR1 addR0 add0R.
+    by apply Rle_refl.
+    rewrite mulR0 addR0 addR0.
+    by apply Rle_refl.
+    have HINR1 : INR 1 = 1.
+      by [].
 
-Admitted.
+    have HINR0 : INR 0 = 0.
+      by [].
+
+    case (f o_w'); case (g o_w'); rewrite /Dist1.f => //=.
+    by rewrite mulR1 mulR0 addR0 add0R.
+    by rewrite mulR0 addR0 addR0 mulR1.
+    by rewrite mulR0 addR0 mulR1 add0R.
+    by rewrite mulR0 addR0 addR0.
+Qed.
   
 
 
