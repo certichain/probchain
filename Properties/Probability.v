@@ -41,15 +41,7 @@ Definition p_schedule_produces_none (s:seq.seq RndGen) :=
     evalDist (world_step initWorld s) None.
 
 
-    (* Wil complete later, first need to check whether it works *)
-Lemma valid_weaken : forall (x: RndGen)(xs: seq.seq RndGen),
-    valid_schedule (rcons xs x) -> valid_schedule xs.
-    Admitted.
 
-Lemma valid_schedule_trivial : p_schedule_produces_none [::] = 0.
-Proof.
-    by  rewrite /p_schedule_produces_none//=.
-Qed.
 
 Lemma local_state_base_nth addr : tnth initLocalStates addr = (initLocalState, false).
 Proof.
@@ -66,338 +58,186 @@ Qed.
 Require Import Coq.Logic.FunctionalExtensionality.
 Require Import Coq.Logic.ProofIrrelevance.
 
-Lemma honest_max_activation_base : honest_activation (world_global_state initWorld) = Some (Ordinal valid_n_max_actors).
- Proof.
- rewrite /honest_activation.
- rewrite /initWorld //=.
- move: valid_n_max_actors=>E. 
- move: (@Ordinal n_max_actors 0)=>o.
- suff X : (fun H => if (tnth initLocalStates (o H)).2 then None else Some (o H)) = fun _ =>  if (tnth initLocalStates (o E)).2 then None else Some (o E).               
-   by rewrite X; rewrite E local_state_base_nth.
- apply: functional_extensionality=>G.
- by rewrite (proof_irrelevance _ E G).
+(* Lemma honest_max_activation_base : honest_activation (world_global_state initWorld) = Some (Ordinal valid_n_max_actors). *)
+(*  Proof. *)
+(*  rewrite /honest_activation. *)
+(*  rewrite /initWorld //=. *)
+(*  move: valid_n_max_actors=>E.  *)
+(*  move: (@Ordinal n_max_actors 0)=>o. *)
+(*  suff X : (fun H => if (tnth initLocalStates (o H)).2 then None else Some (o H)) = fun _ =>  if (tnth initLocalStates (o E)).2 then None else Some (o E).                *)
+(*    by rewrite X; rewrite E local_state_base_nth. *)
+(*  apply: functional_extensionality=>G. *)
+(*  by rewrite (proof_irrelevance _ E G). *)
+(* Qed. *)
+
+About evalDist.
+About expected_value.
+
+Notation "'P[' a '=' b ']'" := (evalDist a b).
+Notation "'P[' a ']'" := (evalDist a true).
+Notation "'E[' a ']'" := (expected_value a).
+Notation " a '|>' b " := (w_a <-$ a; b w_a) (at level 50).
+
+
+
+Lemma addRA_rsum  (A : finType) f g : 
+  \rsum_(i in A) (f i + g i)%R = \rsum_(i in A) f i + \rsum_(i in A) g i .
+Proof.
+  rewrite unlock.
+  elim index_enum => //=.
+  have H : R0 = 0.
+    by [].
+  move: (addR0   ).
+  rewrite /right_id => H'.
+  move: (H' R0).
+  by rewrite H. (* there's some issues with the types 0 doesn't want to auto-coerce  to R0 *)
+  move=> x xs IHn.
+  by rewrite IHn addRA (addRC (f x) (g x)) -(addRA (g x)) (addRC (g x)) -(addRA (f x + _)).
 Qed.
+  
 
-
-
-Lemma valid_schedules_can_not_fail_base : forall (x: RndGen),
-    (* [::] is a valid schedule *)
-    (* [::] never produces none *)
-    (* we extend the sequence by a value which keeps it valid *)
-    valid_schedule ([:: x]) ->
-    (* this extended schedule also never produces none *)
-    p_schedule_produces_none ([:: x]) = 0.
+Lemma prob_disjunctive_distr (f g : option World -> bool) : forall sc,
+   P[ world_step initWorld sc |> (fun x => ret (f x || g x)) ] =
+    P[ world_step initWorld sc |> (fun x => ret (f x && ~~ g x))] + 
+    P[ world_step initWorld sc |> (fun x => ret (~~ f x &&  g x))] + 
+    P[ world_step initWorld sc |> (fun x => ret ( f x &&  g x))].
 Proof.
-  (* first, let's destructure [&&] into it's principal components *)
-  move => x /andP [ Hr_chck /andP [Hp_chck Hq_chck]].
-  rewrite /valid_schedule/p_schedule_produces_none/schedule_produces_none.
-  rewrite /evalDist /Dist1.d /Dist1.f /DistBind.f.
-
-  (* Convert our goal from (\sum x in X, [ f x ]) = 0 to forall x, f x = 0*)
-  apply prsumr_eq0P.
-  move=> o_w Ho_w .
-  (* To do this conversion, we need to quickly prove that our distribution function is strictly positive *)
-  (* we'll do this by showing that each component of the product forming the distribution is positive *)
-  apply Rmult_le_pos => //=.
-  (* first, for (isSome world) - trivial*)
-  case (eq_op o_w _) => //=.
-    exact (Rle_refl (INR 0)).
-  (* now for the evaluation of the world step function *)
-  (* as the result of evalDist is a dist (which contains all proofs we need), we don't care what goes on inside it *)
-  ecase (evalDist (match o_w with
-          | Some _ => _
-          | None => _
-        end)).
-  (* now we have a distribution, we need to split it open to view the lemmas it contains *)
-  move=> [f Hf_ge] H //=.
-  move=> w _.
-  (* using the lemmas bundled with a dist, the proof is  trivial. *)
-  destruct w => //; last first.
-    by  rewrite mul0R.
-  rewrite -/evalDist /makeDist //=.
-  (* conversion done *)
-
-  (* if the world is none, the result is 0, trivially*)
-  case (eq_op _ _) eqn: H; last first => //=.
-    by  rewrite mul0R.
-  rewrite mul1R.
-  (* thus, w must equal initworld - let's just rewrite our expressions to reflect this*)
-  move/eqP: H =>  H.
-  injection H.
-  clear H.
-  move=> ->.
-
-  move: Hq_chck Hp_chck Hr_chck.
-  (* prove the property for each type of schedule*)
-  case x.
-   (* Honest Transaction Gen *)
-    - move=> [tx addr] Hr_chck Hp_chck Hq_chck //=.
-
-      rewrite /evalDist /Dist1.d /Dist1.f /DistBind.f //=.
-      rewrite ifT.
-      destruct (tnth _) as [actor is_corrupt] eqn:H .
-      rewrite ifF.
-      (* Having assumed all that, irrespective of whether the transaction is valid, the output is not None *)
-      by  case (Transaction_valid _) eqn: Htx_Variable  => //=.
-
-      move: H.
-      rewrite local_state_base_nth => H.
-        by  injection H.
-      exact (valid_Honest_max_Transaction_sends_strong).
-
-    (* Transaction drop *)
-    - move=> [ind Hind] Hr_chck Hp_chck Hq_chck.
-      by  case (fixlist_get_nth _) => //.
-    (* Honest Transaction Gen *)
-    - move=> Hr_chck Hp_chck Hq_chck //.
-
-      rewrite honest_max_activation_base local_state_base_nth //=.
-      rewrite /evalDist /Dist1.d /Dist1.f /DistBind.f //=.
-      rewrite /evalDist /Dist1.d /Dist1.f /DistBind.f //=.
-      apply prsumr_eq0P.
-      move=> addr Haddr.
-      apply Rmult_le_pos => //=.
-      apply rsumr_ge0.
-      move => summand _.
-      case (eq_op addr summand) => //=; last first.
-        by  rewrite mulR0; exact (Rle_refl (INR 0)).
-      rewrite mulR1 /Uniform.f.
-      apply divR_ge0 => //=.
-      rewrite card_ord.
-      apply lt_0_INR.
-      by  exact (Nat.lt_0_succ _).
-      apply rsumr_ge0.
-      move=> prod _.
-      rewrite -/evalDist /Dist1.d /Dist1.f /DistBind.f //=.
-      apply Rmult_le_pos => //=.
-        case (evalDist _) => f Hpos.
-        by destruct f => //=.
-      apply rsumr_ge0 => o_w' _.
-      case (eq_op None o_w') eqn: H.
-      move/eqP: H=><-//=.
-      rewrite mulR1.
-        by case (evalDist _) => f Hpos; destruct f.
-      rewrite H//mulR0; by exact (Rle_refl (INR 0)).
-      move=> value _.
-      apply /eqP.
-      rewrite mulR_eq0.
-      apply /orP.
-      right.
-      apply/eqP.
-      apply prsumr_eq0P.
-      move=> value_1 _.
-      apply Rmult_le_pos => //=.
-        by case (evalDist _) => f Hpos; destruct f.
-
-
-  forall x y : R, (x * y == 0) = (x == 0) || (y == 0)
-      Search _ "mulR".
-      About Dist1.f1.
-      rewrite (Dist1.f1 value).
-
-Dist1.f1 : forall (A : finType) (a : A), \rsum_(b in A) Dist1.f (A:=A) a b = 1
-      destruct prod.
-      destruct s as [H].
-      destruct s.
-      destruct s.
-      destruct s.
-
-      move=> [| ].
-      Search _ "rsum".
-
+  move => sc; elim sc  => //.
+    rewrite /evalDist/DistBind.d/DistBind.f//=.
+    rewrite -addRA_rsum.
+    rewrite -addRA_rsum.
+    apply Rle_big_eqP; move=> o_w' _ //=;
+    case (f o_w'); case (g o_w'); rewrite /Dist1.f => //=.
+    rewrite mulR0 mulR1 add0R add0R.
+    by apply Rle_refl.
+    rewrite mulR0 mulR1 addR0 addR0.
+    by apply Rle_refl.
+    rewrite mulR0 mulR1 addR0 add0R.
+    by apply Rle_refl.
+    rewrite mulR0 addR0 addR0.
+    by apply Rle_refl.
+    by rewrite mulR0 mulR1 addR0 add0R.
+    by rewrite mulR1 mulR0 addR0 addR0.
+    by rewrite mulR1 mulR0 add0R addR0.
+    by rewrite mulR0 add0R add0R.
+  (* Now for the inductive case *)
+    move=> x xs //.
+    rewrite /evalDist/DistBind.d/DistBind.f/makeDist//.
 
 Admitted.
-
-    (* equiv? formulation of the valid schedules property *)
-Lemma valid_schedules_can_not_fail_ind : forall (x: RndGen) (xs: seq.seq RndGen),
-    (* we have a valid sequence which never produces none *)
-    valid_schedule xs  ->
-    p_schedule_produces_none (xs) = 0 ->
-    (* we extend this sequence by a value which keeps it valid*)
-    valid_schedule (x :: xs) ->
-    (* this extended schedule  also never produces none *)
-    p_schedule_produces_none (x :: xs) = 0.
-Proof.
-    rewrite /valid_schedule/p_schedule_produces_none/schedule_produces_none.
-    move=> x xs /andP [ Hr_chck /andP [Hp_chck Hq_chck]] H_psch /andP [xHr_chck /andP [xHp_chck xHq_chck]].
-    move:  H_psch .
-    case x.
-    rewrite /evalDist/=.
-    rewrite /evalDist /Dist1.d /Dist1.f /DistBind.f //=.
-    rewrite /evalDist /Dist1.d /Dist1.f /DistBind.f //=.
-    (* elim xs => //=. *)
-    (* rewrite unlock => //= [[tx addr]] xHq_chck xHp_chck xHr_chck . *)
-    (* rewrite /evalDist /Dist1.d /Dist1.f /DistBind.f //=. *)
-    (* rewrite unlock //=. *)
-    (* elim (index_enum) => //=.  *)
-    (* move=> a l. *)
-    (* destruct a => //=. *)
-    (* rewrite ifT. *)
-    (* rewrite mulR0. *)
-    (* move=> _ _. *)
-    (* destruct (tnth _) as [act is_corrupt ]. *)
-    (* rewrite ifF. *)
-    (* c ase (Transaction_valid _) => //=.*)
-
-    (* induction index_enum => //=.
-    rewrite IHl //=.
-    rewrite /evalDist /Dist1.d /Dist1.f /DistBind.f //=.
-    rewrite /evalDist /Dist1.d /Dist1.f /DistBind.f //=.
-    rewrite addR0.
-    rewrite  /DistBind.d //=.
-    rewrite /evalDist /Dist1.d /Dist1.f /DistBind.f //=.
-    rewrite  /DistBind.d //=.
-    rewrite /evalDist /Dist1.d /Dist1.f /DistBind.f //=.
-
-    case xs => //=.
-    rewrite /evalDist /Dist1.d /Dist1.f /DistBind.f //=.
-    rewrite unlock  //=.
-    induction index_enum => //=.
-    rewrite mul0R.
-    rewrite /evalDist /Dist1.d /Dist1.f /DistBind.f //=.
-    by rewrite addR0.
-    destruct a => //=.
-      by  rewrite mulR0 mulR0 addR0.
-      rewrite addR0 mul0R add0R.
-      
-    rewrite IHl0.
-    rewrite /reducebig.
-    case a0 => //=.
-
-    rewrite /evalDist /Dist1.d /Dist1.f /DistBind.f //=.
-    rewrite unlock => //= [[tx addr]] xHq_chck xHp_chck xHr_chck .
-    elim (index_enum) => //=.
-    apply eq_bigr.
-    move=> w worlds Hind Hbase .
-    destruct w => //=.
-    rewrite mulR0.
-    induction worlds => //=.
-    apply/bigop_unlock.
-    Search _ reducebig. *)
-
-Admitted.
+  
 
 
-Lemma valid_schedules_can_not_fail : forall (s: seq.seq RndGen),
-    (valid_schedule s) ->
-    p_schedule_produces_none s = 0.
-    (* Just quickly make a rewrite rule for INR*)
-        move: (INR_eq0 0) => [_ H_temp].
-        have HINR : (@eq nat O O). by [].
-        apply H_temp in HINR.
-        clear H_temp.
-    (* Todo: Complete this proof. *)
-    move => schedule .
-    elim: schedule.
-        (* if the schedule is [::] *)
-        rewrite /p_schedule_produces_none/schedule_produces_none/world_step//=.
-        rewrite /Dist1.d /Dist1.f /DistBind.f //=.
-        (* rewrite /makeDist. *)
-    (*     rewrite unlock => //. *)
-    (*     induction  (index_enum _) => //=. *)
-    (*     destruct a =>// . *)
-    (*     rewrite HINR =>//. *)
-    (*     by rewrite mulR0 add0R IHl. *)
-    (*     rewrite HINR => //. *)
-    (*     by rewrite mul0R add0R IHl. *)
-    (* (* if the schedule isn't empty *)  *)
-    (*     move=> evnt schedule H valid_combination. *)
-    (*     apply valid_schedule_weaken in valid_combination as Hvalid_base. *)
-    (*     apply H in Hvalid_base . *)
-    (*     destruct evnt => //=. *)
-    (*     move: (Hvalid_base). *)
-        (* unfold p_schedule_produces_none in Hvalid_base.
-        rewrite /p_schedule_produces_none/schedule_produces_none//=. 
-        move=>  valid_base.
-        destruct p.
-        rewrite /evalDist.
-        rewrite /Dist1.d /Dist1.f /DistBind.f //=.
-        rewrite unlock .
-        induction (index_enum _) => //=.
-            rewrite IHl //=.
-            destruct a => //=.
-            rewrite HINR //= .
-            by rewrite addR0 mulR0. 
+(* Lemma valid_schedules_can_not_fail_base : forall (x: RndGen), *)
+(*     (* [::] is a valid schedule *) *)
+(*     (* [::] never produces none *) *)
+(*     (* we extend the sequence by a value which keeps it valid *) *)
+(*     valid_schedule ([:: x]) -> *)
+(*     (* this extended schedule also never produces none *) *)
+(*     p_schedule_produces_none ([:: x]) = 0. *)
+(* Proof. *)
+(*   (* first, let's destructure [&&] into it's principal components *) *)
+(*   move => x /andP [ Hr_chck /andP [Hp_chck Hq_chck]]. *)
+(*   rewrite /valid_schedule/p_schedule_produces_none/schedule_produces_none. *)
+(*   rewrite /evalDist /Dist1.d /Dist1.f /DistBind.f. *)
 
-        move: valid_base IHl.
-        rewrite /DistBind.f.
-        rewrite unlock //=.
+(*   (* Convert our goal from (\sum x in X, [ f x ]) = 0 to forall x, f x = 0*) *)
+(*   apply prsumr_eq0P. *)
+(*   move=> o_w Ho_w . *)
+(*   (* To do this conversion, we need to quickly prove that our distribution function is strictly positive *) *)
+(*   (* we'll do this by showing that each component of the product forming the distribution is positive *) *)
+(*   apply Rmult_le_pos => //=. *)
+(*   (* first, for (isSome world) - trivial*) *)
+(*   case (eq_op o_w _) => //=. *)
+(*     exact (Rle_refl (INR 0)). *)
+(*   (* now for the evaluation of the world step function *) *)
+(*   (* as the result of evalDist is a dist (which contains all proofs we need), we don't care what goes on inside it *) *)
+(*   ecase (evalDist (match o_w with *)
+(*           | Some _ => _ *)
+(*           | None => _ *)
+(*         end)). *)
+(*   (* now we have a distribution, we need to split it open to view the lemmas it contains *) *)
+(*   move=> [f Hf_ge] H //=. *)
+(*   move=> w _. *)
+(*   (* using the lemmas bundled with a dist, the proof is  trivial. *) *)
+(*   destruct w => //; last first. *)
+(*     by  rewrite mul0R. *)
+(*   rewrite -/evalDist /makeDist //=. *)
+(*   (* conversion done *) *)
 
-        rewrite mulR1 addR0.
-        destruct (index_enum _) => //=.
+(*   (* if the world is none, the result is 0, trivially*) *)
+(*   case (eq_op _ _) eqn: H; last first => //=. *)
+(*     by  rewrite mul0R. *)
+(*   rewrite mul1R. *)
+(*   (* thus, w must equal initworld - let's just rewrite our expressions to reflect this*) *)
+(*   move/eqP: H =>  H. *)
+(*   injection H. *)
+(*   clear H. *)
+(*   move=> ->. *)
 
-        destruct s0 => //=.
-        
-        have Hrew: Dist1.f false true = 0%R.
-          by  compute.
-        rewrite Hrew mulR0 add0R.
-        rewrite ifT.
-        destruct (tnth  _ ) as [actor is_corrupt].
-        rewrite ifF.
-        case (Transaction_valid _) => //=.
-        rewrite mulR0 add0R.
-        rewrite /Dist1.f.
-        move=> ->.
+(*   move: Hq_chck Hp_chck Hr_chck. *)
+(*   (* prove the property for each type of schedule*) *)
+(*   case x. *)
+(*    (* Honest Transaction Gen *) *)
+(*     - move=> [tx addr] Hr_chck Hp_chck Hq_chck //=. *)
 
-        rewrite unlock.
-        rewrite HINR.
+(*       rewrite /evalDist /Dist1.d /Dist1.f /DistBind.f //=. *)
+(*       rewrite ifT. *)
+(*       destruct (tnth _) as [actor is_corrupt] eqn:H . *)
+(*       rewrite ifF. *)
+(*       (* Having assumed all that, irrespective of whether the transaction is valid, the output is not None *) *)
+(*       by  case (Transaction_valid _) eqn: Htx_Variable  => //=. *)
 
-        move=> valid_base //=.
+(*       move: H. *)
+(*       rewrite local_state_base_nth => H. *)
+(*         by  injection H. *)
+(*       exact (valid_Honest_max_Transaction_sends_strong). *)
 
-        by rewrite mul0R addR0.
-        apply valid_base in IHl.
+(*     (* Transaction drop *) *)
+(*     - move=> [ind Hind] Hr_chck Hp_chck Hq_chck. *)
+(*       by  case (fixlist_get_nth _) => //. *)
+(*     (* Honest Transaction Gen *) *)
+(*     - move=> Hr_chck Hp_chck Hq_chck //. *)
 
-        rewrite /valid_schedule/rounds_correct_schedule/corrupt_players_check_schedule/quota_check_schedule//=.
-        rewrite /round_management_check/corrupt_players_check/quota_check//=.
-        move=> IHn.
-        move=>/andP[Hround_check b].
-        move: IHn.
-        rewrite /p_schedule_produces_none.
-        rewrite /schedule_produces_none//=.
-        destruct p.
-        case ( _ < _)%nat.
-        destruct (tnth initLocalStates _ ) as [actor is_corrupt].
-        rewrite ifF.
-        case (Transaction_valid _ ) eqn: HTxvalid.
-        case schedule => //.
-        move=> Hvschd.
+(*       rewrite honest_max_activation_base local_state_base_nth //=. *)
+(*       rewrite /evalDist /Dist1.d /Dist1.f /DistBind.f //=. *)
+(*       rewrite /evalDist /Dist1.d /Dist1.f /DistBind.f //=. *)
+(*       apply prsumr_eq0P. *)
+(*       move=> addr Haddr. *)
+(*       apply Rmult_le_pos => //=. *)
+(*       apply rsumr_ge0. *)
+(*       move => summand _. *)
+(*       case (eq_op addr summand) => //=; last first. *)
+(*         by  rewrite mulR0; exact (Rle_refl (INR 0)). *)
+(*       rewrite mulR1 /Uniform.f. *)
+(*       apply divR_ge0 => //=. *)
+(*       rewrite card_ord. *)
+(*       apply lt_0_INR. *)
+(*       by  exact (Nat.lt_0_succ _). *)
+(*       apply rsumr_ge0. *)
+(*       move=> prod _. *)
+(*       rewrite -/evalDist /Dist1.d /Dist1.f /DistBind.f //=. *)
+(*       apply Rmult_le_pos => //=. *)
+(*         case (evalDist _) => f Hpos. *)
+(*         by destruct f => //=. *)
+(*       apply rsumr_ge0 => o_w' _. *)
+(*       case (eq_op None o_w') eqn: H. *)
+(*       move/eqP: H=><-//=. *)
+(*       rewrite mulR1. *)
+(*         by case (evalDist _) => f Hpos; destruct f. *)
+(*       rewrite H//mulR0; by exact (Rle_refl (INR 0)). *)
+(*       move=> value _. *)
+(*       apply /eqP. *)
+(*       rewrite mulR_eq0. *)
+(*       apply /orP. *)
+(*       right. *)
+(*       apply/eqP. *)
+(*       apply prsumr_eq0P. *)
+(*       move=> value_1 _. *)
+(*       apply Rmult_le_pos => //=. *)
+(*         by case (evalDist _) => f Hpos; destruct f. *)
 
-        destruct evnt => //=.
-        rewrite /p_schedule_produces_none.
-        rewrite /schedule_produces_none.
-        rewrite /world_step//=.
 
-        move=> p.
-rewrite the assumption
-    (* move: (is_valid) => Hsch_a. *)
-    (* move: (@valid_schedule_weaken _ _ Hsch_a) => Hsch. *)
-    (* apply IHschedule in Hsch as Hschedule_none. *)
-    (* rewrite /valid_schedule in is_valid. *)
-    case/andP: is_valid.
-    move=> Hrc_a/andP [Hcc_a Hqc_a].
-    move: (@rounds_correct_weaken _ _ Hrc_a) => Hrc.
-    move: (@quota_check_weaken _ _ Hqc_a) => Hqc.
-    move: (@corrupt_players_weaken _ _ Hcc_a) => Hcc.
-destruct a.
-- (* if the next schedule is a HonstTransactionGen
-    move: Hschedule_none.
-    rewrite /p_schedule_produces_none/schedule_produces_none/evalDist.
-    rewrite /Dist1.d /Dist1.f /DistBind.d /DistBind.f //=.
-    destruct p.
-    rewrite (ifT ).
-    destruct (tnth initLocalStates o) as [actor is_corrupt] eqn: H.
-    rewrite ifF =>// .
-    case (Transaction_valid _ _ ) => //=.
-    move=> Hschedule_none.
-
-    induction schedule .
-        simpl.
-        rewrite unlock => //=.
-        induction  (index_enum _) => //=.
-        destruct a => //=.
-        rewrite Hschedule_none. *) *)
-
-Admitted.
 
 
 
