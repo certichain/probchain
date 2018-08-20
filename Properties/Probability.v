@@ -77,8 +77,8 @@ Notation "'P[' a '=' b ']'" := (evalDist a b).
 Notation "'P[' a ']'" := (evalDist a true).
 Notation "'E[' a ']'" := (expected_value a).
 Notation " a '|>' b " := (w_a <-$ a; b w_a) (at level 50).
-Notation " w => a '<&&>' b " := (fun w => ret (a  && b )) (at level 49).
-Notation " w => a '<||>' b " := (fun w => ret (a  || b )) (at level 49).
+Notation " w '>>=' a '<&&>' b " := (fun w => ret (a  && b )) (at level 49).
+Notation " w '>>=' a '<||>' b " := (fun w => ret (a  || b )) (at level 49).
 
 
 
@@ -100,11 +100,11 @@ Qed.
 About forallb.
 
 Lemma prob_disjunctive_distr (f g : option World -> bool) : forall sc,
-   P[ world_step initWorld sc |> w => f w <||> g w ] =
-    P[ world_step initWorld sc |> w => f w <&&> ~~ g w] + 
+   P[ world_step initWorld sc |> w >>= f w <||> g w ] =
+    P[ world_step initWorld sc |> w >>= f w <&&> ~~ g w] + 
     (* P[ world_step initWorld sc |> (fun x => ret (f x && ~~ g x))] +  *)
-    P[ world_step initWorld sc |> w => ~~ f w <&&>  g w ] + 
-    P[ world_step initWorld sc |> w =>  f w <&&>  g w ].
+    P[ world_step initWorld sc |> w >>= ~~ f w <&&>  g w ] + 
+    P[ world_step initWorld sc |> w >>=  f w <&&>  g w ].
 Proof.
   move => sc; elim sc  => //.
     rewrite /evalDist/DistBind.d/DistBind.f//=.
@@ -256,6 +256,56 @@ Definition chain_growth_pred w :=
                           ]
 
       ]]]].
+
+Definition chain_growth_pred_wrapper o_w :=
+  match o_w with
+    | None => false 
+    | Some w => ~~ chain_growth_pred w
+  end.
+
+
+
+Lemma prob_chain_growth : forall sc,
+   P[ world_step initWorld sc |> (fun w => ret chain_growth_pred_wrapper w) ] = R0.
+Proof.
+  move=> sc.
+  (* let's convert these probability distributions into something easier to work with*)
+  apply/prsumr_eq0P.
+  (* first, let's handle the obvious stuff - that the distributions are positive functions *)
+    move=> o_w _.
+    rewrite /Dist1.f//=.
+    case (evalDist _) => [[f Hfpos] Hb].
+    apply Rmult_le_pos => //=.
+    rewrite /Dist1.f//=.
+    case (true == chain_growth_pred_wrapper _)%bool=> //=.
+      by exact (Rle_refl (INR 0)).
+
+  move=> o_w _.
+  case o_w ; last first.
+  (* let's also dispose of the obvious case when the world being tested is none *)
+    move => //=.
+    have H: (Dist1.f false true) = 0.
+      by [].
+    by rewrite H mulR0.
+
+  (* we don't need the option world, as we know it must be of the some variant*)
+  clear o_w.
+  move=> w.
+  (* now, were in the main part of the function. let's do some induction to prove this *)
+  elim sc .
+  (* base case *) 
+  (* first, let's dispose of the simple case when the world being tested isn't the initial world *) 
+  rewrite /evalDist/DistBind.d/DistBind.f/Dist1.d//=.
+  case (w == initWorld)%bool eqn: H; last first.
+  move/eqP:H => H.
+  have Hzr : (Some w == Some initWorld)%bool = false.
+    apply/eqP.
+    move=> assum.
+    by injection assum => /H.
+
+
+
+
 
 
 (* Lemma valid_schedules_can_not_fail_base : forall (x: RndGen), *)
