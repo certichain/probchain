@@ -175,6 +175,19 @@ Proof.
 
 Admitted.
 
+Definition world_executed_to_round w r : bool :=
+(has
+      (* if there is a record *)
+      (fun pr => 
+         let: (rec_chain, rec_round, rec_actr)  := pr in 
+         
+          (* of any actor adopting/broadcasting a chain *)
+          (* at round r (* this is to check that the world executed to this round *) *)
+          (rec_round == r)%bool
+           )
+      (fixlist_unwrap (world_adoption_history w))
+   ).
+
 Definition honest_actor_has_chain_at_round w addr c r : bool := 
   [&&
      (* the actor is honest *)
@@ -198,18 +211,6 @@ Definition honest_actor_has_chain_at_round w addr c r : bool :=
 
 
 Definition actor_n_has_chain_length_ge_at_round w l addr (r : 'I_N_rounds) : bool :=
-  (has
-      (* if there is a record *)
-      (fun pr => 
-         let: (rec_chain, rec_round, rec_actr)  := pr in 
-         [&&
-          (* of adopting/broadcasting a chain *)
-          (* at round r (* this is to check that the world executed to this round *) *)
-          (rec_round == r) &
-          (* by the actor *) 
-          (nat_of_ord rec_actr == addr) ])
-      (fixlist_unwrap (world_adoption_history w))
-   ) ==>
    (has
       (* then there is a record *)
       (fun pr => 
@@ -241,6 +242,9 @@ Definition chain_growth_pred w :=
                           [forall o_addr : 'I_n_max_actors,
                               (* all actors, if honest *)
                               (actor_n_is_honest w o_addr) ==>
+                              (* and the world executed to the round *)
+                              world_executed_to_round w s ==>
+
                                (* have a chain of length of at least
                                  l + n_hashed_blocks r (s - delta) at round s *)
                                   actor_n_has_chain_length_ge_at_round
