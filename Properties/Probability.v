@@ -97,6 +97,7 @@ Proof.
   by rewrite IHn addRA (addRC (f x) (g x)) -(addRA (g x)) (addRC (g x)) -(addRA (f x + _)).
 Qed.
   
+About forallb.
 
 Lemma prob_disjunctive_distr (f g : option World -> bool) : forall sc,
    P[ world_step initWorld sc |> w => f w <||> g w ] =
@@ -173,6 +174,84 @@ Proof.
         ).
 
 Admitted.
+
+Definition honest_actor_has_chain_at_round w addr c r : bool := 
+  [&&
+     (* the actor is honest *)
+     (actor_n_is_honest w addr) &
+   (* and *)
+   (has
+      (* there is a record *)
+      (fun pr => 
+         let: (rec_chain, rec_round, rec_actr)  := pr in 
+         [&&
+            (* of the block adopting/broadcasting the chain *)
+            (rec_chain  == c),
+          (* at round r or earlier *)
+          (nat_of_ord rec_round <= r)%nat &
+          (* by the actor *) 
+          (nat_of_ord rec_actr == addr) ])
+      (fixlist_unwrap (world_adoption_history w))
+   )
+  ]
+.
+
+
+Definition actor_n_has_chain_length_ge_at_round w l addr (r : 'I_N_rounds) : bool :=
+  (has
+      (* if there is a record *)
+      (fun pr => 
+         let: (rec_chain, rec_round, rec_actr)  := pr in 
+         [&&
+          (* of adopting/broadcasting a chain *)
+          (* at round r (* this is to check that the world executed to this round *) *)
+          (rec_round == r) &
+          (* by the actor *) 
+          (nat_of_ord rec_actr == addr) ])
+      (fixlist_unwrap (world_adoption_history w))
+   ) ==>
+   (has
+      (* then there is a record *)
+      (fun pr => 
+         let: (rec_chain, rec_round, rec_actr)  := pr in 
+         [&&
+          (* of the block adopting/broadcasting a chain of at least length l *)
+          (fixlist_length rec_chain >= l)%nat,
+          (* at round r or earlier *)
+          (nat_of_ord rec_round <= nat_of_ord r)%nat &
+          (* by the actor *) 
+          (nat_of_ord rec_actr == addr) ])
+      (fixlist_unwrap (world_adoption_history w))
+   ).
+
+
+Definition chain_growth_pred w :=
+  [forall r : 'I_N_rounds,
+      [forall c : BlockChain,
+          [forall addr: 'I_n_max_actors,
+              (* if there is an actor with a chain at round r *)
+              honest_actor_has_chain_at_round w addr c r
+              ==>
+              (*then*)
+              (* forall rounds *)
+              (* if the round is after the current round + delta *)
+              [forall s : 'I_N_rounds, 
+                  (nat_of_ord r + delta <= nat_of_ord s)%nat ==>
+                          (*then*)
+                          [forall o_addr : 'I_n_max_actors,
+                              (* all actors, if honest *)
+                              (actor_n_is_honest w o_addr) ==>
+                               (* have a chain of length of at least
+                                 l + n_hashed_blocks r (s - delta) at round s *)
+                                  actor_n_has_chain_length_ge_at_round
+                                        w
+                                        ((fixlist_length c) + nat_of_ord (no_bounded_successful_rounds w r (s - delta)))
+                                        o_addr
+                                        s
+
+                          ]
+
+      ]]]].
 
 
 (* Lemma valid_schedules_can_not_fail_base : forall (x: RndGen), *)
