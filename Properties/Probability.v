@@ -148,6 +148,28 @@ Proof.
     by rewrite mulR0 addR0 addR0.
 Qed.
   
+Lemma prob_compl (f : option World -> bool) : forall sc,
+   1 - P[ world_step initWorld sc |> (fun x => ret f x )] =
+    P[ world_step initWorld sc |> (fun x => ret (~~ f x))].
+Proof.
+  move => sc.
+  apply/eqP.
+  rewrite subR_eq //.
+  apply/eqP.
+  rewrite /evalDist/DistBind.d/DistBind.f//=.
+  rewrite -/evalDist.
+
+  (*
+    why can I not:
+      rewrite -addRA_rsum.
+    the term to be rewritten is:
+   *)
+  move: (@addRA_rsum _ 
+                     (fun a => Rmult (evalDist (world_step initWorld sc) a)  (Dist1.f (~~ f a) true ))
+                     (fun a => Rmult (evalDist (world_step initWorld sc) a)  (Dist1.f (f a) true ))
+        ).
+
+Admitted.
 
 
 (* Lemma valid_schedules_can_not_fail_base : forall (x: RndGen), *)
