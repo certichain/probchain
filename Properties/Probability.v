@@ -77,6 +77,8 @@ Notation "'P[' a '=' b ']'" := (evalDist a b).
 Notation "'P[' a ']'" := (evalDist a true).
 Notation "'E[' a ']'" := (expected_value a).
 Notation " a '|>' b " := (w_a <-$ a; b w_a) (at level 50).
+Notation " w => a '<&&>' b " := (fun w => ret (a  && b )) (at level 49).
+Notation " w => a '<||>' b " := (fun w => ret (a  || b )) (at level 49).
 
 
 
@@ -97,10 +99,11 @@ Qed.
   
 
 Lemma prob_disjunctive_distr (f g : option World -> bool) : forall sc,
-   P[ world_step initWorld sc |> (fun x => ret (f x || g x)) ] =
-    P[ world_step initWorld sc |> (fun x => ret (f x && ~~ g x))] + 
-    P[ world_step initWorld sc |> (fun x => ret (~~ f x &&  g x))] + 
-    P[ world_step initWorld sc |> (fun x => ret ( f x &&  g x))].
+   P[ world_step initWorld sc |> w => f w <||> g w ] =
+    P[ world_step initWorld sc |> w => f w <&&> ~~ g w] + 
+    (* P[ world_step initWorld sc |> (fun x => ret (f x && ~~ g x))] +  *)
+    P[ world_step initWorld sc |> w => ~~ f w <&&>  g w ] + 
+    P[ world_step initWorld sc |> w =>  f w <&&>  g w ].
 Proof.
   move => sc; elim sc  => //.
     rewrite /evalDist/DistBind.d/DistBind.f//=.
