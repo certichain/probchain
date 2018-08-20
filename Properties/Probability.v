@@ -294,15 +294,40 @@ Proof.
   (* now, were in the main part of the function. let's do some induction to prove this *)
   elim sc .
   (* base case *) 
-  (* first, let's dispose of the simple case when the world being tested isn't the initial world *) 
+  (* now let's deal with the simple case when the result is world being tested is not the initial world*) 
   rewrite /evalDist/DistBind.d/DistBind.f/Dist1.d//=.
   case (w == initWorld)%bool eqn: H; last first.
   move/eqP:H => H.
   have Hzr : (Some w == Some initWorld)%bool = false.
     apply/eqP.
     move=> assum.
-    by injection assum => /H.
+    by injection assum => /H//=.
+  by rewrite /Dist1.f Hzr //= mul0R  .
+  move/eqP: H => ->.
+  rewrite /Dist1.f// .
+  have H: (Some initWorld == Some initWorld)%bool.
+    by [].
+  rewrite H //= mul1R.
+  clear H.
+  suff H: chain_growth_pred initWorld => //=.
+  rewrite H => //=.
 
+  rewrite /chain_growth_pred.
+  apply /forallP => r .
+  apply /forallP => c.
+  apply /forallP => addr.
+  rewrite /honest_actor_has_chain_at_round//=.
+  rewrite /initWorldAdoptionHistory.
+  About fixlist_empty.
+  have Hfixlist_empty A v  : @fixlist_unwrap A v (@fixlist_empty A v) = [::].
+  by elim v => //=.
+  
+  rewrite Hfixlist_empty //=.
+  apply /implyP => /andP .
+  case => Hhonest f.
+  by inversion f.
+
+  (* now for the inductive case *)
 
 
 
