@@ -461,7 +461,20 @@ Proof.
   apply /Rmult_eq_0_compat.
   right.
 
+  (* Now, let's convert this probabilistic statement into one about the truth of the underlying expression *)
+  rewrite /chain_growth_pred_wrapper/chain_growth_pred.
+  rewrite /Dist1.d/Dist1.f//=.
+  have H_INRP a :  a = false -> INR a = 0. by move=> ->.
+  apply H_INRP; apply/negP/negP/forallP => r; apply/forallP => c.
+  (* now, let's use the functions provided by fintype to convert this deterministic statement into a prop one *)
+  apply/forallP=>addr; apply/implyP=> Hhc; apply/forallP=> s.
+  apply/implyP=>Hvr; apply/forallP=>o_addr. apply/implyP=> Hhon; apply/implyP=> Hwround.
+
+  (* now can be proven in terms of simple logical operations! *) 
   (* now for the main part of the proof *)
+  (* use the following tactics at this point in the proof to see the prop formulation of the chain growth lemma *)
+  (* move: r c addr Hhc s Hvr o_addr Hhon Hwround . *)
+
 
 
 Admitted.
