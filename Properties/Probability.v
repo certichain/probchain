@@ -259,6 +259,72 @@ Definition chain_growth_pred_wrapper o_w :=
     | Some w => ~~ chain_growth_pred w
   end.
 
+Lemma prob_some_wP : forall xs,
+    (forall w, P[ (world_step initWorld xs) === (Some w) ] = 0) <->
+            (P[ (world_step initWorld xs) |> (fun o_w => ret (isSome o_w)) ] = 0).
+  Proof.
+    split.
+    rewrite {2}/evalDist/DistBind.d/makeDist/DistBind.f/pmf/pos_f-/evalDist.
+    move=> H.
+    apply prsumr_eq0P.
+    move=> o_w' _.
+    by apply Rmult_le_pos; [case (evalDist _); move=> pos_f Hdist; case pos_f => f Hposf; exact (Hposf _) | case (Dist1.d _); move => [f Hposf] Hdist; exact (Hposf _) ].
+    move=> o_w' _.
+    by case o_w' => //=; [move => w; rewrite (H w) mul0R | rewrite /Dist1.f//=; rewrite mulR0 ].
+
+    rewrite /evalDist.
+    rewrite {1}/DistBind.d.
+    rewrite /DistBind.f.
+    rewrite /makeDist.
+    rewrite/pmf.
+    rewrite /pos_f.
+    move => /prsumr_eq0P H.
+    suff Hobv:
+(forall a : [finType of option World],
+       a \in [finType of option World] ->
+       0 <=
+       (let (pos_f, _) :=
+          let (pmf, _) :=
+            (fix evalDist (A : finType) (c : Comp A) {struct c} : dist A :=
+               match c in (Comp t) return (dist t) with
+               | Ret A0 a0 => Dist1.d (A:=A0) a0
+               | @Bind A0 B c0 f => DistBind.d (evalDist B c0) (fun b : B => evalDist A0 (f b))
+               | @Rnd A0 n n_valid => Uniform.d n_valid
+               end) [finType of option World] (world_step initWorld xs) in
+          pmf in
+        pos_f) a * (let (pos_f, _) := let (pmf, _) := Dist1.d (A:=bool_finType) a in pmf in pos_f) true).
+    move: (H Hobv) => Heq0.
+    clear H Hobv.
+    move=> w.
+    move: ((Heq0) (Some w) )=>H.
+    clear Heq0.
+    suff Hsimpl: (Some w \in [finType of option World]) .
+    move: (H Hsimpl) => /Rmult_integral.
+    clear  H Hsimpl.
+    case => [Heq0|].
+    by rewrite Heq0.
+    by rewrite /Dist1.f; case (true == Some w)%bool eqn: H; rewrite H => //= /R_one_zero Hinc; inversion Hinc.
+    by [].
+    clear H.
+    move=> o_w _.
+    by apply Rmult_le_pos; [case (evalDist _); move=> pos_f Hdist; case pos_f => f Hposf; exact (Hposf _) | case (Dist1.d _); move => [f Hposf] Hdist; exact (Hposf _) ].
+Qed.
+
+   
+
+
+    Search _ R "R" "sum".
+    move=> H.
+     apply (@Rmult_integral _ ((let (pos_f, _) := let (pmf, _) := Dist1.d (A:=bool_finType) a in pmf in
+      pos_f) true) ) in H.
+    
+    case pmf.
+    rewrite /DistBind.f1.
+
+    rewrite {2}/evalDist/DistBind.d/makeDist/DistBind.f/pmf/pos_f-/evalDist.
+
+    destruct pmf.
+
 
 Lemma prob_chain_ext : forall xs x, 
  (forall w, P[ (world_step initWorld xs) === (Some w) ] = 0) -> (forall w, P[ world_step initWorld (x::xs) === Some w ] = 0).
