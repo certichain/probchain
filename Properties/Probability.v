@@ -409,12 +409,30 @@ Proof.
   by inversion f.
 
   (* now for the inductive case *)
-  move=> x xs.
+  move=> x xs Hind.
+  move: (Hind).
   move=> /R_w_distr H.
   (* either the world is unreachable, or it does not satisfy the chain growth predicate *)
   case: H => [/prob_chain_ext Hunr | Hreal].
   (* if the world is unreachable, the result is trivial *)
   by move=> w; rewrite (Hunr ) mul0R.
+  clear Hreal.
+
+  (* if the word is reachable, the key point to invalidate is the chain growth predicate *)
+  (* let's dispose the unnecassary components, to make the proof clearer *)
+  move=> w.
+  move: (Hind w) => /Rmult_integral Hv.
+  clear Hind.
+  case: Hv;last first.
+  by move=> ->; rewrite mulR0.
+  rewrite -/evalDist => Hv.
+  case (P[ world_step initWorld (x :: xs) === Some w] == 0)%bool eqn: H.
+  by move/eqP: H => ->; rewrite mul0R.
+  move/eqP: H => H.
+  apply /Rmult_eq_0_compat.
+  right.
+
+  (* now for the main part of the proof *)
 
 
 Admitted.
