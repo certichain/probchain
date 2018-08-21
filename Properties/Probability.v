@@ -1,5 +1,5 @@
 From mathcomp.ssreflect
-Require Import ssreflect ssrbool ssrnat seq ssrfun eqtype bigop fintype choice.
+Require Import ssreflect ssrbool ssrnat seq ssrfun eqtype bigop fintype choice .
 
 From mathcomp.ssreflect
 Require Import tuple.
@@ -80,7 +80,7 @@ Notation " w '>>=' a '<||>' b " := (fun w => ret (a  || b )) (at level 49).
 
 
 Lemma addRA_rsum  (A : finType) f g : 
-  \rsum_(i in A) (f i + g i)%R = \rsum_(i in A) f i + \rsum_(i in A) g i .
+  \rsum_(i in A) (f i + g i)%R = (\rsum_(i in A) f i + \rsum_(i in A) g i)%R .
 Proof.
   rewrite unlock.
   elim index_enum => //=.
@@ -97,10 +97,10 @@ Qed.
 
 Lemma prob_disjunctive_distr (f g : option World -> bool) : forall sc,
    P[ world_step initWorld sc |> w >>= f w <||> g w ] =
-    P[ world_step initWorld sc |> w >>= f w <&&> ~~ g w] + 
+    (P[ world_step initWorld sc |> w >>= f w <&&> ~~ g w] + 
     (* P[ world_step initWorld sc |> (fun x => ret (f x && ~~ g x))] +  *)
     P[ world_step initWorld sc |> w >>= ~~ f w <&&>  g w ] + 
-    P[ world_step initWorld sc |> w >>=  f w <&&>  g w ].
+    P[ world_step initWorld sc |> w >>=  f w <&&>  g w ])%R.
 Proof.
   move => sc; elim sc  => //.
     rewrite /evalDist/DistBind.d/DistBind.f//=.
@@ -148,28 +148,57 @@ Proof.
     by rewrite mulR0 addR0 addR0.
 Qed.
   
+
+Lemma prsumr_eq1P :
+forall (pr : dist [finType of bool]),
+ pr true = 0 <-> pr false = 1.
+Proof.
+  move=> [[f Hposf] Hdist].
+  split => //=.
+  move=> Htrue0.
+  move: Hdist.
+  rewrite unlock; rewrite /index_enum/[finType of bool]//=.
+  by rewrite unlock; rewrite /index_enum//=; rewrite Htrue0 add0R addR0.
+  move=> Hfalse1.
+  move: Hdist.
+
+  rewrite unlock; rewrite /index_enum/[finType of bool]//=.
+  rewrite unlock; rewrite /index_enum//=.
+  rewrite Hfalse1 addR0.
+  by move=> /eqP; rewrite eq_sym -subR_eq subRR; move=> /eqP.
+Qed.
+
+
+Lemma prsumr_negP :
+forall (pr : dist [finType of bool]),
+ 1 - pr true = pr false.
+Proof.
+  move=> [[f Hposf] Hdist] //=.
+  move: Hdist.
+  rewrite unlock; rewrite /index_enum/[finType of bool]//=.
+  rewrite unlock; rewrite /index_enum//=.
+  by rewrite addR0 addRC; move=>/eqP; rewrite eq_sym -subR_eq; move=>/eqP.
+Qed.
+
+
+Lemma prob_compl' (f : option World -> bool) : forall sc,
+   P[ world_step initWorld sc |> (fun x => ret f x )] = 0 ->
+    P[ world_step initWorld sc |> (fun x => ret (~~ f x))] = 1.
+Proof.
+  move=> sc.
+  move=>/prsumr_eq1P.
+  rewrite /evalDist//=.
+Qed.
+
+
 Lemma prob_compl (f : option World -> bool) : forall sc,
    1 - P[ world_step initWorld sc |> (fun x => ret f x )] =
     P[ world_step initWorld sc |> (fun x => ret (~~ f x))].
 Proof.
   move => sc.
-  apply/eqP.
-  rewrite subR_eq //.
-  apply/eqP.
-  rewrite /evalDist/DistBind.d/DistBind.f//=.
-  rewrite -/evalDist.
-
-  (*
-    why can I not:
-      rewrite -addRA_rsum.
-    the term to be rewritten is:
-   *)
-  move: (@addRA_rsum _ 
-                     (fun a => Rmult (evalDist (world_step initWorld sc) a)  (Dist1.f (~~ f a) true ))
-                     (fun a => Rmult (evalDist (world_step initWorld sc) a)  (Dist1.f (f a) true ))
-        ).
-
-Admitted.
+  (* trivial *)
+  by rewrite prsumr_negP.
+Qed.
 
 Definition world_executed_to_round w r : bool :=
 (has
