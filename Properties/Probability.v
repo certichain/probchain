@@ -28,7 +28,6 @@ Proof.
   move=> hf; split => [/Rle_big_eq H//=|].
     by  exact (H hf).
     move=> H.
-    About eq_bigr.
       by  exact (@eq_bigr _ _ _ A _ P  g f H).
 Qed.
 
@@ -70,10 +69,8 @@ Require Import Coq.Logic.ProofIrrelevance.
 (*  by rewrite (proof_irrelevance _ E G). *)
 (* Qed. *)
 
-About evalDist.
-About expected_value.
 
-Notation "'P[' a '=' b ']'" := (evalDist a b).
+Notation "'P[' a '===' b ']'" := (evalDist a b).
 Notation "'P[' a ']'" := (evalDist a true).
 Notation "'E[' a ']'" := (expected_value a).
 Notation " a '|>' b " := (w_a <-$ a; b w_a) (at level 50).
@@ -97,7 +94,6 @@ Proof.
   by rewrite IHn addRA (addRC (f x) (g x)) -(addRA (g x)) (addRC (g x)) -(addRA (f x + _)).
 Qed.
   
-About forallb.
 
 Lemma prob_disjunctive_distr (f g : option World -> bool) : forall sc,
    P[ world_step initWorld sc |> w >>= f w <||> g w ] =
@@ -264,6 +260,25 @@ Definition chain_growth_pred_wrapper o_w :=
   end.
 
 
+Lemma prob_chain_ext : forall xs x, 
+ (forall w, P[ (world_step initWorld xs) === (Some w) ] = 0) -> (forall w, P[ world_step initWorld (x::xs) === Some w ] = 0).
+  Proof.
+    move=> xs x.
+   (* elim xs => // . *)
+    rewrite /evalDist//=.
+    rewrite /Dist1.f /DistBind.f/Dist1.d.
+    move=> Hbase w.
+    apply prsumr_eq0P.
+    move=> o_w' _.
+    case o_w'.
+    move=> w0.
+    by rewrite (Hbase w0) mul0R; exact (Rle_refl (INR 0)).
+    by apply Rmult_le_pos; [case (evalDist _); move=> pos_f Hdist; case pmf => f Hposf; exact (Hposf None) | by case (makeDist _); move=> pos_f Hdist; case pmf => f Hposf;exact (Hposf (Some w))].
+   
+    move=> o_w' _.
+    by case o_w' => [w0|]; [rewrite (Hbase w0) mul0R | rewrite /makeDist/ Dist1.f//=; rewrite mulR0 ].
+Qed.
+
 
 Lemma prob_chain_growth : forall sc,
    P[ world_step initWorld sc |> (fun w => ret chain_growth_pred_wrapper w) ] = R0.
@@ -318,7 +333,6 @@ Proof.
   apply /forallP => addr.
   rewrite /honest_actor_has_chain_at_round//=.
   rewrite /initWorldAdoptionHistory.
-  About fixlist_empty.
   have Hfixlist_empty A v  : @fixlist_unwrap A v (@fixlist_empty A v) = [::].
   by elim v => //=.
   
@@ -328,6 +342,11 @@ Proof.
   by inversion f.
 
   (* now for the inductive case *)
+  move=> x xs /Rmult_integral IHn.
+  case IHn.
+  rewrite -/evalDist.
+  Search _ "R" R.
+  apply Rmult_integral.
 
 
 
@@ -799,7 +818,6 @@ Definition unwrap_computation (schedule:seq.seq RndGen) : dist [finType of World
                 initWorld;
         ret r).
 
-About no_bounded_uniquely_successful_rounds.
 
 (* Given a world w, produced by a schedule s, asserts that typical_execution holds *)
 Definition typical_execution (w : World) (schedule : seq.seq RndGen) (from to : nat) :=
