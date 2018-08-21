@@ -313,18 +313,6 @@ Qed.
    
 
 
-    Search _ R "R" "sum".
-    move=> H.
-     apply (@Rmult_integral _ ((let (pos_f, _) := let (pmf, _) := Dist1.d (A:=bool_finType) a in pmf in
-      pos_f) true) ) in H.
-    
-    case pmf.
-    rewrite /DistBind.f1.
-
-    rewrite {2}/evalDist/DistBind.d/makeDist/DistBind.f/pmf/pos_f-/evalDist.
-
-    destruct pmf.
-
 
 Lemma prob_chain_ext : forall xs x, 
  (forall w, P[ (world_step initWorld xs) === (Some w) ] = 0) -> (forall w, P[ world_step initWorld (x::xs) === Some w ] = 0).
