@@ -334,6 +334,19 @@ Lemma prob_chain_ext : forall xs x,
 Qed.
 
 
+  (* Probably not the best way to do this *)
+  Lemma R_w_distr (A : finType) (f g : A -> R) : (forall w : A, (f w * g w) = 0) -> (forall w : A, (f w) = 0) \/ (exists w : A, (g w) = 0).
+    move=> H.
+    case ([forall w, f w == 0]) eqn: Hall0.
+    by move/eqfunP: Hall0 => Hall; left.
+    right.
+    apply/exists_eqP.
+    move/negP/negP: Hall0.
+    rewrite negb_forall=>/existsP [w /eqP Hw].
+    by move: (H w) => /Rmult_integral [Hf0 | Hg0]; [move: (Hw Hf0) => [] | apply /exists_eqP; exists w].
+  Qed.
+
+
 Lemma prob_chain_growth : forall sc,
    P[ world_step initWorld sc |> (fun w => ret chain_growth_pred_wrapper w) ] = R0.
 Proof.
@@ -359,12 +372,12 @@ Proof.
 
   (* we don't need the option world, as we know it must be of the some variant*)
   clear o_w.
-  move=> w.
   (* now, were in the main part of the function. let's do some induction to prove this *)
   elim sc .
   (* base case *) 
   (* now let's deal with the simple case when the result is world being tested is not the initial world*) 
   rewrite /evalDist/DistBind.d/DistBind.f/Dist1.d//=.
+  move=>w.
   case (w == initWorld)%bool eqn: H; last first.
   move/eqP:H => H.
   have Hzr : (Some w == Some initWorld)%bool = false.
@@ -396,13 +409,15 @@ Proof.
   by inversion f.
 
   (* now for the inductive case *)
-  move=> x xs /Rmult_integral IHn.
-  case IHn.
-  rewrite -/evalDist.
-  Search _ "R" R.
-  apply Rmult_integral.
+  move=> x xs.
+  move=> /R_w_distr H.
+  (* either the world is unreachable, or it does not satisfy the chain growth predicate *)
+  case: H => [/prob_chain_ext Hunr | Hreal].
+  (* if the world is unreachable, the result is trivial *)
+  by move=> w; rewrite (Hunr ) mul0R.
 
 
+Admitted.
 
 
 
