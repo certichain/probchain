@@ -214,10 +214,6 @@ Definition world_executed_to_round w r : bool :=
    ).
 
 Definition honest_actor_has_chain_at_round w addr c r : bool := 
-  [&&
-     (* the actor is honest *)
-     (actor_n_is_honest w addr) &
-   (* and *)
    (has
       (* there is a record *)
       (fun pr => 
@@ -231,8 +227,23 @@ Definition honest_actor_has_chain_at_round w addr c r : bool :=
           (nat_of_ord rec_actr == addr) ])
       (fixlist_unwrap (world_adoption_history w))
    )
-  ]
 .
+
+Definition actor_n_has_chain_length_at_round w l addr r : bool :=
+   (has
+      (* there is a record *)
+      (fun pr => 
+         let: (rec_chain, rec_round, rec_actr)  := pr in 
+         [&&
+          (* of the block adopting/broadcasting the chain *)
+          (fixlist_length rec_chain  == l),
+          (* at round r *)
+          (eq_op ( rec_round) ( r)) &
+          (* by the actor *) 
+          (nat_of_ord rec_actr == addr) ])
+      (fixlist_unwrap (world_adoption_history w))
+   ).
+
 
 
 Definition actor_n_has_chain_length_ge_at_round w l addr (r : 'I_N_rounds) : bool :=
@@ -260,9 +271,9 @@ Definition chain_growth_pred w :=
               ==>
               (*then*)
               (* forall rounds *)
-              (* if the round is after the current round + delta *)
+              (* if the round is after the current round + delta - 1 *)
               [forall s : 'I_N_rounds, 
-                  (nat_of_ord r + delta <= nat_of_ord s)%nat ==>
+                  (nat_of_ord r + delta - 1 <= nat_of_ord s)%nat ==>
                           (*then*)
                           [forall o_addr : 'I_n_max_actors,
                               (* all actors, if honest *)
@@ -340,8 +351,54 @@ Lemma prob_some_wP : forall xs,
 Qed.
 
    
+ Lemma iota_eq_0 s r : (s < r)%nat -> iota r s = [::].
+  Proof.
+    elim s => //= n IHn.
+    rewrite -(addn1 n).
+    (* rewrite -(addn1 n). *)
+    (* rewrite -(addn1 n'). *)
+    (* rewrite (ltn_add2r) => IHn'. *)
+    (* move=>/(ltn_addr ). *)
+    (* rewrite -(addn1 n'). *)
+    (* rewrite -{1}(addn1 n0). *)
+    (* move=>/IHn. *)
+    (* rewrite /iota. *)
+    (* rewrite -(addn0 n.+1). *)
+    (* rewrite  -add1Sn. *)
+    (* Hs. *)
+    (* About lt_S_n. *)
+    (* move/(lt_S_n): Hs. *)
+    (* finished here - big issue with iota - need to go and update all references to it *)
+  Admitted.
 
 
+Lemma no_bounded_successful_rounds_eq0 : forall w r s, (s < r)%nat -> nat_of_ord (no_bounded_successful_rounds w r s) = 0%nat.
+Proof.
+  move=> w r s Hrs; rewrite /no_bounded_successful_rounds/no_bounded_successful_rounds'; apply/eqP => //=.
+  
+
+
+(*
+  If an honest party has a chain of length l,
+  then by round r + delta -1, every other party will have a chain of length at least l
+*)
+Lemma chain_growth_weak sc w l (r : 'I_N_rounds) :
+  (* make sure that the world is valid *)
+P[ world_step initWorld sc === Some w] <> 0 ->
+(exists (addr : 'I_n_max_actors) (k : 'I_N_rounds),
+  (* if an honest party has a chain of length l at r
+     Note: we can only see the adoptions - so we have to say there is a round k earlier or at r, when the party
+           adopted a chain of length l *)
+  (nat_of_ord k <= nat_of_ord r)%nat && actor_n_has_chain_length_at_round w addr l k) ->
+  (* then for before or at r + delta - 1, every actor would have broadcasted a chain of length at least l*)
+  forall (o_addr: 'I_n_max_actors),
+  exists (s : 'I_N_rounds),
+    (nat_of_ord s <= nat_of_ord r + delta - 1)%nat &&
+     (actor_n_has_chain_length_ge_at_round w l o_addr s).
+Proof.
+  (* TODO: Complete this proof *)
+
+Admitted.
 
 Lemma prob_chain_ext : forall xs x, 
  (forall w, P[ (world_step initWorld xs) === (Some w) ] = 0) -> (forall w, P[ world_step initWorld (x::xs) === Some w ] = 0).
@@ -404,9 +461,9 @@ Proof.
   (* now, were in the main part of the function. let's do some induction to prove this *)
   elim sc .
   (* base case *) 
-  (* now let's deal with the simple case when the result is world being tested is not the initial world*) 
   rewrite /evalDist/DistBind.d/DistBind.f/Dist1.d//=.
   move=>w.
+  (* now let's deal with the simple case when the result is world being tested is not the initial world*) 
   case (w == initWorld)%bool eqn: H; last first.
   move/eqP:H => H.
   have Hzr : (Some w == Some initWorld)%bool = false.
@@ -414,28 +471,24 @@ Proof.
     move=> assum.
     by injection assum => /H//=.
   by rewrite /Dist1.f Hzr //= mul0R  .
+  (* if the world being tested is the initial world... *)
   move/eqP: H => ->.
   rewrite /Dist1.f// .
   have H: (Some initWorld == Some initWorld)%bool.
     by [].
   rewrite H //= mul1R.
   clear H.
+  (* we can rewrite our probabilistic statement as one about the equality of the underlying types *)
   suff H: chain_growth_pred initWorld => //=.
   rewrite H => //=.
 
-  rewrite /chain_growth_pred.
-  apply /forallP => r .
-  apply /forallP => c.
-  apply /forallP => addr.
-  rewrite /honest_actor_has_chain_at_round//=.
-  rewrite /initWorldAdoptionHistory.
+  (* the rest of the base case can be proven simply by computation *)
+  rewrite /chain_growth_pred. apply /forallP => r ; apply /forallP => c; apply /forallP => addr.
+  rewrite /honest_actor_has_chain_at_round//=; rewrite /initWorldAdoptionHistory.
   have Hfixlist_empty A v  : @fixlist_unwrap A v (@fixlist_empty A v) = [::].
   by elim v => //=.
   
-  rewrite Hfixlist_empty //=.
-  apply /implyP => /andP .
-  case => Hhonest f.
-  by inversion f.
+  by rewrite Hfixlist_empty //=.
 
   (* now for the inductive case *)
   move=> x xs Hind.
@@ -466,7 +519,7 @@ Proof.
   rewrite /Dist1.d/Dist1.f//=.
   have H_INRP a :  a = false -> INR a = 0. by move=> ->.
   apply H_INRP; apply/negP/negP/forallP => r; apply/forallP => c.
-  (* now, let's use the functions provided by fintype to convert this deterministic statement into a prop one *)
+  (* we can use the functions provided by fintype to convert this deterministic statement into a prop one *)
   apply/forallP=>addr; apply/implyP=> Hhc; apply/forallP=> s.
   apply/implyP=>Hvr; apply/forallP=>o_addr. apply/implyP=> Hhon; apply/implyP=> Hwround.
 
@@ -474,7 +527,63 @@ Proof.
   (* now for the main part of the proof *)
   (* use the following tactics at this point in the proof to see the prop formulation of the chain growth lemma *)
   (* move: r c addr Hhc s Hvr o_addr Hhon Hwround . *)
+  move:    Hvr o_addr Hhon Hwround .
+  destruct s as [s Hsvalid]; destruct r as [r Hrvalid].
+  rewrite leq_eqVlt => /orP; case => //=.
+  move=>/eqP Hsround o_addr Hhon Hwexec//=.
+  rewrite -{1}Hsround .
+  rewrite subnAC -addnBA. rewrite subnn; rewrite addn0.
 
+
+(exists (addr : 'I_n_max_actors) (k : 'I_N_rounds),
+  (* if an honest party has a chain of length l at r
+     Note: we can only see the adoptions - so we have to say there is a round k earlier or at r, when the party
+           adopted a chain of length l *)
+  (nat_of_ord k <= nat_of_ord r)%nat && actor_n_has_chain_length_at_round w addr l k) ->
+  (* then for before or at r + delta - 1, every actor would have broadcasted a chain of length at least l*)
+  forall (o_addr: 'I_n_max_actors),
+  exists (s : 'I_N_rounds),
+    (nat_of_ord s <= nat_of_ord r + delta - 1)%nat &&
+     (actor_n_has_chain_length_ge_at_round w l o_addr s).
+
+
+  simpl.
+  elim Hdif: (s - r - delta + 1)%nat => //=.
+
+  move=> Hsvalid.
+  rewrite leqn0 eqn0Ngt ltn_addr => //=.
+  move: Hsvalid .
+  move: Hrvalid.
+  elim s => //=.
+  induction (s - r - delta + 1)%nat eqn: Ht; last first.
+  elim s => //=.
+  move/eqP: Ht.
+  (* move: Ht. *)
+  rewrite -subnDA.
+  rewrite (S_pred delta 0).
+  rewrite (addnS r).
+  rewrite (subnS).
+  rewrite addn1.
+  rewrite -(S_pred (s - (r + delta.-1)) 0).
+  Search _ "subn".
+  About subn_eq0.
+  move=>/eqP.
+ Check EqMixin.
+  rewrite -subnAC.
+  Search ((_.-1).+1).
+  rewrite addnC.
+  rewrite subnAC.
+  rewrite -subnDA.
+  rewrite addnC.
+  rewrite -subnAC.
+  rewrite (@addKn 1).
+  Print self_inverse.
+  rewrite subnE.
+  rewrite -subn_eq0.
+  Search (_ - _ + _).
+  rewrite addnS.
+  Search _ "lt" nat.
+  Search _ nat "lt".
 
 
 Admitted.
