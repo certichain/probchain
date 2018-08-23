@@ -383,6 +383,39 @@ Proof.
   by rewrite (proof_irrelevance _ valid_N_rounds G).
 Qed. 
 
+Lemma no_bounded_successful_rounds_ext sc w r s : 
+  (P[ world_step initWorld sc === Some w] <> 0) ->
+        (~~ bounded_successful_round w s) ->
+          no_bounded_successful_rounds w r s = no_bounded_successful_rounds w r s.+1.
+Proof.
+  (* TODO(Kiran): Complete this proof *)
+Admitted.
+About Ordinal.
+
+Lemma  actor_has_chain_length_ext w l o_addr s Hsv Hs1v :
+  actor_n_has_chain_length_ge_at_round w l o_addr (@Ordinal  N_rounds s Hsv) ->
+  actor_n_has_chain_length_ge_at_round w l o_addr (@Ordinal  N_rounds s.+1 Hs1v).
+Proof.
+  (* TODO(Kiran): Complete this proof *)
+Admitted.
+
+Lemma world_executed_to_weaken w s Hs'valid Hsvalid:
+  world_executed_to_round w (Ordinal (n:=N_rounds) (m:=s.+1) Hsvalid) ->
+  world_executed_to_round w (Ordinal (n:=N_rounds) (m:=s) Hs'valid).
+Proof.
+  (* TODO(Kiran): Complete this proof *)
+Admitted.
+
+Lemma addr_ltn a b c:
+   (a + b < c)%nat -> (a < c)%nat.
+  Proof.
+    by move=>/(ltn_addr b); rewrite ltn_add2r.
+    Qed.
+
+
+
+
+
 (*
   If an honest party has a chain of length l,
   then by round r + delta -1, every other party will have a chain of length at least l
@@ -556,13 +589,28 @@ Proof.
   rewrite subnAC -addnBA => //=. rewrite subnn; rewrite addn0.
   rewrite no_bounded_successful_rounds_eq0. rewrite addn0.
   apply (chain_growth_weak (x::xs) w (c) (Ordinal Hrvalid) H) => //=.
-  exists addr.
-  exists (Ordinal Hrvalid) .
+  exists addr. exists (Ordinal Hrvalid) .
   apply /andP.
   split => //=.
   by apply/eqP.
   by case r; [right | move=> n; rewrite (subn1 n.+1) prednK //=; left].
-  (* base case of proof completed *)
+  (* first base case of proof completed *)
+  (* dispose of the *fake base case* *)
+  induction s => //=.
+
+  (* As in the bitcoin backbone proof, we consider 2 cases - one when Xi' = 0, and one when not *)
+  case Hbsuc: (bounded_successful_round w (s - delta));last first.
+  move/negP/negP:Hbsuc=>Hbsuc.
+  rewrite subSn.
+  rewrite -(no_bounded_successful_rounds_ext (x :: xs) w r (s - delta)) => //= Hrsvalid Hwex o_addr Hhon.
+  move:(@addr_ltn s 1 N_rounds  ).
+  rewrite {1}(addn1 s).
+  move=> Hweaken.
+  move/Hweaken:(Hsvalid)=> Hs'valid.
+  apply (actor_has_chain_length_ext w (c + no_bounded_successful_rounds w r (s - delta)) o_addr s Hs'valid Hsvalid) .
+  apply IHs => //=.
+
+
 
 
 Admitted.
