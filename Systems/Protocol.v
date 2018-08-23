@@ -33,7 +33,6 @@ Parameter adversary_internal_send_transaction: {ffun adversary_internal_state ->
 Definition verify_hash (blk : Block) (oracle : OracleState) : option Hashed := 
    oraclestate_find (block_nonce blk, block_link blk, block_records blk) oracle.
 
-
 (*
   An adversary's state consists of
   1. Adversary's hidden state - can not be introspected
@@ -1137,13 +1136,13 @@ Definition uniquely_successful_round (w : World) (r : nat) :=
 
 Definition bounded_successful_round (w : World) (r : nat) :=
   (* (forallb (r' : nat), (r' < r) && (r' >= r - delta) -> unsuccessful_round w r') &&   *)
-  (all (fun r' => unsuccessful_round w r') (iota (r - delta) (r - 1))) &&  
+  (all (fun r' => unsuccessful_round w r') (itoj (r - delta) (r - 1))) &&  
     successful_round w r.
 
 
 Definition bounded_uniquely_successful_round (w : World) (r : nat) :=
   (* (forall (r' : nat), ((r' <= r + delta) && (r' >= r - delta) && (r' != r)) -> unsuccessful_round w r') /\ *)
-  (all (fun r' => (unsuccessful_round w r') || (r' == r)) (iota (r - delta) (r + delta))) &&
+  (all (fun r' => (unsuccessful_round w r') || (r' == r)) (itoj (r - delta) (r + delta))) &&
     (uniquely_successful_round w r).
 
 
@@ -1305,7 +1304,7 @@ Definition chain_quality_property (w : World) (l u : nat) (agent : 'I_n_max_acto
 
 
 Definition no_adversarial_blocks' (w: World) (from to : nat) : nat:= 
-  foldr (fun round acc => acc + adversarial_block_count w round) 0 (iota from to).
+  foldr (fun round acc => acc + adversarial_block_count w round) 0 (itoj from to).
 
 Definition no_adversarial_blocks (w: World) (from to : nat) : 'I_(N_rounds * n_max_actors). 
   case ((no_adversarial_blocks' w from to) < (N_rounds * n_max_actors)) eqn: H.
@@ -1316,7 +1315,7 @@ Defined.
 Definition no_successful_rounds' (w : World) (from : nat) (to : nat) : nat :=
   length(filter
     (fun round => successful_round w round)
-    (iota from to)).
+    (itoj from to)).
 
 
 Definition no_successful_rounds (w: World) (from to : nat) : 'I_N_rounds. 
@@ -1329,7 +1328,7 @@ Defined.
 Definition no_bounded_successful_rounds' (w : World) (from : nat) (to : nat) : nat :=
   length(filter
     (fun round => bounded_successful_round w round)
-    (iota from to)).
+    (itoj from to)).
 
 Definition no_bounded_successful_rounds (w: World) (from to : nat) : 'I_N_rounds. 
   case ((no_bounded_successful_rounds' w from to) < N_rounds ) eqn: H.
@@ -1343,7 +1342,7 @@ Defined.
 Definition no_bounded_uniquely_successful_rounds' (w : World) (from : nat) (to : nat) : nat :=
   length(filter
     (fun round => bounded_uniquely_successful_round w round)
-    (iota from to)).
+    (itoj from to)).
 
 Definition no_bounded_uniquely_successful_rounds (w: World) (from to : nat) : 'I_N_rounds. 
   case ((no_bounded_successful_rounds' w from to) < N_rounds) eqn: H.
@@ -1384,9 +1383,9 @@ Definition insertion_occurred (w : World) (from to : nat)  : bool :=
             (r2 < r3), 
 
             (* such that r1, r2, r3 are all in the range[from..to]*)
-            (r1 \in (iota from to)),
-            (r2 \in (iota from to)),
-            (r3 \in (iota from to)),
+            (r1 \in (itoj from to)),
+            (r2 \in (itoj from to)),
+            (r3 \in (itoj from to)),
             
             (* block 1 connects to block 2 *)
              (if verify_hash b1 (world_hash w) is Some(hash_b1) then
@@ -1419,7 +1418,7 @@ Definition copy_occurred (w : World) (from to : nat) :=
           bl)
   (filter (fun pr => 
           let: (bl, (is_adv, round))  := pr in
-          round \in (iota from to))
+          round \in (itoj from to))
     (BlockMap_pairs (world_block_history w))))).
 
 (* TODO: Bitcoin backbone proof uses more strict formulation of these 
@@ -1440,8 +1439,8 @@ Definition prediction_occurred (w : World) (from to : nat)  : bool :=
             (* block 2 was hashed second *)
             (r1 < r2), 
             (* such that r1, r2 are all in the range[from..to]*)
-            (r1 \in (iota from to)),
-            (r2 \in (iota from to)) &
+            (r1 \in (itoj from to)),
+            (r2 \in (itoj from to)) &
             
             (* but block 2 connects to block 1 *)
              (if verify_hash b2 (world_hash w) is Some(hash_b2) then

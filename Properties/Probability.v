@@ -262,12 +262,14 @@ Definition actor_n_has_chain_length_ge_at_round w l addr (r : 'I_N_rounds) : boo
    ).
 
 
+(* note: rewrite this to use a weaker statement - rather than reasoning about the list
+ directly, use the length instead *)
 Definition chain_growth_pred w :=
   [forall r : 'I_N_rounds,
-      [forall c : BlockChain,
-          [forall addr: 'I_n_max_actors,
-              (* if there is an actor with a chain at round r *)
-              honest_actor_has_chain_at_round w addr c r
+      forall l : 'I_Maximum_blockchain_length,
+          forall addr: 'I_n_max_actors,
+              (* if there is an actor with a chain of length l at round r *)
+              actor_n_has_chain_length_at_round w (nat_of_ord l) (nat_of_ord addr) r
               ==>
               (*then*)
               (* forall rounds *)
@@ -285,13 +287,14 @@ Definition chain_growth_pred w :=
                                  l + n_hashed_blocks r (s - delta) at round s *)
                                   actor_n_has_chain_length_ge_at_round
                                         w
-                                        ((fixlist_length c) + nat_of_ord (no_bounded_successful_rounds w r (s - delta)))
+                                        ((nat_of_ord l) + nat_of_ord (no_bounded_successful_rounds w r (s - delta)))
                                         o_addr
                                         s
 
                           ]
+                ]
 
-      ]]]].
+      ].
 
 Definition chain_growth_pred_wrapper o_w :=
   match o_w with
@@ -351,31 +354,25 @@ Lemma prob_some_wP : forall xs,
 Qed.
 
    
- Lemma iota_eq_0 s r : (s < r)%nat -> iota r s = [::].
+ Lemma itoj_eq_0 s r : (s < r)%nat -> itoj r s = [::].
   Proof.
-    elim s => //= n IHn.
-    rewrite -(addn1 n).
-    (* rewrite -(addn1 n). *)
-    (* rewrite -(addn1 n'). *)
-    (* rewrite (ltn_add2r) => IHn'. *)
-    (* move=>/(ltn_addr ). *)
-    (* rewrite -(addn1 n'). *)
-    (* rewrite -{1}(addn1 n0). *)
-    (* move=>/IHn. *)
-    (* rewrite /iota. *)
-    (* rewrite -(addn0 n.+1). *)
-    (* rewrite  -add1Sn. *)
-    (* Hs. *)
-    (* About lt_S_n. *)
-    (* move/(lt_S_n): Hs. *)
-    (* finished here - big issue with iota - need to go and update all references to it *)
-  Admitted.
+    rewrite /itoj; move=> Hsltr.
+    have H: ((s - r)%nat = 0%nat). by apply /eqP; rewrite subn_eq0 leq_eqVlt; apply /orP; right.
+    rewrite H => //=.
+  Qed.
 
 
 Lemma no_bounded_successful_rounds_eq0 : forall w r s, (s < r)%nat -> nat_of_ord (no_bounded_successful_rounds w r s) = 0%nat.
 Proof.
   move=> w r s Hrs; rewrite /no_bounded_successful_rounds/no_bounded_successful_rounds'; apply/eqP => //=.
-  
+  rewrite itoj_eq_0 => //=.
+  suff Hgeq: [eta Ordinal (n:=N_rounds) (m:=0)] = (fun x => Ordinal (n:=N_rounds) (m:=0) valid_N_rounds).
+  rewrite Hgeq.
+  rewrite valid_N_rounds => //=.
+ apply: functional_extensionality=> G.
+  by rewrite (proof_irrelevance _ valid_N_rounds G).
+  (* TODO(Kiran): rewrite the underlying definition to not use dependant typing *)
+Qed. 
 
 
 (*
@@ -384,7 +381,7 @@ Proof.
 *)
 Lemma chain_growth_weak sc w l (r : 'I_N_rounds) :
   (* make sure that the world is valid *)
-P[ world_step initWorld sc === Some w] <> 0 ->
+(P[ world_step initWorld sc === Some w] <> 0) ->
 (exists (addr : 'I_n_max_actors) (k : 'I_N_rounds),
   (* if an honest party has a chain of length l at r
      Note: we can only see the adoptions - so we have to say there is a round k earlier or at r, when the party
@@ -483,12 +480,12 @@ Proof.
   rewrite H => //=.
 
   (* the rest of the base case can be proven simply by computation *)
-  rewrite /chain_growth_pred. apply /forallP => r ; apply /forallP => c; apply /forallP => addr.
-  rewrite /honest_actor_has_chain_at_round//=; rewrite /initWorldAdoptionHistory.
+  rewrite /chain_growth_pred. apply /forallP => r ; apply /forallP => l; apply /forallP => addr.
+  rewrite /actor_n_has_chain_length_at_round//=; rewrite /initWorldAdoptionHistory.
   have Hfixlist_empty A v  : @fixlist_unwrap A v (@fixlist_empty A v) = [::].
   by elim v => //=.
   
-  by rewrite Hfixlist_empty //=.
+  rewrite Hfixlist_empty //=.
 
   (* now for the inductive case *)
   move=> x xs Hind.
@@ -532,58 +529,49 @@ Proof.
   rewrite leq_eqVlt => /orP; case => //=.
   move=>/eqP Hsround o_addr Hhon Hwexec//=.
   rewrite -{1}Hsround .
-  rewrite subnAC -addnBA. rewrite subnn; rewrite addn0.
+  rewrite subnAC -addnBA => //=. rewrite subnn; rewrite addn0.
+  rewrite no_bounded_successful_rounds_eq0. rewrite addn0.
+  move: (chain_growth_weak (x::xs) w (c) (Ordinal Hsvalid) H).
 
 
-(exists (addr : 'I_n_max_actors) (k : 'I_N_rounds),
-  (* if an honest party has a chain of length l at r
-     Note: we can only see the adoptions - so we have to say there is a round k earlier or at r, when the party
-           adopted a chain of length l *)
-  (nat_of_ord k <= nat_of_ord r)%nat && actor_n_has_chain_length_at_round w addr l k) ->
-  (* then for before or at r + delta - 1, every actor would have broadcasted a chain of length at least l*)
-  forall (o_addr: 'I_n_max_actors),
-  exists (s : 'I_N_rounds),
-    (nat_of_ord s <= nat_of_ord r + delta - 1)%nat &&
-     (actor_n_has_chain_length_ge_at_round w l o_addr s).
 
+ (*  simpl. *)
+ (*  elim Hdif: (s - r - delta + 1)%nat => //=. *)
 
-  simpl.
-  elim Hdif: (s - r - delta + 1)%nat => //=.
-
-  move=> Hsvalid.
-  rewrite leqn0 eqn0Ngt ltn_addr => //=.
-  move: Hsvalid .
-  move: Hrvalid.
-  elim s => //=.
-  induction (s - r - delta + 1)%nat eqn: Ht; last first.
-  elim s => //=.
-  move/eqP: Ht.
-  (* move: Ht. *)
-  rewrite -subnDA.
-  rewrite (S_pred delta 0).
-  rewrite (addnS r).
-  rewrite (subnS).
-  rewrite addn1.
-  rewrite -(S_pred (s - (r + delta.-1)) 0).
-  Search _ "subn".
-  About subn_eq0.
-  move=>/eqP.
- Check EqMixin.
-  rewrite -subnAC.
-  Search ((_.-1).+1).
-  rewrite addnC.
-  rewrite subnAC.
-  rewrite -subnDA.
-  rewrite addnC.
-  rewrite -subnAC.
-  rewrite (@addKn 1).
-  Print self_inverse.
-  rewrite subnE.
-  rewrite -subn_eq0.
-  Search (_ - _ + _).
-  rewrite addnS.
-  Search _ "lt" nat.
-  Search _ nat "lt".
+ (*  move=> Hsvalid. *)
+ (*  rewrite leqn0 eqn0Ngt ltn_addr => //=. *)
+ (*  move: Hsvalid . *)
+ (*  move: Hrvalid. *)
+ (*  elim s => //=. *)
+ (*  induction (s - r - delta + 1)%nat eqn: Ht; last first. *)
+ (*  elim s => //=. *)
+ (*  move/eqP: Ht. *)
+ (*  (* move: Ht. *) *)
+ (*  rewrite -subnDA. *)
+ (*  rewrite (S_pred delta 0). *)
+ (*  rewrite (addnS r). *)
+ (*  rewrite (subnS). *)
+ (*  rewrite addn1. *)
+ (*  rewrite -(S_pred (s - (r + delta.-1)) 0). *)
+ (*  Search _ "subn". *)
+ (*  About subn_eq0. *)
+ (*  move=>/eqP. *)
+ (* Check EqMixin. *)
+ (*  rewrite -subnAC. *)
+ (*  Search ((_.-1).+1). *)
+ (*  rewrite addnC. *)
+ (*  rewrite subnAC. *)
+ (*  rewrite -subnDA. *)
+ (*  rewrite addnC. *)
+ (*  rewrite -subnAC. *)
+ (*  rewrite (@addKn 1). *)
+ (*  Print self_inverse. *)
+ (*  rewrite subnE. *)
+ (*  rewrite -subn_eq0. *)
+ (*  Search (_ - _ + _). *)
+ (*  rewrite addnS. *)
+ (*  Search _ "lt" nat. *)
+ (*  Search _ nat "lt". *)
 
 
 Admitted.

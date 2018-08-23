@@ -7,6 +7,9 @@ Require Import Eqdep.
 
 
 
+(* utility function for ranges of values form (inclusive) a to b (exclusive) *)
+Definition itoj (m n : nat) : seq.seq nat :=
+  iota m (n - m).
 
 (* Couldn't find a remove_nth function in stdlib or ssreflect*)
 Fixpoint rem_nth {A:Type} (n : nat) (ls : list A) : list A := 

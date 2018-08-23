@@ -32,6 +32,7 @@ Axiom valid_Maximum_proof_of_work : 0 < Maximum_proof_of_work.
 
 (* To keep the structures finite, we have to constrain the maximum size of the blockchain*)
 Parameter Maximum_blockchain_length : nat.
+Axiom valid_Maximum_blockchain_length : (0 < Maximum_blockchain_length).
 
 Parameter MessagePool_length : nat.
 
