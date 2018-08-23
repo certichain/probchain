@@ -276,12 +276,12 @@ Definition chain_growth_pred w :=
               (* if the round is after the current round + delta - 1 *)
               [forall s : 'I_N_rounds, 
                   (nat_of_ord r + delta - 1 <= nat_of_ord s)%nat ==>
+                        (* and the world executed to the round *)
+                          world_executed_to_round w s ==>
                           (*then*)
                           [forall o_addr : 'I_n_max_actors,
                               (* all actors, if honest *)
                               (actor_n_is_honest w o_addr) ==>
-                              (* and the world executed to the round *)
-                              world_executed_to_round w s ==>
 
                                (* have a chain of length of at least
                                  l + n_hashed_blocks r (s - delta) at round s *)
@@ -362,9 +362,10 @@ Qed.
   Qed.
 
 
-Lemma no_bounded_successful_rounds_eq0 : forall w r s, (s < r)%nat -> nat_of_ord (no_bounded_successful_rounds w r s) = 0%nat.
+Lemma no_bounded_successful_rounds_eq0 : forall w r s, (s < r \/ (eq_op r s /\ eq_op r 0))%nat -> nat_of_ord (no_bounded_successful_rounds w r s) = 0%nat.
 Proof.
   move=> w r s Hrs; rewrite /no_bounded_successful_rounds/no_bounded_successful_rounds'; apply/eqP => //=.
+  destruct Hrs .
   rewrite itoj_eq_0 => //=.
   suff Hgeq: [eta Ordinal (n:=N_rounds) (m:=0)] = (fun x => Ordinal (n:=N_rounds) (m:=0) valid_N_rounds).
   rewrite Hgeq.
@@ -372,26 +373,46 @@ Proof.
  apply: functional_extensionality=> G.
   by rewrite (proof_irrelevance _ valid_N_rounds G).
   (* TODO(Kiran): rewrite the underlying definition to not use dependant typing *)
+  destruct H as [Heqrs Heq0].
+  move/eqP: Heqrs=> <-.
+  move/eqP: Heq0=> -> //=.
+  suff Hgeq: [eta Ordinal (n:=N_rounds) (m:=0)] = (fun x => Ordinal (n:=N_rounds) (m:=0) valid_N_rounds).
+  rewrite Hgeq.
+  rewrite valid_N_rounds => //=.
+ apply: functional_extensionality=> G.
+  by rewrite (proof_irrelevance _ valid_N_rounds G).
 Qed. 
-
 
 (*
   If an honest party has a chain of length l,
   then by round r + delta -1, every other party will have a chain of length at least l
 *)
+(* Note: we can only see the adoptions - so we have to say there is a round k earlier or at r, when the party
+adopted a chain of length l *)
 Lemma chain_growth_weak sc w l (r : 'I_N_rounds) :
   (* make sure that the world is valid *)
 (P[ world_step initWorld sc === Some w] <> 0) ->
 (exists (addr : 'I_n_max_actors) (k : 'I_N_rounds),
-  (* if an honest party has a chain of length l at r
-     Note: we can only see the adoptions - so we have to say there is a round k earlier or at r, when the party
-           adopted a chain of length l *)
-  (nat_of_ord k <= nat_of_ord r)%nat && actor_n_has_chain_length_at_round w addr l k) ->
-  (* then for before or at r + delta - 1, every actor would have broadcasted a chain of length at least l*)
-  forall (o_addr: 'I_n_max_actors),
-  exists (s : 'I_N_rounds),
-    (nat_of_ord s <= nat_of_ord r + delta - 1)%nat &&
-     (actor_n_has_chain_length_ge_at_round w l o_addr s).
+  (* if an honest party has a chain of length l at r *)
+  (nat_of_ord k <= nat_of_ord r)%nat && actor_n_has_chain_length_at_round w l addr k) ->
+  (* then at r + delta - 1, every actor would have broadcasted a chain of length at least l*)
+  (* we're using this forall quantification here to allow creating a ordinal type without having to use dependant types*)
+  forall s,
+     (eq_op (r + delta - 1)%nat (nat_of_ord s)) ->
+      (* and the world executed to the round *)
+      world_executed_to_round w s ->
+      (*then *)
+      forall o_addr : 'I_n_max_actors,
+          (* all actors, if honest *)
+          (actor_n_is_honest w o_addr) ->
+            (* have a chain of length of at least
+              l  *)
+              actor_n_has_chain_length_ge_at_round
+                    w
+                    l
+                    o_addr
+                    s.
+
 Proof.
   (* TODO: Complete this proof *)
 
@@ -518,60 +539,30 @@ Proof.
   apply H_INRP; apply/negP/negP/forallP => r; apply/forallP => c.
   (* we can use the functions provided by fintype to convert this deterministic statement into a prop one *)
   apply/forallP=>addr; apply/implyP=> Hhc; apply/forallP=> s.
-  apply/implyP=>Hvr; apply/forallP=>o_addr. apply/implyP=> Hhon; apply/implyP=> Hwround.
+  apply/implyP=>Hvsr.
+  apply/implyP=>Hwrld.
+  apply/forallP=> o_addr.
+  apply/implyP=> Hhon.
 
   (* now can be proven in terms of simple logical operations! *) 
   (* now for the main part of the proof *)
   (* use the following tactics at this point in the proof to see the prop formulation of the chain growth lemma *)
   (* move: r c addr Hhc s Hvr o_addr Hhon Hwround . *)
-  move:    Hvr o_addr Hhon Hwround .
+  move:    Hvsr Hwrld o_addr Hhon .
   destruct s as [s Hsvalid]; destruct r as [r Hrvalid].
   rewrite leq_eqVlt => /orP; case => //=.
   move=>/eqP Hsround o_addr Hhon Hwexec//=.
   rewrite -{1}Hsround .
   rewrite subnAC -addnBA => //=. rewrite subnn; rewrite addn0.
   rewrite no_bounded_successful_rounds_eq0. rewrite addn0.
-  move: (chain_growth_weak (x::xs) w (c) (Ordinal Hsvalid) H).
-
-
-
- (*  simpl. *)
- (*  elim Hdif: (s - r - delta + 1)%nat => //=. *)
-
- (*  move=> Hsvalid. *)
- (*  rewrite leqn0 eqn0Ngt ltn_addr => //=. *)
- (*  move: Hsvalid . *)
- (*  move: Hrvalid. *)
- (*  elim s => //=. *)
- (*  induction (s - r - delta + 1)%nat eqn: Ht; last first. *)
- (*  elim s => //=. *)
- (*  move/eqP: Ht. *)
- (*  (* move: Ht. *) *)
- (*  rewrite -subnDA. *)
- (*  rewrite (S_pred delta 0). *)
- (*  rewrite (addnS r). *)
- (*  rewrite (subnS). *)
- (*  rewrite addn1. *)
- (*  rewrite -(S_pred (s - (r + delta.-1)) 0). *)
- (*  Search _ "subn". *)
- (*  About subn_eq0. *)
- (*  move=>/eqP. *)
- (* Check EqMixin. *)
- (*  rewrite -subnAC. *)
- (*  Search ((_.-1).+1). *)
- (*  rewrite addnC. *)
- (*  rewrite subnAC. *)
- (*  rewrite -subnDA. *)
- (*  rewrite addnC. *)
- (*  rewrite -subnAC. *)
- (*  rewrite (@addKn 1). *)
- (*  Print self_inverse. *)
- (*  rewrite subnE. *)
- (*  rewrite -subn_eq0. *)
- (*  Search (_ - _ + _). *)
- (*  rewrite addnS. *)
- (*  Search _ "lt" nat. *)
- (*  Search _ nat "lt". *)
+  apply (chain_growth_weak (x::xs) w (c) (Ordinal Hrvalid) H) => //=.
+  exists addr.
+  exists (Ordinal Hrvalid) .
+  apply /andP.
+  split => //=.
+  by apply/eqP.
+  by case r; [right | move=> n; rewrite (subn1 n.+1) prednK //=; left].
+  (* base case of proof completed *)
 
 
 Admitted.
