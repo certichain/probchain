@@ -324,7 +324,7 @@ Record World := mkWorld {
   (* Contains the number of transactions sent by honest players *)
   world_honest_transaction_quota: (ordinal Honest_max_Transaction_sends);
 
-  (* Contains a listing of every adoption of a chain *)
+  (* Contains a listing of the held chain at each round for each actor *)
   world_adoption_history: fixlist [eqType of (BlockChain * ordinal N_rounds * 'I_n_max_actors)] (n_max_actors * N_rounds);
 }.
 

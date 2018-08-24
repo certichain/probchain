@@ -155,15 +155,17 @@ Defined.
 
 
 
-Definition record_adoption_on_success 
-      (blk: option BlockChain) 
+Definition record_actor_current_chain 
+      (old_chain : BlockChain)
+      (maybe_chain: option BlockChain) 
       (round: ordinal N_rounds) 
       (addr: 'I_n_max_actors) 
       (ls: fixlist [eqType of (BlockChain * ordinal N_rounds * 'I_n_max_actors)] (n_max_actors * N_rounds))
       : fixlist [eqType of (BlockChain * ordinal N_rounds * 'I_n_max_actors)] (n_max_actors * N_rounds) :=
-      match blk with
+      match maybe_chain with
         | Some chain => (fixlist_insert ls (chain, round, addr))
-        | None => ls
+        (* record that the actor's current_chain is some value *)
+        | None => (fixlist_insert ls (old_chain, round, addr))
       end.
 
 (*
@@ -317,6 +319,8 @@ Fixpoint world_step (w_s : World) (s : seq RndGen) : Comp [finType of (option Wo
               let: adversary := global_adversary state in
               let: round := global_current_round state in
               let: (dated_actor, is_corrupt) := tnth actors real_addr in
+                (* retrieve the old chain of the actor *)
+                let: old_chain := honest_current_chain dated_actor in
                 (* Update transactions of activated node - we only read transactions upon minting *)
                 let: actor := update_transaction_pool real_addr dated_actor (world_transaction_pool w) in
                 (* broadcast if successful - else increment proof of work *)
@@ -340,13 +344,14 @@ Fixpoint world_step (w_s : World) (s : seq RndGen) : Comp [finType of (option Wo
                           (option_insert (world_inflight_pool w) new_message )
                           (world_message_pool w)
                           new_oracle
-                          (BlockMap_put_honest_on_success new_block round (world_block_history w))
+                          (BlockMap_put_honest_on_success new_block round (world_block_history w)) 
                           (option_insert (world_chain_history w) new_chain) 
                           (world_adversary_message_quota w)
                           (world_adversary_transaction_quota w)
                           (world_honest_transaction_quota w)
-                          (record_adoption_on_success new_chain round real_addr (world_adoption_history w))
-                            (* (world_adoption_history w) *)
+                          (* put honest on success will *) 
+                          (record_actor_current_chain old_chain new_chain round real_addr (world_adoption_history w)) 
+                          (* (world_adoption_history w) *)
                           ;
                           ret (Some w')
                     else

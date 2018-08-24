@@ -78,6 +78,11 @@ Notation " w '>>=' a '<&&>' b " := (fun w => ret (a  && b )) (at level 49).
 Notation " w '>>=' a '<||>' b " := (fun w => ret (a  || b )) (at level 49).
 
 
+Lemma add_lt0 x y: (0 < x + y)%nat = ((0 <x)%nat && (0 <= y)%nat) || ((0 <=x)%nat && (0 < y)%nat).
+Proof.
+    by induction x => //=.
+  Qed.
+
 
 Lemma addRA_rsum  (A : finType) f g : 
   \rsum_(i in A) (f i + g i)%R = (\rsum_(i in A) f i + \rsum_(i in A) g i)%R .
@@ -396,9 +401,25 @@ Proof.
 Admitted.
 About Ordinal.
 
-Lemma  actor_has_chain_length_ext w l o_addr s Hsv Hs1v :
-  actor_n_has_chain_length_ge_at_round w l o_addr (@Ordinal  N_rounds s Hsv) ->
-  actor_n_has_chain_length_ge_at_round w l o_addr (@Ordinal  N_rounds s.+1 Hs1v).
+Lemma actor_has_chain_length_generalize  w l o_addr s :
+  actor_n_has_chain_length_at_round w l o_addr s ->
+  actor_n_has_chain_length_ge_at_round w l o_addr s.
+Proof.
+  rewrite /actor_n_has_chain_length_ge_at_round/actor_n_has_chain_length_at_round !has_count.
+  induction (fixlist_unwrap _) => //=.
+  rewrite !add_lt0; move=>/orP; case => //=.
+  move=>/andP; case.
+  (* TODO(Kiran): Complete this proof *)
+Admitted.
+
+
+(* if an actor has a chain of length at least l at round l,
+  then they will also have a chain of length l for all subsequent rounds *)
+Lemma  actor_has_chain_length_ext sc w l o_addr s' s :
+  (nat_of_ord s' < nat_of_ord s)%nat ->
+  (P[ world_step initWorld sc === Some w] <> 0) ->
+  actor_n_has_chain_length_ge_at_round w l o_addr s' ->
+  actor_n_has_chain_length_ge_at_round w l o_addr s.
 Proof.
   (* TODO(Kiran): Complete this proof *)
 Admitted.
@@ -412,8 +433,6 @@ Proof.
   rewrite leq_eqVlt; move=>/orP[/eqP -> |] //=.
   move=>  Hvalid.  
   induction (fixlist_unwrap _) => //=.
-  have add_lt0 x y: (0 < x + y)%nat = ((0 <x)%nat && (0 <= y)%nat) || ((0 <=x)%nat && (0 < y)%nat).
-    by induction x => //=.
   rewrite !add_lt0; move=>/orP; case => //= ;last first.
   by move=> /IHl0 Hv; apply/orP; right.
   move=>/andP [ Hgt0  Hlt0] //=.
@@ -648,14 +667,62 @@ Proof.
   by apply/andP;split .
   by rewrite Hd0; right.
 
+  move:Hsvalid =>Hs'valid.
+  move:(Hs'valid) =>Hsvalid.
+
+  move=>/eqP Hrseq H_world_exec o_addr H_is_honest //=.
+  move: IHs .
+  rewrite -{ 2  }Hrseq.
+  rewrite no_bounded_successful_rounds_eq0. rewrite addn0.
+  move=> IHs.
+  rewrite subnAC -addnBA => //=. rewrite subnn; rewrite addn0.
+  rewrite no_bounded_successful_rounds_eq0. rewrite addn0.
+  move: Hs'valid; rewrite -{1}(addn1 s); move=>/(addr_ltn s 1%nat N_rounds); move=> Hs'valid.
+  move: o_addr H_is_honest.
+  apply: (chain_growth_weak (x::xs) w (l) (Ordinal Hrvalid) ) => //= .
+  by exists addr; exists (Ordinal Hrvalid) ; apply /andP; split => //=.
+  by rewrite Hrseq.
+  by case r ; [right | left; rewrite subn1 prednK ].
+  Search _ "eq" nat.
+  move/f_equal_pred: Hrseq.
+  have: s.+1.-1 = s.
+    by [].
+  move=> ->.
+  move=> <-.
+  rewrite -(subn1 (r + delta -1)).
+  rewrite -subnAC.
+  have H: (subn (subn (subn (r + delta) 1%nat) delta) 1)%nat = (subn r  2%nat).
+  Print right_commutative .
+  rewrite (subnAC (r + delta)).
+  have H a b:(subn (addn a b) b) = a.
+    induction a => //=.
+    induction b => //=.
+    have: addn a.+1  b = (addn a b).+1. by []. move=> ->.
+    suff: subn (addn a  b).+1 b = (subn (addn a b) b).+1.
+    move=> ->.
+    by rewrite IHa.
+
+
+   rewrite -addn1.
+   rewrite -addnA.
+   rewrite addnC.
 
   (* Current progress up to here. *)
 
+  rewrite subnDA.
+  rewrite  
+  induction r => //=.
+  destruct s; last first.
+  right.
+  move=> n.
+  right.
+  induction r => //=.
+  move/actor_has_chain_length_generalize:H_holds_chain.
+  apply:(actor_has_chain_length_ext (x::xs) w l o_addr (Ordinal Hs'valid) (Ordinal Hsvalid))  => //=.
 
-  move=>/eqP Hsround o_addr H_is_honest Hwexec//=.
-  rewrite -{1}Hsround .
-  rewrite subnAC -addnBA => //=. rewrite subnn; rewrite addn0.
-  rewrite no_bounded_successful_rounds_eq0. rewrite addn0.
+
+
+  move: (actor_has_chain_length_ext w (c + no_bounded_successful_rounds w r (s - delta)) o_addr s Hs'valid Hsvalid) .
   apply (chain_growth_weak (x::xs) w (c) (Ordinal Hrvalid) H) => //=.
   exists addr. exists (Ordinal Hrvalid) .
   apply /andP.
