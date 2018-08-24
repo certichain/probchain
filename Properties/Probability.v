@@ -262,6 +262,10 @@ Definition actor_n_has_chain_length_ge_at_round w l addr (r : 'I_N_rounds) : boo
    ).
 
 
+(* Note: stopped here - might need to  add some extra components to strengthen this principle*)
+
+
+
 (* note: rewrite this to use a weaker statement - rather than reasoning about the list
  directly, use the length instead *)
 Definition chain_growth_pred w :=
@@ -399,6 +403,38 @@ Proof.
   (* TODO(Kiran): Complete this proof *)
 Admitted.
 
+Lemma  actor_has_chain_length_weaken w l o_addr s l':
+  (l' <= l)%nat ->
+  actor_n_has_chain_length_ge_at_round w l o_addr s ->  
+  actor_n_has_chain_length_ge_at_round w l' o_addr s.
+Proof.
+  rewrite /actor_n_has_chain_length_ge_at_round !has_count.
+  rewrite leq_eqVlt; move=>/orP[/eqP -> |] //=.
+  move=>  Hvalid.  
+  induction (fixlist_unwrap _) => //=.
+  have add_lt0 x y: (0 < x + y)%nat = ((0 <x)%nat && (0 <= y)%nat) || ((0 <=x)%nat && (0 < y)%nat).
+    by induction x => //=.
+  rewrite !add_lt0; move=>/orP; case => //= ;last first.
+  by move=> /IHl0 Hv; apply/orP; right.
+  move=>/andP [ Hgt0  Hlt0] //=.
+  apply/orP.
+  left .
+  apply/andP;split.
+  move: Hgt0.
+  have bool_gt0 (b : bool) : (0 < b)%nat = b. by case b.
+  move: a => [[b r] a].
+  rewrite !bool_gt0 //=.
+  move=>/andP [l_leq /andP [rs eq_addr]].
+  apply/andP; split; [|apply/andP] => //=.
+  have Hlt_trans x y z : (x <= y)%nat -> (y <= z)%nat  -> (x <= z)%nat.
+    by move=>/leq_trans Himpl; move=> /Himpl.
+  by apply (Hlt_trans l' l); [apply ltnW | ] .
+  move: Hlt0.
+  rewrite leq_eqVlt ; move=>/orP[/eqP |] //=.
+Qed.
+
+
+
 Lemma world_executed_to_weaken w s Hs'valid Hsvalid:
   world_executed_to_round w (Ordinal (n:=N_rounds) (m:=s.+1) Hsvalid) ->
   world_executed_to_round w (Ordinal (n:=N_rounds) (m:=s) Hs'valid).
@@ -510,7 +546,7 @@ Proof.
   (* we don't need the option world, as we know it must be of the some variant*)
   clear o_w.
   (* now, were in the main part of the function. let's do some induction to prove this *)
-  elim sc .
+  elim: sc .
   (* base case *) 
   rewrite /evalDist/DistBind.d/DistBind.f/Dist1.d//=.
   move=>w.
@@ -557,11 +593,13 @@ Proof.
   move: (Hind w) => /Rmult_integral Hv.
   clear Hind.
   case: Hv;last first.
-  by move=> ->; rewrite mulR0.
-  rewrite -/evalDist => Hv.
+    by move=> ->; rewrite mulR0.
+  (* a little unsure of this term - this doesn't seem to provide anything of value*)
+  rewrite -/evalDist => Hpr_invalid. 
+  (* if the world is unreachable, the result is trivial*)
   case (P[ world_step initWorld (x :: xs) === Some w] == 0)%bool eqn: H.
-  by move/eqP: H => ->; rewrite mul0R.
-  move/eqP: H => H.
+    by move/eqP: H => ->; rewrite mul0R.
+  move/eqP: H => Hpr_valid.
   apply /Rmult_eq_0_compat.
   right.
 
@@ -569,22 +607,52 @@ Proof.
   rewrite /chain_growth_pred_wrapper/chain_growth_pred.
   rewrite /Dist1.d/Dist1.f//=.
   have H_INRP a :  a = false -> INR a = 0. by move=> ->.
-  apply H_INRP; apply/negP/negP/forallP => r; apply/forallP => c.
+  apply H_INRP; apply/negP/negP/forallP => r; apply/forallP => l.
   (* we can use the functions provided by fintype to convert this deterministic statement into a prop one *)
-  apply/forallP=>addr; apply/implyP=> Hhc; apply/forallP=> s.
-  apply/implyP=>Hvsr.
-  apply/implyP=>Hwrld.
+  apply/forallP=>addr; apply/implyP=> H_holds_chain; apply/forallP=> s.
+  apply/implyP=>H_valid_range.
+  apply/implyP=>H_world_exec.
   apply/forallP=> o_addr.
-  apply/implyP=> Hhon.
+  apply/implyP=> H_is_honest.
 
   (* now can be proven in terms of simple logical operations! *) 
   (* now for the main part of the proof *)
   (* use the following tactics at this point in the proof to see the prop formulation of the chain growth lemma *)
-  (* move: r c addr Hhc s Hvr o_addr Hhon Hwround . *)
-  move:    Hvsr Hwrld o_addr Hhon .
-  destruct s as [s Hsvalid]; destruct r as [r Hrvalid].
-  rewrite leq_eqVlt => /orP; case => //=.
-  move=>/eqP Hsround o_addr Hhon Hwexec//=.
+  (* move: r c addr H_holds_chain s Hvr o_addr H_is_honest Hwround . *)
+  move:    H_valid_range H_world_exec o_addr H_is_honest .
+  destruct s as [s Hsvalid]; destruct r as [r Hrvalid] => //=.
+  induction s ; rewrite leq_eqVlt => /orP; case => //=.
+  rewrite subn_eq0;rewrite leq_eqVlt => /orP; case => //=.
+  rewrite sub0n; rewrite no_bounded_successful_rounds_eq0.
+  rewrite addn0.
+  suff Hexist: (exists (addr0 : 'I_n_max_actors) (k : 'I_N_rounds),
+                   (k <= (Ordinal Hrvalid))%nat && actor_n_has_chain_length_at_round w l addr0 k).
+
+  move=> /eqP Hrdelta_eq1 H_world_exec o_addr Haddr_hon.
+  apply (chain_growth_weak (x::xs) w l (Ordinal Hrvalid) Hpr_valid Hexist (Ordinal Hsvalid)) => //=.
+  by rewrite Hrdelta_eq1.
+  exists addr.
+  exists (Ordinal Hrvalid).
+  apply/andP;split => //=.
+  by case (r == 0%nat)%bool eqn:H; [right |left; move/neq0_lt0n :H].
+  have Hltn_1_eqn0 a b : (a + b < 1)%nat -> (a == 0%nat) && (b == 0%nat). by induction a ; induction b => //=.
+  move=>/Hltn_1_eqn0/andP;case => /eqP Hr0 /eqP Hd0.
+  destruct r => //=.
+  rewrite no_bounded_successful_rounds_eq0. rewrite addn0 => //=.
+  suff Hexist: (exists (addr0 : 'I_n_max_actors) (k : 'I_N_rounds),
+                   (k <= (Ordinal Hrvalid))%nat && actor_n_has_chain_length_at_round w l addr0 k).
+  apply: (chain_growth_weak (x::xs) w l (Ordinal Hrvalid) Hpr_valid Hexist (Ordinal Hsvalid)) => //=.
+  by rewrite Hd0 => //=.
+  exists addr.
+  exists (Ordinal Hrvalid).
+  by apply/andP;split .
+  by rewrite Hd0; right.
+
+
+  (* Current progress up to here. *)
+
+
+  move=>/eqP Hsround o_addr H_is_honest Hwexec//=.
   rewrite -{1}Hsround .
   rewrite subnAC -addnBA => //=. rewrite subnn; rewrite addn0.
   rewrite no_bounded_successful_rounds_eq0. rewrite addn0.
@@ -602,7 +670,7 @@ Proof.
   case Hbsuc: (bounded_successful_round w (s - delta));last first.
   move/negP/negP:Hbsuc=>Hbsuc.
   rewrite subSn.
-  rewrite -(no_bounded_successful_rounds_ext (x :: xs) w r (s - delta)) => //= Hrsvalid Hwex o_addr Hhon.
+  rewrite -(no_bounded_successful_rounds_ext (x :: xs) w r (s - delta)) => //= Hrsvalid Hwex o_addr H_is_honest.
   move:(@addr_ltn s 1 N_rounds  ).
   rewrite {1}(addn1 s).
   move=> Hweaken.
