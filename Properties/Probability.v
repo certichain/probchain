@@ -814,6 +814,23 @@ Proof.
 
   rewrite subSn //=.
 
+  (* Note: Stopped here - need to strengthen some arguments maybe? *)
+  (* (bounded_successful_round w (s - delta) ->
+     (no_bounded_successful_rounds r (s - delta) = no_bounded_successful_rounds r (s - 2 * delta + 1) *)
+
+  (* we have,
+      at round s,
+      forall n,
+             actor_n_has_chain_length_ge_at_round w (l + no_bounded_successful_rounds r (s - 2 * delta + 1))
+   *)
+  (*
+    and
+
+     s' < s ->
+     at round s, forall n, actor_n_has_chain_length_ge (l + no_bounded_successful_rounds r (s
+
+  *)
+
   (* now to prove the full inductive step *)
   (* if X'(s - delta) is true, *)
   (* then forall  in s - 2 delta,  to s - delta - 1, X'i = 0 *)
