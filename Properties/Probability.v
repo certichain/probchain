@@ -814,6 +814,27 @@ Proof.
   by move/world_executed_to_weaken: Hwexec.
   by exact Hdlts.
 
+  (* now to prove the full inductive step *)
+  (* if X'(s - delta) is true, *)
+  (* then forall  in s - 2 delta,  to s - delta - 1, X'i = 0 *)
+
+  (* this means that
+      no_bounded_successful_rounds r (s - delta - 1) =
+      no_bounded_successful_rounds r (s - 2 * delta) *)
+
+  (* by inductive hypothesis,
+       every actor has a chain of length at least l' by round s - delta ,
+        l' = l + no_bounded_successful_rounds r (s - 2 * delta) *)
+
+  (* thus every actor queried the oracle  with a chain of length l' at round delta *)
+
+  (* thus every successful actor at s - delta, must have had a chain of at least l + delta *)
+
+  (* thus by round s  every actor has a chain of length at least l' + 1,*)
+
+  (* l' + 1 = l + no_bounded_successful_rounds r (s - 2 * delta) + 1 = l + no_bounded_successful_rounds r (s.+1 - delta) *)
+
+  (* qed *)
 
 
 Admitted.
