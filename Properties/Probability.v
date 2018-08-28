@@ -267,8 +267,6 @@ Definition actor_n_has_chain_length_ge_at_round w l addr (r : 'I_N_rounds) : boo
    ).
 
 
-(* Note: stopped here - might need to  add some extra components to strengthen this principle*)
-
 
 
 (* note: rewrite this to use a weaker statement - rather than reasoning about the list
@@ -538,6 +536,23 @@ Qed.
     by move: (H w) => /Rmult_integral [Hf0 | Hg0]; [move: (Hw Hf0) => [] | apply /exists_eqP; exists w].
   Qed.
 
+Lemma ltn1 n : (n < 1)%nat = (n == 0%nat)%bool.
+Proof.
+  by elim n.
+Qed.
+
+Lemma addr2n r : (r - 2 < r)%nat \/ (r == (r - 2%nat)%nat)%bool /\ (r == 0%nat)%bool.
+Proof.
+  elim r=> //.
+  by right; rewrite sub0n.
+  move=> n [IHn|IHn].
+  case (n > 1)%nat eqn: H.
+  by left; rewrite subSn; [rewrite -(addn1 (n - 2%nat)) -(addn1 n) ltn_add2r| ].
+  move/negP/negP: H.
+  rewrite -leqNgt leq_eqVlt.
+  by move=>/orP[/eqP -> | ]; [left; rewrite subnn | rewrite ltn1; move=>/eqP ->; left].
+  by destruct IHn as [_ Heq0]; move/eqP:Heq0 -> ; left.
+Qed.  
 
 Lemma prob_chain_growth : forall sc,
    P[ world_step initWorld sc |> (fun w => ret chain_growth_pred_wrapper w) ] = R0.
@@ -641,6 +656,12 @@ Proof.
   move:    H_valid_range H_world_exec o_addr H_is_honest .
   destruct s as [s Hsvalid]; destruct r as [r Hrvalid] => //=.
   induction s ; rewrite leq_eqVlt => /orP; case => //=.
+  (* Our induction on s given (s - r - delta + 1 >= 0) has 4 cases
+     1. when s is 0, thus (r - delta + 1 == 0) (simple base case)
+     1. when s is 0, thus (r - delta + 1 < 0) (simple base case)
+     2. when s is s'.+1, and r - delta + 1 == s'.+1 (proven simply by the fact that messages are delivered in delta rounds)
+     3. when s is s'.+1 and r - delta + 1 < s'.+1   (the true inductive case) *)
+  (* simple base case - r - delta + 1 == 0*)
   rewrite subn_eq0;rewrite leq_eqVlt => /orP; case => //=.
   rewrite sub0n; rewrite no_bounded_successful_rounds_eq0.
   rewrite addn0.
@@ -654,6 +675,7 @@ Proof.
   exists (Ordinal Hrvalid).
   apply/andP;split => //=.
   by case (r == 0%nat)%bool eqn:H; [right |left; move/neq0_lt0n :H].
+  (* simple base case - r - delta + 1 < 0*)
   have Hltn_1_eqn0 a b : (a + b < 1)%nat -> (a == 0%nat) && (b == 0%nat). by induction a ; induction b => //=.
   move=>/Hltn_1_eqn0/andP;case => /eqP Hr0 /eqP Hd0.
   destruct r => //=.
@@ -667,6 +689,7 @@ Proof.
   by apply/andP;split .
   by rewrite Hd0; right.
 
+  (* Basic Induction case - r - delta + 1 == s'.+1*)
   move:Hsvalid =>Hs'valid.
   move:(Hs'valid) =>Hsvalid.
 
@@ -683,7 +706,6 @@ Proof.
   by exists addr; exists (Ordinal Hrvalid) ; apply /andP; split => //=.
   by rewrite Hrseq.
   by case r ; [right | left; rewrite subn1 prednK ].
-  Search _ "eq" nat.
   move/f_equal_pred: Hrseq.
   have: s.+1.-1 = s.
     by [].
@@ -692,7 +714,6 @@ Proof.
   rewrite -(subn1 (r + delta -1)).
   rewrite -subnAC.
   have H: (subn (subn (subn (r + delta) 1%nat) delta) 1)%nat = (subn r  2%nat).
-  Print right_commutative .
   rewrite (subnAC (r + delta)).
   have H a b:(subn (addn a b) b) = a.
     induction a => //=.
@@ -701,38 +722,11 @@ Proof.
     suff: subn (addn a  b).+1 b = (subn (addn a b) b).+1.
     move=> ->.
     by rewrite IHa.
+    by rewrite -addn1 -addnA (addnC b) addnA -!addnBA; [rewrite subnn !addn0 addn1| | ].
+    by rewrite -addnBA; [rewrite subnn addn0 -subnDA | ].
+  by rewrite H; exact (addr2n r).
 
-
-   rewrite -addn1.
-   rewrite -addnA.
-   rewrite addnC.
-
-  (* Current progress up to here. *)
-
-  rewrite subnDA.
-  rewrite  
-  induction r => //=.
-  destruct s; last first.
-  right.
-  move=> n.
-  right.
-  induction r => //=.
-  move/actor_has_chain_length_generalize:H_holds_chain.
-  apply:(actor_has_chain_length_ext (x::xs) w l o_addr (Ordinal Hs'valid) (Ordinal Hsvalid))  => //=.
-
-
-
-  move: (actor_has_chain_length_ext w (c + no_bounded_successful_rounds w r (s - delta)) o_addr s Hs'valid Hsvalid) .
-  apply (chain_growth_weak (x::xs) w (c) (Ordinal Hrvalid) H) => //=.
-  exists addr. exists (Ordinal Hrvalid) .
-  apply /andP.
-  split => //=.
-  by apply/eqP.
-  by case r; [right | move=> n; rewrite (subn1 n.+1) prednK //=; left].
-  (* first base case of proof completed *)
-  (* dispose of the *fake base case* *)
-  induction s => //=.
-
+  (* true inductive case *)
   (* As in the bitcoin backbone proof, we consider 2 cases - one when Xi' = 0, and one when not *)
   case Hbsuc: (bounded_successful_round w (s - delta));last first.
   move/negP/negP:Hbsuc=>Hbsuc.
@@ -742,10 +736,11 @@ Proof.
   rewrite {1}(addn1 s).
   move=> Hweaken.
   move/Hweaken:(Hsvalid)=> Hs'valid.
-  apply (actor_has_chain_length_ext w (c + no_bounded_successful_rounds w r (s - delta)) o_addr s Hs'valid Hsvalid) .
+
+  (* Current progress up to here. *)
+
+  apply (actor_has_chain_length_ext w (l + no_bounded_successful_rounds w r (s - delta)) o_addr s Hs'valid Hsvalid) .
   apply IHs => //=.
-
-
 
 
 Admitted.
