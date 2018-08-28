@@ -739,7 +739,6 @@ Proof.
   (* Basic Induction case - r - delta + 1 == s'.+1*)
   move:Hsvalid =>Hs'valid.
   move:(Hs'valid) =>Hsvalid.
-
   move=>/eqP Hrseq H_world_exec o_addr H_is_honest //=.
   move: IHs .
   rewrite -{ 2  }Hrseq.
@@ -774,13 +773,10 @@ Proof.
   by rewrite H; exact (addr2n r).
 
   (* true inductive case *)
-  (* As in the bitcoin backbone proof, we consider 2 cases - one when Xi' = 0, and one when not *)
   move: (Hsvalid)=>Hsvd.
   move: Hsvalid. rewrite -{1}(addn1 s); move=>/(addr_ltn s 1%nat N_rounds); move=> Hs'valid.
-  case Hbsuc: (bounded_successful_round w (s - delta));last first.
-  move/negP/negP:Hbsuc=>Hbsuc.
   move=> sltvalid.
-  (* if the delay is less than s, this means that r must be 0, and thus the proof is trivial *)
+  (* if the delay is greater than s, this means that r must be 0, and thus the proof is trivial *)
   case (delta <= s)%nat eqn:Hdlts; last first.
     (* note to self - add world exec check to actor has chain length ext *)
     move:(actor_has_chain_length_ext (x::xs) w (l + no_bounded_successful_rounds w r (s - delta)) ).
@@ -801,9 +797,10 @@ Proof.
     by exact Hhon.
     by right.
     
+  (* As in the bitcoin backbone proof, we consider 2 cases - one when Xi' = 0, and one when not *)
+  case Hbsuc: (bounded_successful_round w (s - delta));last first.
+  move/negP/negP:Hbsuc=>Hbsuc.
 
-  (* if the delay is greater than s, now we need prove the first case considered by the paper
-     when the X'i is false *)
   move=> Hwexec o_addr Hhon.
   rewrite subSn.
   rewrite -(no_bounded_successful_rounds_ext (x :: xs) w r (s - delta)) => //= .
@@ -813,6 +810,9 @@ Proof.
   apply: (IHs Hs'valid) => //=.
   by move/world_executed_to_weaken: Hwexec.
   by exact Hdlts.
+
+
+  rewrite subSn //=.
 
   (* now to prove the full inductive step *)
   (* if X'(s - delta) is true, *)
