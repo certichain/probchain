@@ -554,6 +554,53 @@ Proof.
   by destruct IHn as [_ Heq0]; move/eqP:Heq0 -> ; left.
 Qed.  
 
+Lemma ltnSn_eq a b : (a < b.+1)%nat -> (b < a.+1)%nat -> (a == b)%bool.
+Proof.
+  move: a.
+  induction b => //= a.
+  rewrite ltn1.
+  by move=>  /eqP -> .
+  have H (x y : nat) : (x > 0)%nat -> (x.-1 == y)%bool = (x == y.+1)%bool. by elim x  =>//=.
+  case (0 < a)%nat eqn: Hva.
+  rewrite -H //=.
+  move=> Haltb Hblta.
+  apply IHb.
+  rewrite -ltnS.
+  by rewrite prednK.
+  by rewrite prednK.
+
+  move/negP/negP: Hva.
+  rewrite -leqNgt.
+  rewrite leq_eqVlt.
+  rewrite (ltnS b.+1).
+  move=>/orP[/eqP ->|].
+  by rewrite ltn0.
+  by rewrite ltn0.
+Qed.
+
+
+
+Lemma ltn_leq_split a b c : (a + b - 1 < c.+1)%nat -> ~~ (b <= c)%nat -> ((b == c.+1)%bool  && (a == 0%nat)%bool).
+Proof.
+  rewrite -ltnNge.
+  case (b) => [|b'].
+  by rewrite ltn0.
+  rewrite subn1 addnS.
+  move=> Hab. move: (Hab).
+  have Hltnadn x : (x > 0)%nat -> x.+1.-1 = x.-1.+1. by elim x => //=.
+  move=> Habltn; move: Hab; rewrite prednK //=.
+  move=> Hab; move: (Hab); rewrite addnC.
+  move=> /addr_ltn Hbltc Hcltb.
+  move: (ltnSn_eq _ _ Hbltc Hcltb) => /eqP Hbeq; move: Hab.
+  rewrite Hbeq -(addn1 c) addnC ltn_add2l ltn1.
+  move=>/eqP ->; apply/andP.
+  by [].
+Qed.
+
+
+
+
+
 Lemma prob_chain_growth : forall sc,
    P[ world_step initWorld sc |> (fun w => ret chain_growth_pred_wrapper w) ] = R0.
 Proof.
@@ -728,19 +775,45 @@ Proof.
 
   (* true inductive case *)
   (* As in the bitcoin backbone proof, we consider 2 cases - one when Xi' = 0, and one when not *)
+  move: (Hsvalid)=>Hsvd.
+  move: Hsvalid. rewrite -{1}(addn1 s); move=>/(addr_ltn s 1%nat N_rounds); move=> Hs'valid.
   case Hbsuc: (bounded_successful_round w (s - delta));last first.
   move/negP/negP:Hbsuc=>Hbsuc.
+  move=> sltvalid.
+  (* if the delay is less than s, this means that r must be 0, and thus the proof is trivial *)
+  case (delta <= s)%nat eqn:Hdlts; last first.
+    (* note to self - add world exec check to actor has chain length ext *)
+    move:(actor_has_chain_length_ext (x::xs) w (l + no_bounded_successful_rounds w r (s - delta)) ).
+    move/negP/negP:Hdlts=>Hdlts.
+    move/andP: (@ltn_leq_split _ _ _ sltvalid Hdlts) => [/eqP Hds1 /eqP Hr0].
+    move: IHs .
+    rewrite Hr0 Hds1. rewrite subnn.
+    have: (s - s.+1)%nat = 0%nat. by elim s => //=.
+    move=>->.
+    rewrite no_bounded_successful_rounds_eq0. rewrite addn0.
+    move=> IHs.
+    move=> Hactor_has_chain_l HwrldExec o_addr' Hhon.
+    apply (Hactor_has_chain_l o_addr' (Ordinal Hs'valid)) => //=.
+    apply IHs.
+    rewrite add0n subn1.
+    by rewrite -pred_Sn.
+    by apply: (world_executed_to_weaken w s Hs'valid ).
+    by exact Hhon.
+    by right.
+    
+
+  (* if the delay is greater than s, now we need prove the first case considered by the paper
+     when the X'i is false *)
+  move=> Hwexec o_addr Hhon.
   rewrite subSn.
-  rewrite -(no_bounded_successful_rounds_ext (x :: xs) w r (s - delta)) => //= Hrsvalid Hwex o_addr H_is_honest.
-  move:(@addr_ltn s 1 N_rounds  ).
-  rewrite {1}(addn1 s).
-  move=> Hweaken.
-  move/Hweaken:(Hsvalid)=> Hs'valid.
+  rewrite -(no_bounded_successful_rounds_ext (x :: xs) w r (s - delta)) => //= .
+  apply:(actor_has_chain_length_ext (x::xs) w (l + no_bounded_successful_rounds w r (s - delta))  o_addr (Ordinal Hs'valid)  (Ordinal (n:=N_rounds) (m:=s.+1) Hsvd)) => //=.
 
-  (* Current progress up to here. *)
+  (* if X'i is false, then the induction hypothesis is enough to prove the statement*)
+  apply: (IHs Hs'valid) => //=.
+  by move/world_executed_to_weaken: Hwexec.
+  by exact Hdlts.
 
-  apply (actor_has_chain_length_ext w (l + no_bounded_successful_rounds w r (s - delta)) o_addr s Hs'valid Hsvalid) .
-  apply IHs => //=.
 
 
 Admitted.
