@@ -625,7 +625,30 @@ Admitted.
     then, at round s - delta,
       all honest parties have a chain length greater than (l + no_bounded_successful_rounds r (k - delta + 1))
  *)
-Lemma chain_growth_implicit_weaken sc w l (r : 'I_N_rounds) s : forall Hsvddelta Hsvd,
+Lemma chain_growth_implicit_weaken sc w l (r : 'I_N_rounds) s : forall Hsvalid Hsvddelta,
+    (* if the world is valid *) 
+  (P[ world_step initWorld sc === Some w] <> 0) ->
+    (* and round s was a bounded successful round*) 
+  bounded_successful_round w (s - delta) ->
+  (* and at round s,
+            every actor has a chain longer than l + sum_{s - delta} *) 
+  (forall o_addr : 'I_n_max_actors,
+  actor_n_is_honest w o_addr ->
+  actor_n_has_chain_length_ge_at_round w (l + no_bounded_successful_rounds w r (s - delta)) o_addr
+    (Ordinal (n:=N_rounds) (m:=s) Hsvalid)) ->
+  (*  this means that at round s - delta,
+            every actor must have had a chain longer than l + sum{s - 2 * delta + 1)*)
+  (forall o_addr : 'I_n_max_actors,
+  actor_n_is_honest w o_addr ->
+  actor_n_has_chain_length_ge_at_round w (l + no_bounded_successful_rounds w r (s - 2 * delta + 1)) o_addr
+    (Ordinal (n:=N_rounds) (m:=s - delta) Hsvddelta)).
+Proof.
+  (* TODO: Complete this proof *)
+Admitted.
+
+
+
+Lemma chain_growth_direct_weaken sc w l (r : 'I_N_rounds) s : forall Hsvddelta Hsvd,
     (* if the world is valid *) 
   (P[ world_step initWorld sc === Some w] <> 0) ->
     (* and round s was a bounded successful round*) 
@@ -937,11 +960,18 @@ Proof.
      (no_bounded_successful_rounds r (s - delta).+1 = no_bounded_successful_rounds r (s - 2 * delta + 1).+1 *)
   move=> Hwexec.
   rewrite (bounded_successful_exclusion (x::xs) w r s l Hpr_valid Hbsuc).
-  apply: (chain_growth_implicit_weaken (x::xs) w l (Ordinal Hrvalid) s).
+  apply: (chain_growth_direct_weaken (x::xs) w l (Ordinal Hrvalid) s).
   by rewrite subn_ltn_pr.
   by [].
   by [].
+  move=> Hdelta.
+  apply: (chain_growth_implicit_weaken (x::xs) w l (Ordinal Hrvalid) s Hs'valid Hdelta).
+  by [].
+  by [].
+  apply IHs.
+  by [].
 
+  by apply: (world_executed_to_weaken w s Hs'valid Hsvd).
   (*
     move:(actor_has_chain_length_ext (x::xs) w (l + no_bounded_successful_rounds w r (s - delta)) o_addr).
     and
