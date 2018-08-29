@@ -20,6 +20,124 @@ Set Implicit Arguments.
 
 Variable probability_constant : R.
 
+Lemma addr_ltn a b c:
+   (a + b < c)%nat -> (a < c)%nat.
+  Proof.
+    by move=>/(ltn_addr b); rewrite ltn_add2r.
+    Qed.
+
+
+Lemma ltn1 n : (n < 1)%nat = (n == 0%nat)%bool.
+Proof.
+  by elim n.
+Qed.
+
+Lemma addr2n r : (r - 2 < r)%nat \/ (r == (r - 2%nat)%nat)%bool /\ (r == 0%nat)%bool.
+Proof.
+  elim r=> //.
+  by right; rewrite sub0n.
+  move=> n [IHn|IHn].
+  case (n > 1)%nat eqn: H.
+  by left; rewrite subSn; [rewrite -(addn1 (n - 2%nat)) -(addn1 n) ltn_add2r| ].
+  move/negP/negP: H.
+  rewrite -leqNgt leq_eqVlt.
+  by move=>/orP[/eqP -> | ]; [left; rewrite subnn | rewrite ltn1; move=>/eqP ->; left].
+  by destruct IHn as [_ Heq0]; move/eqP:Heq0 -> ; left.
+Qed.  
+
+Lemma ltnSn_eq a b : (a < b.+1)%nat -> (b < a.+1)%nat -> (a == b)%bool.
+Proof.
+  move: a.
+  induction b => //= a.
+  rewrite ltn1.
+  by move=>  /eqP -> .
+  have H (x y : nat) : (x > 0)%nat -> (x.-1 == y)%bool = (x == y.+1)%bool. by elim x  =>//=.
+  case (0 < a)%nat eqn: Hva.
+  rewrite -H //=.
+  move=> Haltb Hblta.
+  apply IHb.
+  rewrite -ltnS.
+  by rewrite prednK.
+  by rewrite prednK.
+
+  move/negP/negP: Hva.
+  rewrite -leqNgt.
+  rewrite leq_eqVlt.
+  rewrite (ltnS b.+1).
+  move=>/orP[/eqP ->|].
+  by rewrite ltn0.
+  by rewrite ltn0.
+Qed.
+
+
+
+Lemma ltn_leq_split a b c : (a + b - 1 < c.+1)%nat -> ~~ (b <= c)%nat -> ((b == c.+1)%bool  && (a == 0%nat)%bool).
+Proof.
+  rewrite -ltnNge.
+  case (b) => [|b'].
+  by rewrite ltn0.
+  rewrite subn1 addnS.
+  move=> Hab. move: (Hab).
+  have Hltnadn x : (x > 0)%nat -> x.+1.-1 = x.-1.+1. by elim x => //=.
+  move=> Habltn; move: Hab; rewrite prednK //=.
+  move=> Hab; move: (Hab); rewrite addnC.
+  move=> /addr_ltn Hbltc Hcltb.
+  move: (ltnSn_eq _ _ Hbltc Hcltb) => /eqP Hbeq; move: Hab.
+  rewrite Hbeq -(addn1 c) addnC ltn_add2l ltn1.
+  move=>/eqP ->; apply/andP.
+  by [].
+Qed.
+
+
+Lemma ltn_SnnP a b : (a.+1 < b.+1)%nat <-> (a < b)%nat.
+Proof.
+  split.
+  by elim: a => //=.
+  by elim: a => //=.
+Qed.
+
+
+
+Lemma subn_ltn_pr a b c : (a < c)%nat -> (a - b < c)%nat.
+Proof.
+  move: a b.
+  elim: c => //= c .
+  move=> IHn a b.
+  case H: (a < c)%nat.
+    move=> _.
+    rewrite -(addn1 c).
+    apply ltn_addr.
+    by apply IHn.
+
+
+  move/negP/negP: H .
+  rewrite -leqNgt .
+  rewrite -ltnS.
+  move=> /ltnSn_eq H /(H) /eqP Heqa.
+  induction a => //=.
+  induction b => //=.
+  by rewrite -Heqa subn0.
+  rewrite subSS.
+  rewrite -(addn1 c).
+  apply ltn_addr.
+  apply IHn.
+  by rewrite Heqa.
+Qed.
+
+
+(* Subtracts a value from an ordinal value returning another value in the ordinal range *)
+Definition ordinal_sub {max : nat} (value : 'I_max) (suband : nat) : 'I_max :=
+  ssr_have (value - suband < max)%nat
+  match value as o return (o - suband < max)%nat with
+  | @Ordinal _ m i =>
+      (Hpft <- is_true_true;
+       (fun Hpf : (Ordinal (n:=max) (m:=m) i < max)%nat =>
+        eq_ind_r [eta is_true] Hpft (subn_ltn_pr (Ordinal (n:=max) (m:=m) i) suband max Hpf))) i
+  end [eta Ordinal (n:=max) (m:=value - suband)]
+.
+
+
+
 Lemma Rle_big_eqP (A : finType) (f g : A -> R) (P : pred A) :
    (forall i : A, P i -> f i <= g i) ->
    \rsum_(i | P i) g i = \rsum_(i | P i) f i <->
@@ -459,12 +577,6 @@ Proof.
   (* TODO(Kiran): Complete this proof *)
 Admitted.
 
-Lemma addr_ltn a b c:
-   (a + b < c)%nat -> (a < c)%nat.
-  Proof.
-    by move=>/(ltn_addr b); rewrite ltn_add2r.
-    Qed.
-
 
 
 
@@ -504,6 +616,33 @@ Proof.
 
 Admitted.
 
+
+
+
+(* the following is a lemma that is implicitly used in the chain growth proof.
+    if at round s,
+      all honest parties have a chain length greater than (l + no_bounded_successful_rounds r k),
+    then, at round s - delta,
+      all honest parties have a chain length greater than (l + no_bounded_successful_rounds r (k - delta))
+ *)
+Lemma chain_growth_implicit_weaken sc w l (r : 'I_N_rounds) (s : 'I_N_rounds) k d :
+  (P[ world_step initWorld sc === Some w] <> 0) ->
+      (forall o_addr : 'I_n_max_actors,
+        actor_n_is_honest w o_addr ->
+        actor_n_has_chain_length_ge_at_round w (l + no_bounded_successful_rounds w r k) o_addr s) ->
+      (forall o_addr : 'I_n_max_actors,
+          actor_n_is_honest w o_addr ->
+          actor_n_has_chain_length_ge_at_round w (l + no_bounded_successful_rounds w r (k - d)) o_addr (ordinal_sub s d)).
+Proof.
+  (* TODO: Complete this proof *)
+Admitted.
+
+(*
+  if round s - delta is bounded successful,
+ *)
+Lemma bounded_successful_exclusion :
+
+
 Lemma prob_chain_ext : forall xs x, 
  (forall w, P[ (world_step initWorld xs) === (Some w) ] = 0) -> (forall w, P[ world_step initWorld (x::xs) === Some w ] = 0).
   Proof.
@@ -535,68 +674,6 @@ Qed.
     rewrite negb_forall=>/existsP [w /eqP Hw].
     by move: (H w) => /Rmult_integral [Hf0 | Hg0]; [move: (Hw Hf0) => [] | apply /exists_eqP; exists w].
   Qed.
-
-Lemma ltn1 n : (n < 1)%nat = (n == 0%nat)%bool.
-Proof.
-  by elim n.
-Qed.
-
-Lemma addr2n r : (r - 2 < r)%nat \/ (r == (r - 2%nat)%nat)%bool /\ (r == 0%nat)%bool.
-Proof.
-  elim r=> //.
-  by right; rewrite sub0n.
-  move=> n [IHn|IHn].
-  case (n > 1)%nat eqn: H.
-  by left; rewrite subSn; [rewrite -(addn1 (n - 2%nat)) -(addn1 n) ltn_add2r| ].
-  move/negP/negP: H.
-  rewrite -leqNgt leq_eqVlt.
-  by move=>/orP[/eqP -> | ]; [left; rewrite subnn | rewrite ltn1; move=>/eqP ->; left].
-  by destruct IHn as [_ Heq0]; move/eqP:Heq0 -> ; left.
-Qed.  
-
-Lemma ltnSn_eq a b : (a < b.+1)%nat -> (b < a.+1)%nat -> (a == b)%bool.
-Proof.
-  move: a.
-  induction b => //= a.
-  rewrite ltn1.
-  by move=>  /eqP -> .
-  have H (x y : nat) : (x > 0)%nat -> (x.-1 == y)%bool = (x == y.+1)%bool. by elim x  =>//=.
-  case (0 < a)%nat eqn: Hva.
-  rewrite -H //=.
-  move=> Haltb Hblta.
-  apply IHb.
-  rewrite -ltnS.
-  by rewrite prednK.
-  by rewrite prednK.
-
-  move/negP/negP: Hva.
-  rewrite -leqNgt.
-  rewrite leq_eqVlt.
-  rewrite (ltnS b.+1).
-  move=>/orP[/eqP ->|].
-  by rewrite ltn0.
-  by rewrite ltn0.
-Qed.
-
-
-
-Lemma ltn_leq_split a b c : (a + b - 1 < c.+1)%nat -> ~~ (b <= c)%nat -> ((b == c.+1)%bool  && (a == 0%nat)%bool).
-Proof.
-  rewrite -ltnNge.
-  case (b) => [|b'].
-  by rewrite ltn0.
-  rewrite subn1 addnS.
-  move=> Hab. move: (Hab).
-  have Hltnadn x : (x > 0)%nat -> x.+1.-1 = x.-1.+1. by elim x => //=.
-  move=> Habltn; move: Hab; rewrite prednK //=.
-  move=> Hab; move: (Hab); rewrite addnC.
-  move=> /addr_ltn Hbltc Hcltb.
-  move: (ltnSn_eq _ _ Hbltc Hcltb) => /eqP Hbeq; move: Hab.
-  rewrite Hbeq -(addn1 c) addnC ltn_add2l ltn1.
-  move=>/eqP ->; apply/andP.
-  by [].
-Qed.
-
 
 
 
@@ -816,13 +893,31 @@ Proof.
 
   (* Note: Stopped here - need to strengthen some arguments maybe? *)
   (* (bounded_successful_round w (s - delta) ->
-     (no_bounded_successful_rounds r (s - delta) = no_bounded_successful_rounds r (s - 2 * delta + 1) *)
-
-  (* we have,
+     no_bounded_successful_rounds r (s - delta) = no_bounded_successful_rounds r (s - 2 * delta + 1) *)
+  
+  (* we have, by IH
       at round s,
       forall n,
-             actor_n_has_chain_length_ge_at_round w (l + no_bounded_successful_rounds r (s - 2 * delta + 1))
+             actor_n_has_chain_length_ge_at_round w (l + no_bounded_successful_rounds r (s - delta))
    *)
+
+  (* (bounded_successful_round w (s - delta) ->
+      (at round s,
+      forall n,
+             actor_n_has_chain_length_ge_at_round w (l + no_bounded_successful_rounds r (s - delta))) ->
+      (at round s - delta,
+      forall n,
+             actor_n_has_chain_length_ge_at_round w (l + no_bounded_successful_rounds r (s - 2 * delta + 1))) ->
+
+   *)
+
+
+
+  (* (bounded_successful_round w (s - delta) ->
+     (no_bounded_successful_rounds r (s - delta).+1 = no_bounded_successful_rounds r (s - 2 * delta + 1).+1 *)
+  move=> Hwexec o_addr Hhon.
+
+  move:(actor_has_chain_length_ext (x::xs) w (l + no_bounded_successful_rounds w r (s - delta)) o_addr).
   (*
     and
 

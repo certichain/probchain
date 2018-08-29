@@ -1136,13 +1136,13 @@ Definition uniquely_successful_round (w : World) (r : nat) :=
 
 Definition bounded_successful_round (w : World) (r : nat) :=
   (* (forallb (r' : nat), (r' < r) && (r' >= r - delta) -> unsuccessful_round w r') &&   *)
-  (all (fun r' => unsuccessful_round w r') (itoj (r - delta) (r - 1))) &&  
+  (all (fun r' => unsuccessful_round w r') (itoj (r - delta + 1) (r))) &&  
     successful_round w r.
 
 
 Definition bounded_uniquely_successful_round (w : World) (r : nat) :=
   (* (forall (r' : nat), ((r' <= r + delta) && (r' >= r - delta) && (r' != r)) -> unsuccessful_round w r') /\ *)
-  (all (fun r' => (unsuccessful_round w r') || (r' == r)) (itoj (r - delta) (r + delta))) &&
+  (all (fun r' => (unsuccessful_round w r') || (r' == r)) (itoj (r - delta + 1) (r + delta))) &&
     (uniquely_successful_round w r).
 
 
