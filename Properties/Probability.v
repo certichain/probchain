@@ -623,16 +623,27 @@ Admitted.
     if at round s,
       all honest parties have a chain length greater than (l + no_bounded_successful_rounds r k),
     then, at round s - delta,
-      all honest parties have a chain length greater than (l + no_bounded_successful_rounds r (k - delta))
+      all honest parties have a chain length greater than (l + no_bounded_successful_rounds r (k - delta + 1))
  *)
-Lemma chain_growth_implicit_weaken sc w l (r : 'I_N_rounds) (s : 'I_N_rounds) k d :
+Lemma chain_growth_implicit_weaken sc w l (r : 'I_N_rounds) s : forall Hsvddelta Hsvd,
+    (* if the world is valid *) 
   (P[ world_step initWorld sc === Some w] <> 0) ->
-      (forall o_addr : 'I_n_max_actors,
-        actor_n_is_honest w o_addr ->
-        actor_n_has_chain_length_ge_at_round w (l + no_bounded_successful_rounds w r k) o_addr s) ->
-      (forall o_addr : 'I_n_max_actors,
-          actor_n_is_honest w o_addr ->
-          actor_n_has_chain_length_ge_at_round w (l + no_bounded_successful_rounds w r (k - d)) o_addr (ordinal_sub s d)).
+    (* and round s was a bounded successful round*) 
+  bounded_successful_round w (s - delta) ->
+  (* and at round s - delta,
+            every part actor has a chain longer than l + sum_{r .. s - 2 * delta + 1} *) 
+  (forall o_addr : 'I_n_max_actors,
+  actor_n_is_honest w o_addr ->
+  actor_n_has_chain_length_ge_at_round w (l + no_bounded_successful_rounds w r (s - 2 * delta + 1)) o_addr
+    (Ordinal (n:=N_rounds) (m:=s - delta) Hsvddelta)) ->
+
+  (*  then by round s.+1, every actor has a chain longer than l + sum_{r + s - 2 * delta + 1} + 1
+      (as the only Xi in the range r to s - delta + 1, is the event at s - delta, thus plus 1
+   *)
+  (forall o_addr : 'I_n_max_actors,
+  actor_n_is_honest w o_addr ->
+  actor_n_has_chain_length_ge_at_round w (l + no_bounded_successful_rounds w r (s - 2 * delta + 1) + 1) o_addr
+    (Ordinal (n:=N_rounds) (m:=s.+1) Hsvd)).
 Proof.
   (* TODO: Complete this proof *)
 Admitted.
@@ -641,13 +652,13 @@ Admitted.
   if round s - delta is bounded successful, then ~~ Xi for i in (s - 2 * delta,....s - delta - 1),
   thus 
       no_bounded_successful_rounds w r (s - delta) =
-      no_bounded_successful_rounds w r (s - 2 * delta + 1).
+      no_bounded_successful_rounds w r (s - 2 * delta + 1) + 1.
  *)
-Lemma bounded_successful_exclusion sc w r s :
+Lemma bounded_successful_exclusion sc w r s (l: nat) :
   P[ world_step initWorld sc === Some w] <> 0 ->
   bounded_successful_round w (s - delta) ->
-                no_bounded_successful_rounds w r (s - delta) =
-                no_bounded_successful_rounds w r (s - 2 * delta + 1).
+                (l + no_bounded_successful_rounds w r (s - delta).+1)%nat =
+                (l + no_bounded_successful_rounds w r (s - 2 * delta + 1) + 1)%nat.
 Proof.
 
   (* TODO(Kiran): Complete this proof *)
@@ -725,8 +736,7 @@ Proof.
     apply/eqP.
     move=> assum.
     by injection assum => /H//=.
-  by rewrite /Dist1.f Hzr //= mul0R  .
-  (* if the world being tested is the initial world... *)
+  by rewrite /Dist1.f Hzr //= mul0R  . (* if the world being tested is the initial world... *)
   move/eqP: H => ->.
   rewrite /Dist1.f// .
   have H: (Some initWorld == Some initWorld)%bool.
@@ -925,10 +935,15 @@ Proof.
 
   (* (bounded_successful_round w (s - delta) ->
      (no_bounded_successful_rounds r (s - delta).+1 = no_bounded_successful_rounds r (s - 2 * delta + 1).+1 *)
-  move=> Hwexec o_addr Hhon.
+  move=> Hwexec.
+  rewrite (bounded_successful_exclusion (x::xs) w r s l Hpr_valid Hbsuc).
+  apply: (chain_growth_implicit_weaken (x::xs) w l (Ordinal Hrvalid) s).
+  by rewrite subn_ltn_pr.
+  by [].
+  by [].
 
-  move:(actor_has_chain_length_ext (x::xs) w (l + no_bounded_successful_rounds w r (s - delta)) o_addr).
   (*
+    move:(actor_has_chain_length_ext (x::xs) w (l + no_bounded_successful_rounds w r (s - delta)) o_addr).
     and
 
      s' < s ->
@@ -1433,7 +1448,7 @@ Definition unwrap_computation (schedule:seq.seq RndGen) : dist [finType of World
 (* Given a world w, produced by a schedule s, asserts that typical_execution holds *)
 Definition typical_execution (w : World) (schedule : seq.seq RndGen) (from to : nat) :=
     (* (R1 - eps) * E[ X'(S) ] < X'(S)*)
-    (R1 - Epsilon_concentration_of_blocks) * (expected_no_bounded_successful_rounds schedule from to) < INR (nat_of_ord (no_bounded_successful_rounds w from to)) /\
+    (R1 - Epsilon_concentration_of_blocks) * (expected_no_bounded_successful_rounds schedule from to) < INR (nat_of_ord (No_bounded_successful_rounds w from to)) /\
     (* X(S) < (1 + eps)E[ X(S) ],*)
     INR (nat_of_ord (no_successful_rounds w from to)) < (R1 + Epsilon_concentration_of_blocks) * (expected_no_successful_rounds schedule from to) /\
     (* (1 - eps) * E[ Y'(S) ] < Y'(S) *)
