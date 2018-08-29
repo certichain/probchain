@@ -638,10 +638,20 @@ Proof.
 Admitted.
 
 (*
-  if round s - delta is bounded successful,
+  if round s - delta is bounded successful, then ~~ Xi for i in (s - 2 * delta,....s - delta - 1),
+  thus 
+      no_bounded_successful_rounds w r (s - delta) =
+      no_bounded_successful_rounds w r (s - 2 * delta + 1).
  *)
-Lemma bounded_successful_exclusion :
+Lemma bounded_successful_exclusion sc w r s :
+  P[ world_step initWorld sc === Some w] <> 0 ->
+  bounded_successful_round w (s - delta) ->
+                no_bounded_successful_rounds w r (s - delta) =
+                no_bounded_successful_rounds w r (s - 2 * delta + 1).
+Proof.
 
+  (* TODO(Kiran): Complete this proof *)
+Admitted.
 
 Lemma prob_chain_ext : forall xs x, 
  (forall w, P[ (world_step initWorld xs) === (Some w) ] = 0) -> (forall w, P[ world_step initWorld (x::xs) === Some w ] = 0).
