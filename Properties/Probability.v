@@ -303,6 +303,37 @@ Proof.
   by rewrite addR0 addRC; move=>/eqP; rewrite eq_sym -subR_eq; move=>/eqP.
 Qed.
 
+Lemma gtRP (a b : R) : reflect (a > b) (a >b b).
+Proof. by rewrite /gtRb /ltRb; apply: (iffP idP); [case Hrlta: (Rlt_dec b a) | case (Rlt_dec b a) ]. Qed.
+
+Lemma prsum_nge0p {A: finType}  f : 
+  (forall a : A, 0 <= f a) -> (forall a : A, ~ (f a  > 0)) -> (forall a, f a = 0).
+Proof.
+  move=> Hdist Hngt a; move/Rnot_gt_le: (Hngt a) (Hdist a).
+  by move=>/Rle_antisym H /H.
+Qed.
+
+
+Lemma prsumr_ge0 (A : finType) f : (forall a : A, (0 <= f a)%R) -> \rsum_(a in A) f a <> 0 <-> (exists a,  f a >b 0)%R.
+Proof.
+  have HforalleqP : (forall x, f x = 0) -> (forall x, (fun _ => true) x -> f x = 0). by [].
+  have HforallgtP : (forall x, 0 <= f x) -> (forall x, (fun _ => true) x -> 0 <= f x). by [].
+  move=> Hgt0.
+  split.
+  move=>/eqP/negP Rsumr0.
+  case Heq0: (~~ [exists a, f a >b 0]).
+  move/negP/negP:Heq0 => Heq0.
+  rewrite negb_exists in Heq0.
+  have Hforalleq: (forall x, ~~ (f x >b 0)) -> (forall x, ~ (f x > 0)).
+    by move=> Hb x; move/negP: (Hb x) => Hbool; move=>/gtRP .
+  move/forallP/Hforalleq: Heq0.
+  move=>/(prsum_nge0p _ Hgt0)/HforalleqP; move/HforallgtP: Hgt0.
+  by move=>/(@prsumr_eq0P  _ _  _ ) H /H /eqP.
+  by move/negP/negP/existsP:Heq0.
+  move/HforallgtP: Hgt0 => Hgt0.
+  move=>[a /gtRP Ha] /(@prsumr_eq0P _ _ _ Hgt0) Heq0.
+  by move: (Heq0 a isT) Ha => -> /Rgt_irrefl .
+Qed.
 
 Lemma prob_compl' (f : option World -> bool) : forall sc,
    P[ world_step initWorld sc |> (fun x => ret f x )] = 0 ->
@@ -569,6 +600,16 @@ Proof.
 Qed.
 
 
+Lemma  Rmult_integralP   r1 r2 :  (r1 * r2)%R <> 0%R -> r1 <> 0%R /\ r2 <> 0%R .
+Proof.
+  case Hr1eq0: (eq_op r1 0).
+    by move/eqP: Hr1eq0 => ->; rewrite (Rmult_0_l r2) .
+  case Hr2eq0: (eq_op r2 0).
+    by move/eqP: Hr2eq0 => ->; rewrite (Rmult_0_r r1) .
+  by move/eqP: Hr1eq0 => Hr1neq; move/eqP: Hr2eq0 => Hr2neq.
+Qed.
+
+
 
 Lemma world_executed_to_weaken sc w s Hs'valid Hsvalid:
   (P[ world_step initWorld sc === Some w] <> 0) ->
@@ -576,9 +617,44 @@ Lemma world_executed_to_weaken sc w s Hs'valid Hsvalid:
   world_executed_to_round w (Ordinal (n:=N_rounds) (m:=s) Hs'valid).
 Proof.
   (* TODO(Kiran): Complete this proof *)
+  move: w s Hs'valid Hsvalid.
+  elim sc => // [w s Hspf Hsspf|x xs IHn w s Hspf Hsspf].
+  (* base case *)
+    rewrite /world_step //= /Dist1.f.
+    case Hinworld: (Some w == Some initWorld)%bool => //=.
+    move/eqP: Hinworld => Hinworld; injection Hinworld => ->  _.
+    rewrite /world_executed_to_round !has_count //= /initWorldAdoptionHistory.
+    by elim (n_max_actors * N_rounds)%nat => //=.
+  (* inductive case *)
 
-Admitted.
+    move=>/prsumr_ge0 .
+    case (evalDist _); ecase (evalDist _).
+    move=> [f Hf].
 
+    rewrite  -/evalDist .
+
+    case x; rewrite  /evalDist /DistBind.d /DistBind.f //= .
+    move=> p.
+    case (
+    move=>/eqP.
+    move=>H.
+    move=>/prsumr_ge0.
+    move=>/Rmult_integralP.
+    move=> H.
+    apply Rmult_integralP in H.
+    Search _ (_ != 0)%R.
+    About Rmult_integral_contrapositive.
+    rewrite IHn.
+    Search _ R "P".
+    
+    About Rmult_integral.
+    move=> /
+    Search _ "rsum".
+ 
+
+  Search _ fixlist_empty.
+
+Admitted. 
 
 
 
