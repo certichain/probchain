@@ -497,7 +497,6 @@ Proof.
   rewrite valid_N_rounds => //=.
  apply: functional_extensionality=> G.
   by rewrite (proof_irrelevance _ valid_N_rounds G).
-  (* TODO(Kiran): rewrite the underlying definition to not use dependant typing *)
   destruct H as [Heqrs Heq0].
   move/eqP: Heqrs=> <-.
   move/eqP: Heq0=> -> //=.
@@ -515,7 +514,6 @@ Lemma no_bounded_successful_rounds_ext sc w r s :
 Proof.
   (* TODO(Kiran): Complete this proof *)
 Admitted.
-About Ordinal.
 
 Lemma actor_has_chain_length_generalize  w l o_addr s :
   actor_n_has_chain_length_at_round w l o_addr s ->
@@ -570,11 +568,13 @@ Qed.
 
 
 
-Lemma world_executed_to_weaken w s Hs'valid Hsvalid:
+Lemma world_executed_to_weaken sc w s Hs'valid Hsvalid:
+  (P[ world_step initWorld sc === Some w] <> 0) ->
   world_executed_to_round w (Ordinal (n:=N_rounds) (m:=s.+1) Hsvalid) ->
   world_executed_to_round w (Ordinal (n:=N_rounds) (m:=s) Hs'valid).
 Proof.
   (* TODO(Kiran): Complete this proof *)
+
 Admitted.
 
 
@@ -913,7 +913,7 @@ Proof.
     apply IHs.
     rewrite add0n subn1.
     by rewrite -pred_Sn.
-    by apply: (world_executed_to_weaken w s Hs'valid ).
+    by apply: (world_executed_to_weaken (x::xs) w s Hs'valid ).
     by exact Hhon.
     by right.
     
@@ -928,7 +928,8 @@ Proof.
 
   (* if X'i is false, then the induction hypothesis is enough to prove the statement*)
   apply: (IHs Hs'valid) => //=.
-  by move/world_executed_to_weaken: Hwexec.
+  move/(world_executed_to_weaken (x::xs) w s Hs'valid) : Hwexec.
+  by move=> H'; move/H':Hpr_valid.
   by exact Hdlts.
 
 
@@ -971,7 +972,7 @@ Proof.
   apply IHs.
   by [].
 
-  by apply: (world_executed_to_weaken w s Hs'valid Hsvd).
+  by apply: (world_executed_to_weaken (x::xs) w s Hs'valid Hsvd).
   (*
     move:(actor_has_chain_length_ext (x::xs) w (l + no_bounded_successful_rounds w r (s - delta)) o_addr).
     and
@@ -1004,7 +1005,7 @@ Proof.
   (* qed *)
 
 
-Admitted.
+Qed.
 
 
 
