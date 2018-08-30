@@ -519,12 +519,14 @@ Lemma actor_has_chain_length_generalize  w l o_addr s :
   actor_n_has_chain_length_at_round w l o_addr s ->
   actor_n_has_chain_length_ge_at_round w l o_addr s.
 Proof.
+  have blt0 (x:bool) : (x > 0)%nat = x. by case x.
   rewrite /actor_n_has_chain_length_ge_at_round/actor_n_has_chain_length_at_round !has_count.
-  induction (fixlist_unwrap _) => //=.
-  rewrite !add_lt0; move=>/orP; case => //=.
-  move=>/andP; case.
-  (* TODO(Kiran): Complete this proof *)
-Admitted.
+  elim (fixlist_unwrap _) => //= [[[c r] addr] xs] IHn.
+  rewrite add_lt0; move=>/orP; case => //=.
+  by rewrite blt0; move=>/andP; case; [move=>/andP [/eqP -> /andP [/eqP -> /eqP ->]]] => _; rewrite !leqnn eq_refl.
+  move=>/IHn Hbase.
+  by rewrite add_lt0; apply/orP; right.
+Qed.  
 
 
 (* if an actor has a chain of length at least l at round l,
