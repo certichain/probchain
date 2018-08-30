@@ -626,33 +626,30 @@ Proof.
     rewrite /world_executed_to_round !has_count //= /initWorldAdoptionHistory.
     by elim (n_max_actors * N_rounds)%nat => //=.
   (* inductive case *)
-
-    move=>/prsumr_ge0 .
-    case (evalDist _); ecase (evalDist _).
-    move=> [f Hf].
-
-    rewrite  -/evalDist .
-
-    case x; rewrite  /evalDist /DistBind.d /DistBind.f //= .
-    move=> p.
-    case (
-    move=>/eqP.
-    move=>H.
-    move=>/prsumr_ge0.
-    move=>/Rmult_integralP.
-    move=> H.
-    apply Rmult_integralP in H.
-    Search _ (_ != 0)%R.
-    About Rmult_integral_contrapositive.
-    rewrite IHn.
-    Search _ R "P".
-    
-    About Rmult_integral.
-    move=> /
-    Search _ "rsum".
- 
-
-  Search _ fixlist_empty.
+    (* if the probability of getting the world is not zero, there the immediately prior world must
+       also satisfy the property *)
+    move=>/prsumr_ge0 Hexist.
+    case: Hexist => o_w.
+      by apply Rmult_le_pos; case (evalDist _); move=> [pos_f Hdist].
+    move=>/gtRP/Rgt_lt/Rlt_0_Rmult_inv Hexist.
+    case: Hexist.
+      by case (evalDist _); move=> [pos_f Hdist] .
+      by case (evalDist _); move=> [pos_f Hdist] .
+    destruct o_w  as [w'|]; last first .
+      (* It is an absurdity for the immediately prior world to be none*)
+      by rewrite /Dist1.f//= => _ /ltR0n.
+    rewrite -/evalDist -/world_step.
+    move=> /Rlt_not_eq/nesym/IHn Hw'.
+    case x => //=.
+    move=> [tx addr].
+    case (_ < _)%nat => //=; last first.
+    by rewrite /Dist1.f//= => /ltR0n.
+    destruct (tnth _ addr) as [lcl corrupt] eqn: H; case corrupt => //=.
+    by rewrite /Dist1.f//= => /ltR0n.
+    case: (Transaction_valid _); rewrite /evalDist//= /Dist1.f ltR0n lt0b =>/eqP Hww'link.
+    move: Hw'.
+    injection Hww'link => -> .
+    rewrite /world_executed_to_round.
 
 Admitted. 
 
