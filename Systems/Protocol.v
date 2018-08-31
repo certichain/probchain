@@ -512,9 +512,12 @@ Qed.
 (* Implements the round robin - each actor activated once a round mechanism 
    Once the last actor, and then the adversary has activated, the function does
    not do anything else *)
-Definition update_round (state : GlobalState) : GlobalState. 
+About ssr_suff.
+Locate "[ eta _ ]".
+
+Definition update_round (state : GlobalState) : GlobalState :=
   (* 
-    the following proof should be equivalent to this
+    the following should be equivalent to this
     definition below:
 
     (most of the work comes from proving that, 
@@ -528,18 +531,29 @@ Definition update_round (state : GlobalState) : GlobalState.
   if ((nat_of_ord active) == (fixlist_length actors).+1) 
   then state
   else mkGlobalState actors adversary active.+1 round. *)
-  case state => actors adversary active round.
-  case ((nat_of_ord active) == (n_max_actors).+1)  eqn:H.
-    exact state.
 
-  move: H =>  /eqP   /eqP H.
-  suff H' : active.+1 < n_max_actors + 2.
-  exact (mkGlobalState actors adversary (Ordinal H') round).
-  (* Start having to prove stuff here - is there an easier way to do this?*)
-  by apply round_in_range.
-Defined.
+match state with
+| {| global_local_states := actors; global_adversary := adversary; global_currently_active :=
+  active; global_current_round := round |} =>
+    let b := nat_of_ord active == n_max_actors.+1 in
+    let H : (nat_of_ord active == n_max_actors.+1) = b := erefl b in
+    (if b as b0 return ((nat_of_ord active == n_max_actors.+1) = b0 -> GlobalState)
+     then fun prf : (nat_of_ord active == n_max_actors.+1) = true => state
+     else fun prf : (nat_of_ord active == n_max_actors.+1) = false =>
+           (fun H1 : nat_of_ord active != n_max_actors.+1 =>
+            ssr_suff (active.+1 < n_max_actors + 2)
+              (fun H' : active.+1 < n_max_actors + 2 =>
+                {|
+                    global_local_states := actors;
+                    global_adversary := adversary;
+                    global_currently_active := Ordinal (n:=n_max_actors + 2) (m:=active.+1) H';
+                    global_current_round := round
+                |}
+              ) (round_in_range active H1)
+           ) (introN eqP (elimTF eqP prf))) H
+end .
 
-
+Print update_round.
 
 Definition next_round  (state : GlobalState) : GlobalState .
   (* 
