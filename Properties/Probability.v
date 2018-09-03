@@ -621,7 +621,7 @@ Proof.
 Qed.
 
 
-
+Require Import Coq.Program.Equality.
 Lemma world_executed_to_weaken sc w s Hs'valid Hsvalid:
   (P[ world_step initWorld sc === Some w] <> 0) ->
   world_executed_to_round w (Ordinal (n:=N_rounds) (m:=s.+1) Hsvalid) ->
@@ -770,13 +770,67 @@ Proof.
       move: (Hw' s Hspf Hsspf).
       rewrite /world_executed_to_round//=.
       case: (result < _)%nat; case: (global_currently_active _).
-      move=> tm Htmvld.
+      move=> tm Htmvld //=.
+      destruct (world_adoption_history w') as [w_hist Hw_hist] => //=.
+
+      rewrite /fixlist_unwrap //=.
+      rewrite /fixlist_unwrap //=.
+      rewrite !has_count //=.
+      induction w_hist => //= [_ |].
+      move: (Hw_hist) =>//=.
+      move: (Hw_hist) =>//=.
+      rewrite -{1}(muln0 n_max_actors).
+      rewrite {1}(eqn_mul2l n_max_actors 0%nat N_rounds) => /orP [/eqP Hn0|/eqP Hn0].
+      by move: valid_n_max_actors; rewrite {1}Hn0 => Hwrong; inversion Hwrong.
+      by move: valid_N_rounds; rewrite -{1}Hn0 => Hwrong; inversion Hwrong.
+
+      Search _ (eq_op (?x * _)%nat (?x * _)%nat).
+
+      rewrite .
+      Print mul0n.
+      Search "N_rounds".
+
+      induction fixlist_unwrap => //=.
+      move=> H.
+      case (has _) eqn:Hbase => [ _ |].
+      destruct (Tuple _).
+      destruct addr as [addr Haddr].
+      induction addr => //=.
+      
+      rewrite /world_adoption_history //=.
+      elim: (world_adoption_history) => //=.
+      set (state := {| global_local_states := _ |}).
+      set (is_edge_case := (eq_op (nat_of_ord (Ordinal (n:=n_max_actors + 2) (m:=tm) Htmvld)) n_max_actors.+1)).
+      move=> //=.
+      case is_edge_case.
+      dependent destruction is_edge_case .
+      reflexivity.
+      set (is_edge_case := (eq_op (nat_of_ord (Ordinal (n:=n_max_actors + 2) (m:=tm) Htmvld)) n_max_actors.+1)).
+
+      suff Hfeq: (if is_edge_case as b0 return (is_edge_case = b0 -> GlobalState) then _ else _) = (if is_edge_case return (is_edge_case = false -> GlobalState) then _ else _).
+
+      erewrite Hfeq.
+
+      suff Hfeq: (fun _ : is_edge_case = true => state) = (fun _ : is_edge_case = false => state).
+      suff Hfeq : (fun _ : (eq_op (nat_of_ord (Ordinal (n:=n_max_actors + 2) (m:=tm) Htmvld)) (n_max_actors.+1)) = true => state) (fun _ : (eq_op (nat_of_ord(Ordinal (n:=n_max_actors + 2) (m:=tm) Htmvld)) (n_max_actors.+1)) = false => state).
+ 
+
+
+  suff Hgeq: [eta Ordinal (n:=N_rounds) (m:=0)] = (fun x => Ordinal (n:=N_rounds) (m:=0) valid_N_rounds).
+  rewrite Hgeq.
+  rewrite valid_N_rounds => //=.
+ apply: functional_extensionality=> G.
+  by rewrite (proof_irrelevance _ valid_N_rounds G).
+
+
+      by [].
+      dependent destruction is_edge_case.
+      dependent induction is_edge_case.
       (* stopped here - so close to finishing this case *)
       (*
-      case: (eq_op tm (n_max_actors.+1)).
-      case: (eq_op (nat_of_ord (Ordinal (n:=n_max_actors + 2) (m:=tm) Htmvld)) n_max_actors.+1).
 
 
+      case (eq_op tm (n_max_actors.+1)).
       destruct w' => //=.
       rewrite /world_adoption_history//=.
 
@@ -1202,7 +1256,6 @@ Proof.
 
   rewrite subSn //=.
 
-  (* Note: Stopped here - need to strengthen some arguments maybe? *)
   (* (bounded_successful_round w (s - delta) ->
      no_bounded_successful_rounds r (s - delta) = no_bounded_successful_rounds r (s - 2 * delta + 1) *)
   
@@ -1240,14 +1293,6 @@ Proof.
   by [].
 
   by apply: (world_executed_to_weaken (x::xs) w s Hs'valid Hsvd).
-  (*
-    move:(actor_has_chain_length_ext (x::xs) w (l + no_bounded_successful_rounds w r (s - delta)) o_addr).
-    and
-
-     s' < s ->
-     at round s, forall n, actor_n_has_chain_length_ge (l + no_bounded_successful_rounds r (s
-
-  *)
 
   (* now to prove the full inductive step *)
   (* if X'(s - delta) is true, *)

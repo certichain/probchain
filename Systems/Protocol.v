@@ -537,8 +537,8 @@ match state with
   active; global_current_round := round |} =>
     let b := nat_of_ord active == n_max_actors.+1 in
     let H : (nat_of_ord active == n_max_actors.+1) = b := erefl b in
-    (if b as b0 return ((nat_of_ord active == n_max_actors.+1) = b0 -> GlobalState)
-     then fun prf : (nat_of_ord active == n_max_actors.+1) = true => state
+    (if b as b0 return ((nat_of_ord active == n_max_actors.+1) = _ -> GlobalState)
+     then fun prf : (nat_of_ord active == n_max_actors.+1) = _ => state
      else fun prf : (nat_of_ord active == n_max_actors.+1) = false =>
            (fun H1 : nat_of_ord active != n_max_actors.+1 =>
             ssr_suff (active.+1 < n_max_actors + 2)
@@ -553,7 +553,6 @@ match state with
            ) (introN eqP (elimTF eqP prf))) H
 end .
 
-Print update_round.
 
 Definition next_round  (state : GlobalState) : GlobalState .
   (* 

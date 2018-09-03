@@ -4,6 +4,12 @@ Require Import ssreflect ssrbool ssrnat eqtype fintype choice ssrfun seq path.
 From mathcomp.ssreflect
 Require Import tuple.
 
+
+Require Import Coq.Logic.FunctionalExtensionality.
+Require Import Coq.Logic.ProofIrrelevance.
+
+
+
 Set Implicit Arguments.
 
 Definition ntuple_cons (A : Type) (n : nat) (a : A) (list : n.-tuple A) : (n.+1).-tuple A.
@@ -11,25 +17,25 @@ Proof.
     case list=> tval /eqP H0.
     split with (tval := (a :: tval)).
     by rewrite  -H0.
-Qed.
+Defined.
 
 Definition ntuple_head (A : Type) (n' : nat) (list : (n'.+1).-tuple A) : A .
 Proof.
     apply (thead list).
-Qed.
+Defined.
 
 Definition ntuple_tail (A : Type) (n' : nat) (list : (n'.+1).-tuple A) : n'.-tuple A.
 Proof.
     move: (tuple_eta list) => H.
     split with (tval := behead list).
     apply behead_tupleP.
-Qed.
+Defined.
 
 Lemma size_ncons_nil (A : Type) (a : A) (n : nat): (size (ncons n a [::])) == n.
 Proof.
     rewrite size_ncons => //=.
     by rewrite addn0.
-Qed.
+Defined.
 
 
 Fixpoint set_tnth (A : Type) (m : nat) (list : m.-tuple A) (a : A) (n : nat) : m.-tuple A.
@@ -76,18 +82,37 @@ Definition fixlist n := n.-tuple (option A).
                                 end
             end. *)
 
+    Eval compute in (nat_of_ord (@inord 0 3)).
 
-    Lemma fixlist_insert (m : nat) (list : fixlist m) (a : A) : fixlist m.
-        move: a.
-        move: list.
-        elim m.
-        move=> list a.
-            exact list. (* can not insert anything into an empty list*)
-        move=> m0 fixlist_insert list a.
-        destruct (tnth list (inord (m0.+1))) eqn: H; last first.
-            exact [tuple of (Some a) :: [tuple of behead list]].
-            exact [tuple of (Some s) :: [tuple of fixlist_insert (ntuple_tail list) a]].
-    Defined.
+    Definition fixlist_insert {m : nat} (list : fixlist m)  :=
+      nat_rect (fun m0 : nat => fixlist m0 -> A -> fixlist m0) (fun (list0 : fixlist 0) (_ : A) => list0)
+       (fun (m0 : nat) (fixlist_insert : fixlist m0 -> A -> fixlist m0) (list0 : fixlist m0.+1) (a0 : A) =>
+        let o := thead list0 in
+        let H : thead list0 = o := erefl o in
+        match o as o0 return (thead list0 = o0 -> fixlist m0.+1) with
+        | Some s =>
+            fun _ : thead list0 = Some s => [tuple of Some s :: [tuple of fixlist_insert (ntuple_tail list0) a0]]
+        | None => fun _ : thead list0 = None => [tuple of Some a0 :: [tuple of behead list0]]
+        end H) m list.
+
+    Definition fixlist_unwrap (m : nat) (list : fixlist m) : seq A :=
+        flatten (map (fun o_value => match o_value with
+                            | Some value => [:: value]
+                            | None => [::]
+                            end) list).
+
+
+    (* Lemma fixlist_insert (m : nat) (list : fixlist m) (a : A) : fixlist m. *)
+    (*     move: a. *)
+    (*     move: list. *)
+    (*     elim m. *)
+    (*     move=> list a. *)
+    (*         exact list. (* can not insert anything into an empty list*) *)
+    (*     move=> m0 fixlist_insert list a. *)
+    (*     case (thead list) eqn:H; last first. *)
+    (*         exact [tuple of (Some a) :: [tuple of behead list]]. *)
+    (*         exact [tuple of (Some s) :: [tuple of fixlist_insert (ntuple_tail list) a]]. *)
+    (* Defined. *)
 
 
 
@@ -216,14 +241,8 @@ Definition fixlist n := n.-tuple (option A).
 
 
 
-    Fixpoint fixlist_length (m : nat) (list : fixlist  m) : nat. 
-        case m eqn:H.
-            exact 0.
-        case (ntuple_head list).
-            move=> a.
-            exact (1 + fixlist_length n (ntuple_tail list)).
-            exact (fixlist_length n (ntuple_tail list)).
-    Defined. 
+    Fixpoint fixlist_length (m : nat) (list : fixlist  m) : nat :=
+      length (fixlist_unwrap list).
 
 
     (* Fixpoint fixlist_filter (m : nat) (P : pred A) (list : fixlist m) : fixlist m :=
@@ -258,16 +277,10 @@ Definition fixlist n := n.-tuple (option A).
                 end
             end. *)
 
-    Fixpoint fixlist_contains (m : nat) (a : A) (list : fixlist m) : bool. 
-        case m eqn: H.
-            exact false.
-        case (ntuple_head list).
-            move=> a'.
-            case (a' == a).
-                exact true.
-                exact (fixlist_contains n a (ntuple_tail list)).
-            exact (fixlist_contains n a (ntuple_tail list)).
-    Defined. 
+    About has.
+    Fixpoint fixlist_contains (m : nat) (a : A) (list : fixlist m) : bool :=
+      has (fun x => x == a) (fixlist_unwrap list).
+
 
     Fixpoint fixlist_index_of' (m : nat) (n: nat) (a : A) (list : fixlist m) : option nat. 
         case m eqn: H.
@@ -301,12 +314,213 @@ Definition fixlist n := n.-tuple (option A).
         result.
 
 
-    Definition fixlist_unwrap (m : nat) (list : fixlist m) : seq A :=
-        flatten (map (fun o_value => match o_value with
-                            | Some value => [:: value]
-                            | None => [::]
-                            end) list).
     
+    Lemma eqn_incr a b : a == b -> a.+1 == b.+1.
+    Proof. by move=>/eqP/(f_equal S)/eqP. Qed.
+
+    Lemma size_incr (X : Type) (m : nat) (ls : seq X) (o: X) : (size ls == m) -> (size (o::ls) == m.+1).
+    Proof. by []. Qed.
+
+    Lemma fixlist_coerce_some (m : nat) (ls : seq (option A)) (o: (A)) (pf: size ls == m) (pf': size ((Some o) :: ls) == m.+1) :
+      (fixlist_unwrap (Tuple pf')) = o :: (fixlist_unwrap (Tuple pf)). 
+      Proof.
+        move: pf pf'.
+        by elim ls => //.
+      Qed.
+
+    Lemma fixlist_coerce_none (m : nat) (ls : seq (option A)) (pf: size ls == m) (pf': size (None :: ls) == m.+1) :
+      (fixlist_unwrap (Tuple pf')) = (fixlist_unwrap (Tuple pf)). 
+      Proof.
+        move: pf pf'.
+        by elim ls => //.
+      Qed.
+
+     Lemma fixlist_insert_coerce_none (m : nat) (ls : seq (option A)) (o: (A)) (pf: size ls == m) (pf': size (None :: ls) == m.+1) :
+      (fixlist_unwrap (fixlist_insert (Tuple pf') o) = o :: (fixlist_unwrap (Tuple pf))). 
+      Proof.
+        move: ls pf pf' .
+        by elim m => //=.
+      Qed.
+
+
+      Lemma ntuple_tail_coerce (m : nat) (T: Type) (y  x: T) xs : forall (pf' : (size [:: y, x & xs] == m.+2)) (pf: size [:: x & xs] == m.+1),
+        (ntuple_tail (Tuple (n:=m.+2) (tval:=[:: y, x & xs]) pf')) = (Tuple (n:=m.+1) (tval:=[:: x & xs]) pf).
+      Proof.
+        move: x y m.
+        case: xs => [x y |x0 xs x y].
+        move=> m Hpf' Hpf.
+        move: (Hpf') (Hpf).
+        move/eqP:Hpf => Hpf.
+        move=> pf' pf.
+        rewrite /ntuple_tail //=.
+        generalize (behead_tupleP (Tuple (n:=m.+2) (tval:=[:: y; x]) pf')) as H_tail.
+        have Hobv: (behead (Tuple (n:=m.+2) (tval:=[:: y; x]) pf')) = ([:: x] ). by []. 
+        have Hobv': m.+2.-1 = m.+1. by [].
+        move=> H_tail.
+        dependent rewrite Hobv in H_tail.
+        dependent rewrite Hobv' in H_tail.
+        by rewrite (proof_irrelevance _  H_tail pf).
+
+        move=> m pf' pf .
+        rewrite /ntuple_tail //=.
+        generalize (behead_tupleP (Tuple (n:=m.+2) (tval:=[:: y, x, x0 & xs]) pf')) as H_tail.
+        move=> H_tail.
+        have Hobv: (behead (Tuple (n:=m.+2) (tval:=[:: y, x, x0 & xs]) pf')) = [:: x, x0 & xs]. by [].
+        have Hobv': m.+2.-1 = m.+1. by [].
+
+        dependent rewrite Hobv in H_tail.
+        dependent rewrite Hobv' in H_tail.
+        by rewrite (proof_irrelevance _  H_tail pf).
+
+      Qed.
+
+
+
+      Lemma fixlist_insert_size_idem  (m : nat) (ls : fixlist m) (a : A) : size (fixlist_insert ls a) = size ls.
+      Proof.
+        destruct ls as [ls Hls].
+        move: ls Hls .
+        elim: m=> //= m Ihm xs Hxs.
+        case: (thead _) => [s//=|//=]; last first.
+        move: Hxs.
+        by case xs => //=.
+        move: Hxs.
+        case: xs => //= x xs Hxs'.
+        move: (Hxs').
+        move/eqP: Hxs'=>Hxs'.
+        case:Hxs'=>/eqP Hxs.
+        move: (Ihm xs Hxs) => IHm.
+        move=> Hxs'//=.
+        case x => //=; last first.
+        rewrite /ntuple_tail//=.
+        generalize (behead_tupleP (Tuple (n:=m.+1) (tval:=None :: xs) Hxs')) as H_tail.
+        move=> H_tail.
+        have Hobv: (behead (Tuple (n:=m.+1) (tval:=None :: xs) Hxs')) = xs. by []. 
+        have Hobv': m.+1.-1 = m. by[].
+        dependent rewrite Hobv in H_tail.
+        dependent rewrite Hobv' in H_tail.
+        rewrite -IHm.
+        by rewrite (proof_irrelevance _  H_tail Hxs).
+        move=> s'.
+        rewrite /ntuple_tail//=.
+        generalize (behead_tupleP (Tuple (n:=m.+1) (tval:=Some s' :: xs) Hxs')) as H_tail.
+        move=> H_tail.
+        have Hobv: (behead (Tuple (n:=m.+1) (tval:=Some s' :: xs) Hxs')) = xs. by[].
+        have Hobv': m.+1.-1 = m. by[].
+        dependent rewrite Hobv in H_tail.
+        dependent rewrite Hobv' in H_tail.
+        rewrite -IHm.
+        by rewrite (proof_irrelevance _  H_tail Hxs).
+  Qed. 
+
+
+      Lemma tval_injectivitiy (T:Type) n (t: n.-tuple T) (pf: size t == n) : Tuple (n:=n) (tval:=tval t) pf =  t. 
+      Proof.
+        destruct t as [t t_pf].
+        move=>//=.
+          by rewrite (proof_irrelevance _ pf t_pf).
+      Qed.
+
+
+
+
+
+
+
+     Lemma fixlist_insert_coerce_some (m : nat) (ls : seq (option A)) (s o: A) (pf: size ls == m) (pf': size (Some s :: ls) == m.+1) :
+      (fixlist_unwrap (fixlist_insert (Tuple pf') o) = s :: fixlist_unwrap (fixlist_insert (Tuple pf) o)). 
+      Proof.
+        rewrite fixlist_coerce_some.
+        by rewrite fixlist_insert_size_idem .
+        rewrite /ntuple_tail//= .
+        generalize (behead_tupleP (Tuple (n:=m.+1) (tval:=Some s :: ls) pf')) as H_tail.
+        move=> H_tail.
+        have Hobv: (behead (Tuple (n:=m.+1) (tval:=Some s :: ls) pf')) = ls. by [].
+        have Hobv': m.+1.-1 = m. by [].
+        dependent rewrite Hobv in H_tail.
+        dependent rewrite Hobv' in H_tail.
+        clear Hobv.
+        clear Hobv'.
+        move=>Hpf.
+        suff: (Tuple (n:=m) (tval:=fixlist_insert (Tuple (n:=m) (tval:=ls) H_tail) o) Hpf) = (fixlist_insert (Tuple (n:=m) (tval:=ls) pf) o).
+        by move=> ->.
+        rewrite (proof_irrelevance _ pf H_tail).
+        by rewrite tval_injectivitiy.
+    Qed.
+
+
+
+      Lemma fixlist_contains_obv a m' xs Hxs : fixlist_contains a (fixlist_insert (Tuple (n:=m') (tval:=xs) Hxs) a) =
+  has (eq_op^~ a) (fixlist_unwrap (fixlist_insert (Tuple (n:=m') (tval:=xs) Hxs) a)).
+        Proof.
+          apply/eqP=>//=.
+          case(fixlist_insert _) .
+          move=> ls.
+          move: m' Hxs.
+          elim: ls => //=.
+          move=> m' IHx i.
+          move: (i).
+          move/eqP: i => Heq0.
+          by rewrite -Heq0.
+
+          move=> x xs' IHx m'.
+          by case m' => //=.
+        Qed.
+        
+
+    Lemma fixlist_has_eq (m : nat) (list: fixlist m) (a : A) (P: pred A) :
+       (has P (fixlist_unwrap (fixlist_insert list a))) = has P (fixlist_unwrap list) || (P a && fixlist_contains a (fixlist_insert list a)).
+      Proof.
+        destruct list as [xs Hxs].
+        move: m Hxs .
+        elim: xs => //=.
+        move=> m xs.
+        case H: (P a).
+        move: (xs).
+        by move/eqP: xs => <- //=.
+        move=> //=.
+        by induction m=>//=.
+
+        move=> x xs IHx m.
+        case m.
+        by move=> Hxs; move/eqP:(Hxs)=>Hwrong; inversion Hwrong.
+        case x =>[s m'|]; last first.
+        move=> m' Hxs.
+        rewrite  (@fixlist_insert_coerce_none ) //=.
+        rewrite fixlist_coerce_none.
+        move: (Hxs).
+        move/eqP: Hxs => Hxs.
+        case: Hxs => /eqP Hxs Hxs'.
+        case (has P (fixlist_unwrap (Tuple (n:=m') (tval:=xs) Hxs'))) => //=.
+        by apply orbT.
+        rewrite Bool.orb_false_r.
+        case (P a) => //=.
+        have :a == a. by[].
+        by move=> ->.
+
+        move=> Hxs'.
+        rewrite  (@fixlist_insert_coerce_some m' xs s a) .
+        rewrite fixlist_coerce_some /fixlist_contains.
+        rewrite fixlist_insert_coerce_some //=.
+        case Hps: (P s) => //=.
+        move: (Hxs').
+        move/eqP: Hxs' => Hxs'.
+        case: Hxs' => /eqP Hxs'.
+        move=> Hxs.
+        rewrite IHx.
+        case (has P (fixlist_unwrap (Tuple (n:=m') (tval:=xs) Hxs))) => //=.
+        case Hpa: (P a) => //=.
+        case Heq: (s == a) => //= .
+        move/eqP: Heq => Heq.
+        rewrite -Heq in Hpa.
+        rewrite Hpa in Hps.
+        by inversion Hps.
+       
+        by rewrite fixlist_contains_obv.
+  Qed.
+
+
+
     Lemma fixlist_length_unwrap_ident : forall (m : nat) (ls : fixlist m), length (fixlist_unwrap ls) = fixlist_length ls.
     Proof.
         (* TODO(Kiran): Complete this proof *)
