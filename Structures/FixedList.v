@@ -244,6 +244,33 @@ Definition fixlist n := n.-tuple (option A).
     Fixpoint fixlist_length (m : nat) (list : fixlist  m) : nat :=
       length (fixlist_unwrap list).
 
+    Definition fixlist_is_empty (m : nat) (list: fixlist m) : bool :=
+      (fixlist_unwrap list) == [::].
+
+    (* a fixed list is top heavy if all the empty spaces are at the tail of the list*)
+    Definition fixlist_is_top_heavy (m : nat) (list : fixlist m) : bool :=
+      nat_rect (fun m0 : nat => fixlist m0 -> bool) xpredT
+       (fun (m0 : nat) (fixlist_is_top_heavy : fixlist m0 -> bool) (list0 : fixlist m0.+1) =>
+          let o := thead list0 in
+          let H : thead list0 = o := erefl o in
+          match o as o0 return (thead list0 = o0 -> bool) with
+          | Some s => fun _ : thead list0 = Some s => fixlist_is_top_heavy [tuple of behead list0]
+          | None => fun _ : thead list0 = None => fixlist_is_empty [tuple of behead list0]
+          end H) m list
+      .
+
+    (* Proof. *)
+    (*   move: list. *)
+    (*   elim m. *)
+    (*     move=> list. *)
+    (*     exact true. *)
+    (*   move=> m0 fixlist_is_top_heavy list. *)
+    (*   case (thead list) eqn: H; last first. *)
+    (*   exact (fixlist_is_empty [tuple of behead list]). *)
+    (*   exact (fixlist_is_top_heavy [tuple of behead list]). *)
+    (* Defined. *)
+
+
 
     (* Fixpoint fixlist_filter (m : nat) (P : pred A) (list : fixlist m) : fixlist m :=
         match m with
@@ -267,6 +294,7 @@ Definition fixlist n := n.-tuple (option A).
 
 
 
+
     (* Fixpoint fixlist_contains (m : nat) (a : A) (list : fixlist m) : bool :=
         match m with
             | 0 => false
@@ -277,8 +305,7 @@ Definition fixlist n := n.-tuple (option A).
                 end
             end. *)
 
-    About has.
-    Fixpoint fixlist_contains (m : nat) (a : A) (list : fixlist m) : bool :=
+    Definition fixlist_contains (m : nat) (a : A) (list : fixlist m) : bool :=
       has (fun x => x == a) (fixlist_unwrap list).
 
 
@@ -454,22 +481,11 @@ Definition fixlist n := n.-tuple (option A).
   has (eq_op^~ a) (fixlist_unwrap (fixlist_insert (Tuple (n:=m') (tval:=xs) Hxs) a)).
         Proof.
           apply/eqP=>//=.
-          case(fixlist_insert _) .
-          move=> ls.
-          move: m' Hxs.
-          elim: ls => //=.
-          move=> m' IHx i.
-          move: (i).
-          move/eqP: i => Heq0.
-          by rewrite -Heq0.
-
-          move=> x xs' IHx m'.
-          by case m' => //=.
         Qed.
         
 
     Lemma fixlist_has_eq (m : nat) (list: fixlist m) (a : A) (P: pred A) :
-       (has P (fixlist_unwrap (fixlist_insert list a))) = has P (fixlist_unwrap list) || (P a && fixlist_contains a (fixlist_insert list a)).
+       (has P (fixlist_unwrap (fixlist_insert list a))) = has P (fixlist_unwrap list) || [ && P a, fixlist_contains a (fixlist_insert list a) & ~~ has P (fixlist_unwrap list)].
       Proof.
         destruct list as [xs Hxs].
         move: m Hxs .
@@ -495,6 +511,7 @@ Definition fixlist n := n.-tuple (option A).
         by apply orbT.
         rewrite Bool.orb_false_r.
         case (P a) => //=.
+        rewrite /fixlist_contains//=.
         have :a == a. by[].
         by move=> ->.
 
@@ -515,9 +532,160 @@ Definition fixlist n := n.-tuple (option A).
         rewrite -Heq in Hpa.
         rewrite Hpa in Hps.
         by inversion Hps.
-       
-        by rewrite fixlist_contains_obv.
   Qed.
+
+
+      Lemma fixlist_empty_is_top_heavy (m : nat) (ls : fixlist m) :
+        fixlist_is_empty ls -> fixlist_is_top_heavy ls.
+      Proof.
+        case: ls => ls Hls.
+        move: m Hls.
+        elim ls => //=.
+        by move=>m ls_H; move: (ls_H); move/eqP: ls_H => <-.
+        move=> o_x xs IHm [//|m'] Hls .
+        by case o_x => //=.
+      Qed.
+
+
+    Lemma fixlist_insert_preserves_top_heavy (m : nat) (ls : fixlist m) (a : A) :
+        fixlist_is_top_heavy ls -> fixlist_is_top_heavy (fixlist_insert ls a).
+      Proof.
+        case: ls => ls Hls.
+        move: m Hls a.
+        elim: ls.
+        move=> m ls_H.
+        move: (ls_H).
+        move/eqP: ls_H => Hls.
+        by rewrite -Hls.
+        move=> o_a  ls IHs .
+        case: o_a ; last first.
+        move=> m ls_H a.
+        destruct m=>//=.
+        move=>/fixlist_empty_is_top_heavy.
+
+
+        (* stuck here *)
+
+       (*  move=> H. *)
+       (*  suff: (is_true *)
+       (*  (@fixlist_is_top_heavy m *)
+       (*     (@tuple m (option (Equality.sort A)) *)
+       (*        (@behead_tuple (S m) (option (Equality.sort A)) *)
+       (*           (@Tuple (S m) (option (Equality.sort A)) *)
+       (*              (@cons (option (Equality.sort A)) (@None (Equality.sort A)) ls) ls_H)) *)
+       (*        (fun sP : is_true (@eq_op nat_eqType (@size (option (Equality.sort A)) ls) m) => *)
+       (*         @Tuple m (option (Equality.sort A)) ls sP))) = (@fixlist_is_top_heavy m *)
+       (* (@tuple m (option (Equality.sort A)) *)
+       (*    (@behead_tuple (S m) (option (Equality.sort A)) *)
+       (*       (@tuple (S m) (option (Equality.sort A)) *)
+       (*          (@cons_tuple m (option (Equality.sort A)) (@Some (Equality.sort A) a) *)
+       (*             (@tuple m (option (Equality.sort A)) *)
+       (*                (@behead_tuple (S m) (option (Equality.sort A)) *)
+       (*                   (@Tuple (S m) (option (Equality.sort A)) *)
+       (*                      (@cons (option (Equality.sort A)) (@None (Equality.sort A)) ls) ls_H)) *)
+       (*                (fun sP : is_true (@eq_op nat_eqType (@size (option (Equality.sort A)) ls) m) => *)
+       (*                 @Tuple m (option (Equality.sort A)) ls sP))) *)
+       (*          (fun sP : is_true (@eq_op nat_eqType (S (@size (option (Equality.sort A)) ls)) (S m)) => *)
+       (*           @Tuple (S m) (option (Equality.sort A)) *)
+       (*             (@cons (option (Equality.sort A)) (@Some (Equality.sort A) a) ls) sP))) *)
+       (*    (fun sP : is_true (@eq_op nat_eqType (@size (option (Equality.sort A)) ls) m) => *)
+       (*     @Tuple m (option (Equality.sort A)) ls sP)))). *)
+       (*  by move=> <-. *)
+
+       (*  suff Hequal: ((@tuple m (option (Equality.sort A)) *)
+       (*       (@behead_tuple (S m) (option (Equality.sort A)) *)
+       (*          (@tuple (S m) (option (Equality.sort A)) *)
+       (*             (@cons_tuple m (option (Equality.sort A)) (@Some (Equality.sort A) a) *)
+       (*                (@tuple m (option (Equality.sort A)) *)
+       (*                   (@behead_tuple (S m) (option (Equality.sort A)) *)
+       (*                      (@Tuple (S m) (option (Equality.sort A)) *)
+       (*                         (@cons (option (Equality.sort A)) (@None (Equality.sort A)) ls) ls_H)) *)
+       (*                   (fun sP : is_true (@eq_op nat_eqType (@size (option (Equality.sort A)) ls) m) => *)
+       (*                    @Tuple m (option (Equality.sort A)) ls sP))) *)
+       (*             (fun sP : is_true (@eq_op nat_eqType (S (@size (option (Equality.sort A)) ls)) (S m)) => *)
+       (*              @Tuple (S m) (option (Equality.sort A)) *)
+       (*                (@cons (option (Equality.sort A)) (@Some (Equality.sort A) a) ls) sP))) *)
+       (*       (fun sP : is_true (@eq_op nat_eqType (@size (option (Equality.sort A)) ls) m) => *)
+       (*        @Tuple m (option (Equality.sort A)) ls sP)) = (@tuple m (option (Equality.sort A)) *)
+       (*       (@behead_tuple (S m) (option (Equality.sort A)) *)
+       (*          (@Tuple (S m) (option (Equality.sort A)) *)
+       (*             (@cons (option (Equality.sort A)) (@None (Equality.sort A)) ls) ls_H)) *)
+       (*       (fun sP : is_true (@eq_op nat_eqType (@size (option (Equality.sort A)) ls) m) => *)
+       (*        @Tuple m (option (Equality.sort A)) ls sP))). *)
+
+       (*  by dependent rewrite Hequal. *)
+       (*  f_equal. *)
+       (*  Set Printing All. *)
+       (*  move=> _ _ _ _ . *)
+
+       (*  suff Hiseq: ((@behead_tuple (S m) (option (Equality.sort A)) *)
+       (*    (@tuple (S m) (option (Equality.sort A)) *)
+       (*       (@cons_tuple m (option (Equality.sort A)) (@Some (Equality.sort A) a) *)
+       (*          (@tuple m (option (Equality.sort A)) *)
+       (*             (@behead_tuple (S m) (option (Equality.sort A)) *)
+       (*                (@Tuple (S m) (option (Equality.sort A)) *)
+       (*                   (@cons (option (Equality.sort A)) (@None (Equality.sort A)) ls) ls_H)) *)
+       (*             (fun sP : is_true (@eq_op nat_eqType (@size (option (Equality.sort A)) ls) m) => *)
+       (*              @Tuple m (option (Equality.sort A)) ls sP))) *)
+       (*       (fun sP : is_true (@eq_op nat_eqType (S (@size (option (Equality.sort A)) ls)) (S m)) => *)
+       (*        @Tuple (S m) (option (Equality.sort A)) *)
+       (*          (@cons (option (Equality.sort A)) (@Some (Equality.sort A) a) ls) sP)))  = (@behead_tuple (S m) (option (Equality.sort A)) *)
+       (*    (@Tuple (S m) (option (Equality.sort A)) (@cons (option (Equality.sort A)) (@None (Equality.sort A)) ls) *)
+       (*       ls_H))). *)
+       (*  by dependent rewrite Hiseq. *)
+       (*  move=> //=. *)
+       
+       (*  by move=> <-. *)
+
+       (*  suff: (is_true *)
+       (*  (@fixlist_is_top_heavy m *)
+       (*     (@tuple m (option (Equality.sort A)) *)
+       (*        (@behead_tuple (S m) (option (Equality.sort A)) *)
+       (*           (@Tuple (S m) (option (Equality.sort A)) *)
+       (*              (@cons (option (Equality.sort A)) (@None (Equality.sort A)) ls) ls_H)) *)
+       (*        (fun sP : is_true (@eq_op nat_eqType (@size (option (Equality.sort A)) ls) m) => *)
+       (*         @Tuple m (option (Equality.sort A)) ls sP))) = (@fixlist_is_top_heavy m *)
+       (* (@tuple m (option (Equality.sort A)) *)
+       (*    (@behead_tuple (S m) (option (Equality.sort A)) *)
+       (*       (@tuple (S m) (option (Equality.sort A)) *)
+       (*          (@cons_tuple m (option (Equality.sort A)) (@Some (Equality.sort A) a) *)
+       (*             (@tuple m (option (Equality.sort A)) *)
+       (*                (@behead_tuple (S m) (option (Equality.sort A)) *)
+       (*                   (@Tuple (S m) (option (Equality.sort A)) *)
+       (*                      (@cons (option (Equality.sort A)) (@None (Equality.sort A)) ls) ls_H)) *)
+       (*                (fun sP : is_true (@eq_op nat_eqType (@size (option (Equality.sort A)) ls) m) => *)
+       (*                 @Tuple m (option (Equality.sort A)) ls sP))) *)
+       (*          (fun sP : is_true (@eq_op nat_eqType (S (@size (option (Equality.sort A)) ls)) (S m)) => *)
+       (*           @Tuple (S m) (option (Equality.sort A)) *)
+       (*             (@cons (option (Equality.sort A)) (@Some (Equality.sort A) a) ls) sP))) *)
+       (*    (fun sP : is_true (@eq_op nat_eqType (@size (option (Equality.sort A)) ls) m) => *)
+       (*     @Tuple m (option (Equality.sort A)) ls sP)))). *)
+       (*  by move=> <-. *)
+       (*  auto. *)
+       (*  rewrite /fixlist_is_top_heavy//=. *)
+       (*  by rewrite functional_extensionality. *)
+       (*  by rewrite (proof_irrelevance _). *)
+       (*  move=> H. *)
+
+       (*  move=> Hrewrite. *)
+       (*  by rewrite (Hrewrite m H); exact H. *)
+       (*  rewrite /fixlist_is_empty => /eqP His_empty. *)
+       (*  destruct ls => //=. *)
+       (*  rewrite /fixlist_is_top_heavy//=. *)
+       (*  move: (ls_H). *)
+       (*  move/eqP: ls_H => Hls. *)
+       (*  rewrite -Hls //=. *)
+
+        Admitted.
+
+    Lemma fixlist_insert_rewrite (m : nat) (ls : fixlist m) (a : A) :
+        fixlist_is_top_heavy ls -> fixlist_length ls < m -> fixlist_unwrap (fixlist_insert ls a) = rcons (fixlist_unwrap ls)  a.
+      Proof.
+        Admitted.
+
+
+
+
 
 
 
