@@ -722,17 +722,81 @@ Definition fixlist n := n.-tuple (option A).
         rewrite tval_injectivitiy.
         generalize (behead_tupleP (Tuple (n:=m.+1) (tval:=Some x :: xs) Hls)) => //= Ht'.
         by rewrite (proof_irrelevance _ Ht' Hls).
+  Qed. 
 
-Qed.
 
+
+  Lemma fixlist_insert_contains (m : nat) (ls : fixlist m) (a : A) :
+        fixlist_is_top_heavy ls -> fixlist_length ls < m -> fixlist_contains a (fixlist_insert ls a) .
+  Proof.
+        case: ls => ls Hls.
+        move: ls Hls.
+        elim: m => //= m IHn ls .
+        case ls => //= o_x xs Hls.
+        case: o_x => //=; last first.
+          rewrite/tuple.
+          rewrite /behead_tuple.
+          generalize (behead_tupleP (Tuple (n:=m.+1) (tval:=None :: xs) Hls)) => //= Ht.
+          rewrite /fixlist_is_empty =>/eqP His_empty.
+          move=> Hlen.
+          rewrite /fixlist_contains.
+          rewrite fixlist_coerce_some => //=.
+          have: (a == a). by [].
+          by move=> ->.
+
+        move=> x.
+        move: (Hls).
+        move/eqP: Hls => Hls.
+        case: Hls => /eqP Hls Hls'.
+        move: (IHn xs Hls) => IHn'.
+        clear IHn.
+        rewrite /tuple.
+        rewrite /behead_tuple.
+        generalize (behead_tupleP (Tuple (n:=m.+1) (tval:=Some x :: xs) Hls')) => //= Hls''.
+        rewrite (proof_irrelevance _ Hls'' Hls).
+        move=> /IHn' IHn.
+        clear IHn'.
+        rewrite /fixlist_length => //=.
+        rewrite -{1}(addn1  (length _)).
+        rewrite -{1}(addn1  m).
+        rewrite ltn_add2r => Hvlen.
+        have Hlenfxlen:  length (flatten [seq match o_value with
+                              | Some value => [:: value]
+                              | None => [::]
+                              end | o_value <- xs]) = (fixlist_length (Tuple Hls)). by [].
+ 
+        rewrite Hlenfxlen in Hvlen.
+        apply IHn in Hvlen.
+        clear IHn.
+        clear Hlenfxlen.
+        clear Hls''.
+        have Hls'_rem : (size xs).+1 == m.+1 = (size xs == m). by[].
+        dependent rewrite Hls'_rem in Hls'.
+        rewrite (proof_irrelevance _ Hls' Hls).
+        clear Hls'.
+
+        rewrite /fixlist_contains.
+        rewrite fixlist_coerce_some. by rewrite fixlist_insert_size_idem .
+        move=> Hsz //=.
+        case (x == a) => //=.
+        rewrite /ntuple_tail//=.
+        rewrite tval_injectivitiy.
+        generalize (behead_tupleP (Tuple (n:=m.+1) (tval:=Some x :: xs) Hls)) => //= Ht'.
+        rewrite -/fixlist_contains.
+        move: Hvlen.
+        rewrite /fixlist_contains.
+        by rewrite (proof_irrelevance _ Hls Ht').
+        Qed.
 
 
 
 
     Lemma fixlist_length_unwrap_ident : forall (m : nat) (ls : fixlist m), length (fixlist_unwrap ls) = fixlist_length ls.
     Proof.
-        (* TODO(Kiran): Complete this proof *)
-        Admitted.
+      move => m.
+      elim: m => //=.
+    Qed.
+     
 
 End fixlist.
 
