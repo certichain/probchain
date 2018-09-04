@@ -546,35 +546,104 @@ Definition fixlist n := n.-tuple (option A).
         by case o_x => //=.
       Qed.
 
+      Lemma fixlist_top_heavy_coerce_some (m : nat) (xs : seq (option A)) (x a: A) (pf: size xs == m) (pf': size (Some x :: xs) == m.+1) :
+        fixlist_is_top_heavy (fixlist_insert (Tuple pf') a) = fixlist_is_top_heavy (fixlist_insert (Tuple pf) a).
+        Proof.
+
+        move:  m pf' pf.
+        elim: xs => [m pf pf' |o_x xs IHx m pf pf'].
+          move=> //=.
+          move: (pf'); move/eqP: pf' => Hpf.
+          move: pf.
+          by rewrite -Hpf .
+          move: pf pf'.
+        case o_x => [//= x'|].
+        move=> pf pf'.
+        rewrite /ntuple_tail.
+        generalize  (behead_tupleP (Tuple (n:=m.+1) (tval:=[:: Some x, Some x' & xs]) pf)) => Ht'.
+        have Hht'rew: size (behead (Tuple (n:=m.+1) (tval:=[:: Some x, Some x' & xs]) pf)) == m.+1.-1 = (size (o_x :: xs) == m). by []. 
+        dependent rewrite Hht'rew in Ht' => //=.
+        rewrite/tuple.
+        rewrite /behead_tuple.
+        generalize  (behead_tupleP
+          (Tuple (n:=m.+1) (tval:=Some x :: fixlist_insert (Tuple (n:=m) (tval:=Some x' :: xs) Ht') a)
+             (let
+              '@Tuple _ _ _ tP as t :=
+               cons_tuple (Some x)
+                 (Tuple (n:=m) (tval:=fixlist_insert (Tuple (n:=m) (tval:=Some x' :: xs) Ht') a)
+                    (let
+                     '@Tuple _ _ _ tP as t := fixlist_insert (Tuple (n:=m) (tval:=Some x' :: xs) Ht') a
+                      return (size t == m) in tP)) return (size t == m.+1) in tP))) => //= Ht.
+           have: (Tuple (n:=m) (tval:=fixlist_insert (Tuple (n:=m) (tval:=Some x' :: xs) Ht') a) Ht) = (fixlist_insert (Tuple (n:=m) (tval:=Some x' :: xs) pf') a).
+
+           rewrite tval_injectivitiy.
+           by rewrite (proof_irrelevance _ Ht' pf').
+          by move=> ->.
+
+          move=> pf pf'//=.
+        rewrite /ntuple_tail.
+        generalize (behead_tupleP (Tuple (n:=m.+1) (tval:=[:: Some x, None & xs]) pf)) => Ht'.
+        have Hht'rew: size (behead (Tuple (n:=m.+1) (tval:=[:: Some x, None & xs]) pf)) == m.+1.-1 = (size (None :: xs) == m). by [].
+        dependent rewrite Hht'rew in Ht' => //=.
+
+        rewrite/tuple.
+        rewrite /behead_tuple.
+
+        generalize  (behead_tupleP
+          (Tuple (n:=m.+1) (tval:=Some x :: fixlist_insert (Tuple (n:=m) (tval:=None :: xs) Ht') a)
+             (let
+              '@Tuple _ _ _ tP as t :=
+               cons_tuple (Some x)
+                 (Tuple (n:=m) (tval:=fixlist_insert (Tuple (n:=m) (tval:=None :: xs) Ht') a)
+                    (let
+                     '@Tuple _ _ _ tP as t := fixlist_insert (Tuple (n:=m) (tval:=None :: xs) Ht') a
+                      return (size t == m) in tP)) return (size t == m.+1) in tP))) => //= Ht.
+       have: (Tuple (n:=m) (tval:=fixlist_insert (Tuple (n:=m) (tval:=None :: xs) Ht') a) Ht) = (fixlist_insert (Tuple (n:=m) (tval:=None :: xs) pf') a).
+           rewrite tval_injectivitiy.
+           by rewrite (proof_irrelevance _ Ht' pf').
+          by move=> ->.
+      Qed.
+
+
+
 
     Lemma fixlist_insert_preserves_top_heavy (m : nat) (ls : fixlist m) (a : A) :
         fixlist_is_top_heavy ls -> fixlist_is_top_heavy (fixlist_insert ls a).
       Proof.
         case: ls => ls Hls.
-        move: m Hls a.
-        elim: ls.
-        move=> m ls_H.
-        move: (ls_H).
-        move/eqP: ls_H => Hls.
-        by rewrite -Hls.
-        move=> o_a  ls IHs .
-        case: o_a ; last first.
-        move=> m ls_H a.
-        destruct m=>//=.
-        move=>/fixlist_empty_is_top_heavy.
-        rewrite /tuple.
-        move: (ls_H).
-        move/eqP: ls_H => //= Hsl.
-        case: Hsl => /eqP Hsl ls_H.
-        generalize (behead_tupleP (Tuple (n:=m.+1) (tval:=None :: ls) ls_H)) as H_tail => //= H_tail.
-        generalize (behead_tupleP
-          (Tuple (n:=m.+1) (tval:=Some a :: ls)
-             (valP (sT:=tuple_subType m (option A)) (Tuple (n:=m) (tval:=ls) H_tail)))) as H_tail' => //= H_tail'.
-        by rewrite (proof_irrelevance _ H_tail H_tail').
+        move: ls Hls a.
+        elim: m .
+        move=> ls Hls' a.
+        move: (Hls'); move/eqP: Hls'=>/size0nil Hls'. 
+        by rewrite Hls'.
+        move=> m IHn [//|x] xs Hxs a.
+        have Hxseq: size (x :: xs) == m.+1 = (size xs == m). by []. 
+        dependent rewrite Hxseq in Hxs.
+        case x; last first.
+        move => //=.
+          move=>/fixlist_empty_is_top_heavy.
+          rewrite /tuple.
+          rewrite /behead_tuple.
+          generalize (behead_tupleP (Tuple (n:=m.+1) (tval:=None :: xs) Hxs)) as H_tail => //= H_tail.
+          generalize (behead_tupleP
+            (Tuple (n:=m.+1) (tval:=Some a :: xs)
+              (valP (sT:=tuple_subType m (option A)) (Tuple (n:=m) (tval:=xs) H_tail)))) as H_tail' => //= H_tail'.
+          by rewrite (proof_irrelevance _ H_tail H_tail').
 
-        (* simplified *)
+        move: (IHn xs Hxs a) => IHn'.
+        move=> x'.
+        have Heq: fixlist_is_top_heavy (Tuple (n:=m.+1) (tval:=Some x' :: xs) Hxs) = fixlist_is_top_heavy (Tuple (n:=m) (tval:=xs) Hxs).
+          move=> //=.
+          rewrite/tuple.
+          rewrite /behead_tuple.
+          generalize ((behead_tupleP (Tuple (n:=m.+1) (tval:=Some x' :: xs) Hxs))) => //= Ht.
+          by rewrite (proof_irrelevance _ Ht Hxs).
 
-        Admitted.
+          move=> Hbase.
+          rewrite (@fixlist_top_heavy_coerce_some m xs x' a Hxs).
+          apply IHn.
+          by rewrite -Heq.
+    Qed.
 
     Lemma fixlist_insert_rewrite (m : nat) (ls : fixlist m) (a : A) :
         fixlist_is_top_heavy ls -> fixlist_length ls < m -> fixlist_unwrap (fixlist_insert ls a) = rcons (fixlist_unwrap ls)  a.
@@ -593,4 +662,6 @@ Definition fixlist n := n.-tuple (option A).
         Admitted.
 
 End fixlist.
+
+
 
