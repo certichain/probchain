@@ -241,9 +241,8 @@ Definition fixlist n := n.-tuple (option A).
 
 
 
-    Fixpoint fixlist_length (m : nat) (list : fixlist  m) : nat :=
-      length (fixlist_unwrap list).
-
+    Definition fixlist_length (m : nat) (list : fixlist  m) : nat :=
+      length (fixlist_unwrap list). 
     Definition fixlist_is_empty (m : nat) (list: fixlist m) : bool :=
       (fixlist_unwrap list) == [::].
 
@@ -648,9 +647,83 @@ Definition fixlist n := n.-tuple (option A).
     Lemma fixlist_insert_rewrite (m : nat) (ls : fixlist m) (a : A) :
         fixlist_is_top_heavy ls -> fixlist_length ls < m -> fixlist_unwrap (fixlist_insert ls a) = rcons (fixlist_unwrap ls)  a.
       Proof.
-        Admitted.
+        case: ls => ls Hls.
+        move: ls Hls.
+        elim: m => //= m IHn ls .
+        case ls => //= x xs Hls.
+        case: x => //=; last first.
+          rewrite/tuple.
+          rewrite /behead_tuple.
+          generalize (behead_tupleP (Tuple (n:=m.+1) (tval:=None :: xs) Hls)) => //= Ht.
+          rewrite /fixlist_is_empty =>/eqP His_empty.
+          rewrite fixlist_coerce_none.
+          rewrite His_empty //=.
+          move=> H //=.
+          rewrite fixlist_coerce_some.
+          by rewrite His_empty.
+        move=> x.
+        rewrite /tuple.
+        rewrite /behead_tuple.
+        generalize  (behead_tupleP (Tuple (n:=m.+1) (tval:=Some x :: xs) Hls)) => //= Ht.
+        move=> His_top_heavy.
+        move=> Hvlen.
+        move: (Hvlen).
+        move: Hvlen.
+        rewrite {1}/fixlist_length.
+        rewrite {1}/fixlist_unwrap //=.
+        rewrite -{1}(addn1 m).
+        rewrite -{1}(addn1 (length _)).
+        rewrite ltn_add2r => Hlen Hvlen.
+        have Hlenfxlen:  length (flatten [seq match o_value with
+                              | Some value => [:: value]
+                              | None => [::]
+                              end | o_value <- xs]) = (fixlist_length (Tuple Ht)). by [].
+       rewrite  Hlenfxlen in Hlen.
+
+        rewrite /ntuple_tail.
+        rewrite fixlist_coerce_some . by rewrite fixlist_insert_size_idem.
+        move: (IHn xs Ht His_top_heavy Hlen) => IHn'.
+        clear His_top_heavy.
+        clear Hlenfxlen.
+        clear Hlen.
+        have: (forall pf, fixlist_unwrap (fixlist_insert (Tuple (n:=m) (tval:=xs) pf) a) =
+         rcons (fixlist_unwrap (Tuple (n:=m) (tval:=xs) pf)) a).
+        move=> pf.
+        move: IHn'.
+        by rewrite (proof_irrelevance _ pf Ht).
+        clear IHn'.
+        move=> IHn'.
+        clear Hvlen.
+        clear Ht.
+        clear ls.
+        clear IHn.
 
 
+
+        have Hrew:
+             (size
+                (fixlist_insert
+                    (Tuple (n:=m) (tval:=behead (Tuple (n:=m.+1) (tval:=Some x :: xs) Hls))
+                           (behead_tupleP (Tuple (n:=m.+1) (tval:=Some x :: xs) Hls))) a) == m) =
+             (size xs == m) .
+          generalize  (behead_tupleP (Tuple (n:=m.+1) (tval:=Some x :: xs) Hls)) => //=.
+          move=> Ht''.
+          by rewrite fixlist_insert_size_idem //=.
+          move=> Ht.
+       suff: (Tuple (n:=m)
+          (tval:=fixlist_insert
+                   (Tuple (n:=m) (tval:=behead (Tuple (n:=m.+1) (tval:=Some x :: xs) Hls))
+                      (behead_tupleP (Tuple (n:=m.+1) (tval:=Some x :: xs) Hls))) a) Ht) = (fixlist_insert (Tuple (n:=m) (tval:=xs) Hls) a).
+       move=> ->.
+       by rewrite IHn'.
+
+
+
+        rewrite tval_injectivitiy.
+        generalize (behead_tupleP (Tuple (n:=m.+1) (tval:=Some x :: xs) Hls)) => //= Ht'.
+        by rewrite (proof_irrelevance _ Ht' Hls).
+
+Qed.
 
 
 
