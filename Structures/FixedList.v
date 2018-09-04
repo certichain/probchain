@@ -534,6 +534,47 @@ Definition fixlist n := n.-tuple (option A).
   Qed.
 
 
+      Lemma fixlist_length_coerce (m : nat) (ls : fixlist m) ( x : A) pf :
+              fixlist_length [tuple of Some x :: (Tuple (n:=m) (tval:=ls) pf)] = (fixlist_length (Tuple pf)).+1.
+        Proof.
+          destruct ls as [ls Hls].
+          move: ls Hls pf.
+          by elim: m=> //= m IHx [//|o_x] xs .
+        Qed.
+
+
+      Lemma fixlist_insert_length_incr (m : nat) (ls : fixlist m) (a : A) :
+        fixlist_length ls < m ->
+        fixlist_length (fixlist_insert ls a) = (fixlist_length ls).+1.
+      Proof.
+        destruct ls as [ls Hls].
+        move: ls Hls .
+        elim: m=> //= m Ihm xs .
+        case: xs => //= o_x xs IHxs.
+        move: (IHxs); move/eqP: IHxs =>  IHxs; case: IHxs => /eqP IHxs IHxs'.
+
+        case: o_x => //=.
+        move=> x.
+        
+        have: fixlist_length (Tuple (n:=m.+1) (tval:=Some x :: xs) IHxs') < m.+1 -> fixlist_length (Tuple IHxs) < m.
+        by rewrite /fixlist_length//=.
+        move=> H /H Hlen.
+
+        move: (Ihm xs IHxs Hlen) => IHn.
+        clear Ihm.
+        rewrite /ntuple_tail .
+        generalize (behead_tupleP (Tuple (n:=m.+1) (tval:=Some x :: xs) IHxs')) => //= Ht'.
+        rewrite (proof_irrelevance _ Ht' IHxs) => //=.
+        rewrite fixlist_length_coerce => //=.
+        rewrite tval_injectivitiy.
+        rewrite IHn.
+        by rewrite /fixlist_length => //=.
+      Qed.
+
+
+ 
+
+
       Lemma fixlist_empty_is_top_heavy (m : nat) (ls : fixlist m) :
         fixlist_is_empty ls -> fixlist_is_top_heavy ls.
       Proof.
