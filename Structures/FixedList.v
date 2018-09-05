@@ -575,7 +575,7 @@ Definition fixlist n := n.-tuple (option A).
  
 
 
-      Lemma fixlist_empty_is_top_heavy (m : nat) (ls : fixlist m) :
+      Lemma fixlist_is_empty_top_heavy (m : nat) (ls : fixlist m) :
         fixlist_is_empty ls -> fixlist_is_top_heavy ls.
       Proof.
         case: ls => ls Hls.
@@ -584,6 +584,17 @@ Definition fixlist n := n.-tuple (option A).
         by move=>m ls_H; move: (ls_H); move/eqP: ls_H => <-.
         move=> o_x xs IHm [//|m'] Hls .
         by case o_x => //=.
+      Qed.
+
+
+      Lemma fixlist_empty_is_empty (m : nat) : fixlist_is_empty (fixlist_empty m).
+      Proof.
+        by elim m=> //=.
+      Qed.
+
+      Lemma fixlist_empty_is_top_heavy (m : nat) : fixlist_is_top_heavy (fixlist_empty m).
+      Proof.
+        by apply fixlist_is_empty_top_heavy; exact (fixlist_empty_is_empty m).
       Qed.
 
       Lemma fixlist_top_heavy_coerce_some (m : nat) (xs : seq (option A)) (x a: A) (pf: size xs == m) (pf': size (Some x :: xs) == m.+1) :
@@ -661,7 +672,7 @@ Definition fixlist n := n.-tuple (option A).
         dependent rewrite Hxseq in Hxs.
         case x; last first.
         move => //=.
-          move=>/fixlist_empty_is_top_heavy.
+          move=>/fixlist_is_empty_top_heavy.
           rewrite /tuple.
           rewrite /behead_tuple.
           generalize (behead_tupleP (Tuple (n:=m.+1) (tval:=None :: xs) Hxs)) as H_tail => //= H_tail.
@@ -828,6 +839,7 @@ Definition fixlist n := n.-tuple (option A).
         rewrite /fixlist_contains.
         by rewrite (proof_irrelevance _ Hls Ht').
         Qed.
+
 
 
 
