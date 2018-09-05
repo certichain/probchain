@@ -18,7 +18,6 @@ Set Implicit Arguments.
 Definition gen_random : Comp Hashed :=
     y <-$ [0 ... Hash_value ];
     ret y.
-About gen_random.
 
 (* given a random generator, a block and the oracle, 
    updates the oracle state and returns a new hashed value *)
@@ -194,18 +193,7 @@ Definition Addr_to_index (a : Addr) : option ('I_n_max_actors).
   exact None.
 Defined.
 
-
-Fixpoint world_step (w_s : World) (s : seq RndGen) : Comp [finType of (option World)] :=
-  match s with
-    (* world_step uses the scheduler as it's decreasing argument *)
-    | [::] => ret (Some w_s)
-    | h :: t => 
-     (* evaluate the tail of the list *)
-      o_w <-$ world_step w_s t;
-      match o_w with
-          | None => ret None
-          | Some w =>
-          (* now apply the head to the world after the tail has been executed *)
+Definition world_step_internal (w: World) (h: RndGen) : Comp [finType of (option World)] :=
           match h with
             | RoundEnd => 
               if round_ended w then
@@ -556,8 +544,22 @@ Fixpoint world_step (w_s : World) (s : seq RndGen) : Comp [finType of (option Wo
               else
                 (* It is an invalid schedule to have an adversary end when the adversary is not active*)
                 (ret None)
+            end .
 
-            end
+
+
+Fixpoint world_step (w_s : World) (s : seq RndGen) : Comp [finType of (option World)] :=
+  match s with
+    (* world_step uses the scheduler as it's decreasing argument *)
+    | [::] => ret (Some w_s)
+    | h :: t => 
+     (* evaluate the tail of the list *)
+      o_w <-$ world_step w_s t;
+      match o_w with
+          | None => ret None
+          | Some w =>
+          (* now apply the head to the world after the tail has been executed *)
+            world_step_internal w h
           end
         end.
 

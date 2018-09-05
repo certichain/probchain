@@ -717,32 +717,32 @@ Definition honest_step_world  (w w' : World) lclstt iscrpt addr result blk_rcd h
 (* contains some common simplifications used repeatedly in most proofs *)
 Lemma world_step_honest_mint_simplify x w w' :
   x = HonestMintBlock ->
-  0 < P[ world_step w' [:: x] === Some w ] ->
+  0 < P[ world_step_internal w' x === Some w] ->
 
   exists lclstt iscrpt addr result blk_rcd hash_val hash_value os,
   w = honest_step_world w w' lclstt iscrpt addr result blk_rcd hash_val hash_value os.
 Proof.
 
   move=> -> //=.
-  rewrite /DistBind.f //=.
-  move=>/Rlt_not_eq/nesym/prsumr_ge0 => Hexists.
-  case: Hexists => o_w.
-  apply Rmult_le_pos.
-  rewrite /Dist1.f//=.
-  case (eq_op  o_w (Some w')) => //=. by exact (Rle_refl 0).
-  by case (evalDist _) => [[f Hposf] Hdist].
-  move=> /gtRP/Rgt_lt.
+  rewrite /evalDist //=.
+  (* move=>/Rlt_not_eq/nesym/prsumr_ge0 => Hexists. *)
+  (* case: Hexists => o_w. *)
+  (* apply Rmult_le_pos. *)
+  (* rewrite /Dist1.f//=. *)
+  (* case (eq_op  o_w (Some w')) => //=. by exact (Rle_refl 0). *)
+  (* by case (evalDist _) => [[f Hposf] Hdist]. *)
+  (* move=> /gtRP/Rgt_lt. *)
 
-    destruct o_w  as [t_w' |]; last first .
-      (* It is an absurdity for the immediately prior world to be none*)
-      by rewrite /Dist1.f//=; rewrite mulR0; move=> /(Rlt_irrefl 0). 
-      have: Dist1.f (A:=option_finType world_finType) (Some w') (Some t_w') = INR (eq_op (Some t_w') (Some w')). by rewrite /Dist1.f. 
-      move=> ->.
-      case Hweq: (eq_op (Some t_w') (Some w')); last first.
-      by move=>//=; rewrite mul0R; move=>/(Rlt_irrefl 0).
-      move=> //=; rewrite mul1R.
-      move/eqP: Hweq => [] Hewq.
-      rewrite Hewq.
+  (*   destruct o_w  as [t_w' |]; last first . *)
+  (*     (* It is an absurdity for the immediately prior world to be none*) *)
+  (*     by rewrite /Dist1.f//=; rewrite mulR0; move=> /(Rlt_irrefl 0).  *)
+  (*     have: Dist1.f (A:=option_finType world_finType) (Some w') (Some t_w') = INR (eq_op (Some t_w') (Some w')). by rewrite /Dist1.f.  *)
+  (*     move=> ->. *)
+  (*     case Hweq: (eq_op (Some t_w') (Some w')); last first. *)
+  (*     by move=>//=; rewrite mul0R; move=>/(Rlt_irrefl 0). *)
+  (*     move=> //=; rewrite mul1R. *)
+  (*     move/eqP: Hweq => [] Hewq. *)
+  (*     rewrite Hewq. *)
 
         case: (honest_activation _ ) => [addr|]; last first.
           by rewrite /evalDist//=; rewrite /Dist1.f //= => /(Rlt_irrefl 0).
@@ -837,7 +837,6 @@ Proof.
         move=> /ltR0n; rewrite lt0b.
         rewrite -/Dist1.f.
         move=>/eqP [].
-        clear Hewq.
         clear Hhash_value_valid.
         rewrite -/hash_step.
         rewrite -/(hash_step w w' lclstt addr result blk_rcd hash_val hash_value os).
@@ -885,9 +884,42 @@ Qed.
 
 
 
+(* Lemma world_step_weaken x xs w w' : *)
+(*   P[ world_step initWorld (x :: xs) === Some w] <> 0 -> *)
+(*   P[ world_step initWorld xs === Some w'] <> 0 -> *)
+(*  P[ world_step w' [:: x] === Some w] <> 0. *)
+(* Proof. *)
+(*   elim: xs . *)
+(*   move=>/prsumr_ge0 Hexist. *)
+(*   case: Hexist. *)
+(*   move=> o_w' => //=. *)
+(*   apply /Rmult_le_pos. *)
+(*   by exact (Dist1.f0 _ _). *)
+(*   by case (evalDist _ ) => [[f hposf] Hdist]. *)
+(*   move=> ow' /gtRP/Rgt_lt. *)
+(*   move=>//=. *)
+(*   case o_w *)
+(*   /Rlt_not_eq/nesym. *)
+(*   rewrite /nesym. *)
+(*   About nesym. *)
+
+(*     move=>/prsumr_ge0 Hexist'. *)
+(*   move=> H H'. *)
+(*   exact H. *)
+(*   by []. *)
+(*   move=> //=. *)
+(*   move=> Hws. *)
+(*   rewrite /evalDist. *)
+(*   rewrite {1}/world_step. *)
+(*   move=> Hw. *)
+
+(*   move=>//=. *)
 
 
 
+(* Lemma example (f : (bool -> bool)) : 1 = 0. *)
+(*   Proof. *)
+(*     case H: f => f'. *)
 
 
 Lemma world_step_adoption_history_top_heavy sc w :
@@ -900,8 +932,9 @@ Proof.
   case Hinworld: (Some w == Some initWorld)%bool => //= _.
   move/eqP: Hinworld => Hinworld; injection Hinworld => ->  //=.
   by rewrite /initWorldAdoptionHistory; exact (fixlist_empty_is_top_heavy _ _).
+  move=> Hpr_w. move: (Hpr_w).
     move=>/prsumr_ge0 Hexist.
-    case: Hexist => o_w.
+    case : Hexist => o_w.
       by apply Rmult_le_pos; case (evalDist _); move=> [pos_f Hdist].
     move=>/gtRP/Rgt_lt/Rlt_0_Rmult_inv Hexist.
     case: Hexist.
@@ -911,7 +944,9 @@ Proof.
       (* It is an absurdity for the immediately prior world to be none*)
       by rewrite /Dist1.f//= => _ /ltR0n.
     rewrite -/evalDist -/world_step.
+    move=> Hpr_w'; move: (Hpr_w').
     move=> /Rlt_not_eq/nesym/IHn Hw'.
+    move=> Hpr_wstep; move: (Hpr_wstep).
     case_eq x => //=.
     (* if x is a transaction gen *)
        - move=> [tx addr] Heq.
@@ -925,247 +960,104 @@ Proof.
         by case (fixlist_get_nth _) => [txMsg|]; rewrite /evalDist//= /Dist1.f ltR0n lt0b =>/eqP [] -> //=.
     (* if x is a honest mint*)
         move=> Heqq.
-        case: (honest_activation _ ) => [addr|]; last first.
-        by rewrite /Dist1.f//= => /ltR0n.
-        case: (tnth _ ) => lclstt iscrpt //=.
-        move=>/Rlt_not_eq/nesym/prsumr_ge0 => Hexists.
-        case: Hexists.
-          by move=> hv; rewrite /Rgt_lt/Rlt_0_Rmult_inv; apply Rmult_le_pos; case (DistBind.d _) =>[[f Hpos_f] Hdist] //=.
-
-        move=> hash_value /gtRP/Rgt_lt/Rlt_0_Rmult_inv Hsplit.
-        case: Hsplit.
-          by case (DistBind.d _) => [[f Hposf] Hdist].
-          by case (DistBind.d _) => [[f Hposf] Hdist].
-        rewrite /DistBind.d//=/DistBind.f.
-        move=>/Rlt_not_eq/nesym/prsumr_ge0 => Hexists.
-        case: Hexists => [hash_range | hash_range].
-          apply /Rmult_le_pos.
-            by case (Uniform.d _) => [[f Hposf] Hdist].
-            by case (Dist1.d _) => [[f Hposf] Hdist].
-        move=>/gtRP/Rgt_lt/Rlt_0_Rmult_inv Hexists.
-        case: Hexists.
-            by case (Uniform.d _) => [[f Hposf] Hdist]. 
-            by case (Dist1.d _) => [[f Hposf] Hdist]. 
-        rewrite /Uniform.d//=/Uniform.f => Hhash_value_valid.
-        rewrite /Dist1.f//= => /ltR0n; rewrite lt0b =>/eqP Hhasheq.
-        move=>/Rlt_not_eq/nesym/prsumr_ge0 => Hexists.
-        case: Hexists.
-        move=> o_chain .
-          apply /Rmult_le_pos.
-          by case (evalDist _); move=> [pos_f Hdist] .
-        apply rsumr_ge0 => o_w' _.
-        case o_w' => [t_w'|]; last first.
-        have: (INR (eq_op (Some w) None) = 0). by [].
-        move=> ->; rewrite mulR0; by exact (Rle_refl 0).
-        apply Rmult_le_pos.
-          by case (evalDist _); move=> [pos_f Hdist] .
-          by case (eq_op (Some w) _); [| exact (Rle_refl 0)].
-        
-        move=> o_w' /gtRP/Rgt_lt/Rlt_0_Rmult_inv Hexists.
-        case: Hexists.
-          by case (evalDist _); move=> [pos_f Hdist] .
-        apply rsumr_ge0 => t_o_w' _.
-        apply Rmult_le_pos.
-          by case (evalDist _); move=> [pos_f Hdist] .
-          by case (eq_op (Some w) _); [| exact (Rle_refl 0)].
-         case: o_w'; last first.
-         have: \rsum_(a0 in [finType of option World]) P[ ret None === a0] * INR (eq_op (Some w) a0) = 0.
-          apply prsumr_eq0P.
-          move=> o_w _.
-            apply Rmult_le_pos.
-              by case (evalDist _); move=> [f Hpos_f]  Hdist => //=.
-              by case (eq_op (Some w) _); [| exact (Rle_refl 0)].
-          move=> [t_w| _];last first.
-          rewrite /evalDist//=/Dist1.f //=.
-          have:((INR 1) * (INR 0) = Rmult (INR 1) (INR 0)). by []. move=> ->.
-          by rewrite mulR0.
-          move => _ ; rewrite /evalDist//=/Dist1.f.
-          have: (INR (eq_op (Some t_w) None) =  0). by []. move=> ->.
-          have:(0 * (INR (eq_op (Some w) (Some t_w))) = Rmult 0 (INR (eq_op (Some w) (Some t_w)))). by []. move=> ->.
-          by rewrite mul0R.
-        by move=> -> _ /Rlt_irrefl .
-
-
-      move=> t_w'.
-      move=>/Rlt_not_eq/nesym.
-      rewrite /honest_attempt_hash//=.
-      case: (retrieve_head_link _) => [hash_val|//=];last first.
-      case: (find_maximal_valid_subset _) => blk_rcd ltp //=.
-      rewrite /DistBind.f.
-      move=>/prsumr_ge0 Hexists.
-      case: Hexists => [[os result]].
-      apply Rmult_le_pos .
-        by case (evalDist _); move=> [f Hpos_f]  Hdist => //=.
-        by case (Dist1.d _); move=> [f Hpos_f]  Hdist => //=.
-
-      move=> [ os result].
-      move=>/gtRP/Rgt_lt/Rlt_0_Rmult_inv Hexists.
-      case: Hexists.
-        by case (evalDist _); move=> [f Hpos_f]  Hdist => //=.
-        by case (Dist1.d _); move=> [f Hpos_f]  Hdist => //=.
+        move=> _.
+        move:(@world_step_honest_mint_simplify x w w' Heqq Hpr_wstep) => [lclstt [iscrpt [addr [result [blc_rcd [hash_vl [hash_value [os]]]]]]]] => -> //=.
+        rewrite /honest_step_world //=.
         destruct w' eqn: w'des.
         destruct world_global_state eqn: wgs'des.
-      rewrite /hash//= =>Hshelved.
-
-      rewrite /Dist1.f//=ltR0n lt0b => /eqP Heq.
-      case: Heq => -> //=.
-      move=>/Rlt_not_eq/nesym/prsumr_ge0 Hexists.
-      case: Hexists.
-      move=> t_o_w'.
-      apply Rmult_le_pos.
-        by case (eq_op _ _); [| exact (Rle_refl 0)].
-        by case (eq_op _ _); [| exact (Rle_refl 0)].
-      move=> t_o_w /gtRP/Rgt_lt/Rlt_0_Rmult_inv Hexists.
-      case: Hexists.
-        by case (eq_op _ _); [| exact (Rle_refl 0)].
-        by case (eq_op _ _); [| exact (Rle_refl 0)].
-
-      case:(fixlist_enqueue _) => chain block.
-      move=>/ltR0n; rewrite lt0b => /eqP ->.
-      move=>/ltR0n; rewrite lt0b => /eqP Hweqw'.
-      case: Hweqw' => ->.
-      rewrite /world_executed_to_round//=.
-      by case: (result < _)%nat;
-        [
-          case (global_currently_active) as [tm Htmvld] eqn: Hteq => //=; apply fixlist_insert_preserves_top_heavy|
-          case (eq_op (honest_max_valid _ _ ) _);
-          case (global_currently_active) as [tm Htmvld] eqn: Hteq => //=; apply fixlist_insert_preserves_top_heavy
-        ].
-
-                                                                       apply fixlist_insert_preserves_top_heavy.
-      move=> //=.
-      case: (honest_max_valid _).
-      case: (eq_op _ _).
-
-      destruct (world_adoption_history ) as [w_hist Hw_hist] => //=.
-      move=> f_IHn.
-
-      (* rewrite !fixlist_has_eq. *)
-      (* move=> f_IHn /orP [Hhasvalue|Hcontains]. *)
-      (* by apply/orP; left; move: (f_IHn Hhasvalue). *)
-      (* move/andP: Hcontains => //= [/eqP meets valid]. *)
-      (* rewrite meets in Hteq. *)
-      (* apply/orP; right; apply/andP. *)
-      (* move/eqP: meets. *)
-
-      rewrite fixlist_has_eq.
-      move=> /orP [Hhasvalue|Hcontains].
-      rewrite fixlist_has_eq.
-      by apply/orP; left; move: (f_IHn Hhasvalue).
-      move/andP: Hcontains => //= [/eqP meets /andP [ncontains nhas]].
-      rewrite fixlist_has_eq.
-      apply/orP; right; apply/andP.
-      destruct global_current_round as [gcr Hgcr].
-      move: wgs'des w'des .
-      rewrite meets => //=.
-      move=> w'des wgs'des  .
-      case: meets => meets.
-      case:w_hist.
-
-      rewrite fixlist_has_eq.
-      apply/orP; left.
-      apply f_IHn.
-      clear f_IHn.
-      clear w'des.
-      clear Hw'.
-      move: valid.
-      rewrite /fixlist_contains//=.
-      rewrite fixlist_has_eq =>/orP[Hhas|/andP[ _ Hcontain]]; last first.
-      move: Hcontain.
-      rewrite /fixlist_contains//=.
-      rewrite fixlist_has_eq =>/orP[Hhas|/andP[ _ Hcontain]]; last first.
-
-      move: Hw_hist .
-      elim w_hist.
-      by apply/orP; left; move: (f_IHn Hhasvalue).
-
-      rewrite !has_count //=.
-      induction w_hist => //= [_ |].
-      move: (Hw_hist) =>//=.
-      move: (Hw_hist) =>//=.
-      rewrite -{1}(muln0 n_max_actors).
-      rewrite {1}(eqn_mul2l n_max_actors 0%nat N_rounds) => /orP [/eqP Hn0|/eqP Hn0].
-      by move: valid_n_max_actors; rewrite {1}Hn0 => Hwrong; inversion Hwrong.
-      by move: valid_N_rounds; rewrite -{1}Hn0 => Hwrong; inversion Hwrong.
-      rewrite -!has_count //=.
-
-
-      rewrite .
-
-      induction fixlist_unwrap => //=.
-      move=> H.
-      case (has _) eqn:Hbase => [ _ |].
-      destruct (Tuple _).
-      destruct addr as [addr Haddr].
-      induction addr => //=.
-      
-      rewrite /world_adoption_history //=.
-      elim: (world_adoption_history) => //=.
-      set (state := {| global_local_states := _ |}).
-      set (is_edge_case := (eq_op (nat_of_ord (Ordinal (n:=n_max_actors + 2) (m:=tm) Htmvld)) n_max_actors.+1)).
-      move=> //=.
-      case is_edge_case.
-      dependent destruction is_edge_case .
-      reflexivity.
-      set (is_edge_case := (eq_op (nat_of_ord (Ordinal (n:=n_max_actors + 2) (m:=tm) Htmvld)) n_max_actors.+1)).
-
+        rewrite /hash_step//=.
+        case: (result < _)%nat => //=.
+        case (global_currently_active ) as [tm Htmvld] eqn: Hteq => //= .
+        case:(fixlist_enqueue _) => chain block //=.
+        by apply fixlist_insert_preserves_top_heavy.
+        case (honest_max_valid _) => //= blck Hblk.
+        by case (eq_op _ (honest_current_chain (update_transaction_pool addr lclstt world_transaction_pool))) ;
+        apply fixlist_insert_preserves_top_heavy.
+    (* if x is an adversary mint operation *)
+        move=> Heqq.
+        case (adversary_activation _); last first .
+          (* obviously invalid for the prior world to be none *)
+          by rewrite /evalDist //=; rewrite /Dist1.f //= => /(Rlt_irrefl 0).
+        case (_ < _)%nat => //=.
+        rewrite /DistBind.f//=.
+        move=> /Rlt_not_eq/nesym/prsumr_ge0//= Hexists.
+        case: Hexists => //= [[[adv os] bl]].
+          apply /Rmult_le_pos.
+            by case (evalDist _) => [[f hposf] hdist].
+            by exact (Dist1.f0 _ _).
+          move=>  adv_state /gtRP/Rgt_lt/Rlt_0_Rmult_inv Hexists.
+          case: Hexists.
+            by case (evalDist _) => [[f hposf] hdist].
+            by exact (Dist1.f0 _ _).
+          move=> Hadv_state.
+          rewrite/Dist1.f=> /ltR0n; rewrite lt0b => /eqP [] -> //=.
+          destruct adv_state.
+          destruct p.
+          by case (isSome _) => //=.
+          case (isSome _) => //=.
+          rewrite/DistBind.f//=.
+          move=> /Rlt_not_eq/nesym/prsumr_ge0 Hexists.
+          case: Hexists => adv_state.
+          apply /Rmult_le_pos.
+            by case (evalDist _) => [[f hposf] hdist].
+            by exact (Dist1.f0 _ _).
+         move=>/gtRP/Rgt_lt/Rlt_0_Rmult_inv Hexists.
+         case: Hexists.
+            by case (evalDist _) => [[f hposf] hdist].
+            by exact (Dist1.f0 _ _).
+         move=> Hadv_state.
+         rewrite/Dist1.f.
+         rewrite/Dist1.f=> /ltR0n; rewrite lt0b => /eqP [] -> //=.
+         destruct adv_state.
+         destruct s => //=.
+         by rewrite /Dist1.f//= => /(Rlt_irrefl 0).
+         
+    (* if x is a corruption operation*)
+       - move=> addr Heqq.
+        case (adversary_activation _); last first .
+          (* obviously invalid for the prior world to be none *)
+          by rewrite /evalDist //=; rewrite /Dist1.f //= => /(Rlt_irrefl 0).
+        case (is_uncorrputed_actor _); last first.
+          (* obviously invalid for the prior world to be none *)
+          by rewrite /evalDist //=; rewrite /Dist1.f //= => /(Rlt_irrefl 0).
+        move=> [addr' lclstt].
+        case (no_corrupted_players _ < _)%nat ;last first.
+          (* obviously invalid for the prior world to be none *)
+          by rewrite /evalDist //=; rewrite /Dist1.f //= => /(Rlt_irrefl 0).
  
+        by rewrite /evalDist //=; rewrite /Dist1.f => /ltR0n; rewrite lt0b => /eqP [] -> //=.
+     (* if x is a broadcast operation *)
+        - move=> addrlist Heqq.
+        case ( _ && _); last first.
+          (* obviously invalid for the prior world to be none *)
+          by rewrite /evalDist //=; rewrite /Dist1.f //= => /(Rlt_irrefl 0).
+          destruct (finfun.FunFinfun.fun_of_fin _) => //=.
+        by rewrite/Dist1.f => /ltR0n; rewrite lt0b =>/eqP [] -> //=.
 
-
-
-
-
-        move=> [[[[lclstt' o_msg] o_s] o_block] chain] Hhon.
-        move=>/Rlt_not_eq/nesym/prsumr_ge0 Hexists.
-        case: Hexists.
-        move=> How.
-        case: How => [w0|]; last first.
-        have: (eq_op (Some w) None = false). by [].
-        move=> ->; rewrite mulR0; by exact (Rle_refl 0).
-        case (eq_op (Some w) _); last first.
-        move=> //=; rewrite mulR0; by exact (Rle_refl 0).
-        move=> //=; rewrite mulR1.
-        left.
-        rewrite /Dist1.f.
-        apply /ltR0n.
-        rewrite lt0b.
-        apply/eqP.
-        (eq_op (nat_of_ord (global_currently_active (world_global_state w'))) n_max_actors.+1) =>//=.
-
-        exact (world_global_state w0).
-        exact (global_currently_active (world_global_state w0)).
-        case: (eq_op (global_currently_active _) _) =>//=.
-        exact (world_global_state w0).
-        exact (global_currently_active (world_global_state w0)).
-
-        case: (eq_op (global_currently_active _) _) =>//=.
-        exact (world_currently_active w0).
-        case: (eq_op _ _).
-        =>/eqP
-          have:((INR 1) * (INR 0) = Rmult (INR 1) (INR 0)). by []. move=> ->.
- 
-
-        move=> [//|o_w].
-        move: (Hexists (Some w)).
-        move=> /gtRP/Rgt_lt/Rlt_0_Rmult_inv Hexists.
-        rewrite /evalDist//=/Dist1.f //=.
-        apply Rmult_le_pos; case (DistBind.d _) =>[[f Hpos_f] Hdist] //=.
-        
-        => Hexists.
-        rewrite /Rgt_lt/Rlt_0_Rmult_inv.
-
-
-
-
-        move=> hash_value /gtRP/Rgt_lt/Rlt_0_Rmult_inv Hsplit.
-        case: Hsplit.
- 
-        case maybe_attempt_result.
-        rewrite /evalDist//=  /Dist1.f ltR0n lt0b.
-        =>/eqP o_w'; case: o_w' => ->.
-
-
-
+     (* if x is a adversary transaction gen *)
+        move=> Heqq.
+        case ( _ < _)%nat; last first.
+          (* obviously invalid for the prior world to be none *)
+          by rewrite /evalDist //=; rewrite /Dist1.f //= => /(Rlt_irrefl 0).
+        destruct (finfun.FunFinfun.fun_of_fin _) => //=.
+        destruct p => //= .
+        by rewrite/Dist1.f => /ltR0n; rewrite lt0b =>/eqP [] -> //=.
+     (* if x is round ended *)
+        move=> Heqq.
+        case (round_ended w'); last first.
+          (* obviously invalid for the prior world to be none *)
+          by rewrite /evalDist //=; rewrite /Dist1.f //= => /(Rlt_irrefl 0).
+        destruct (update_message_pool_queue _) => //=.
+        by rewrite/Dist1.f => /ltR0n; rewrite lt0b =>/eqP [] -> //=.
+          
+     (* if x is an adversary end gen *)
+        move=> Heqq.
+        case (adversary_activation _); last first.
+          (* obviously invalid for the prior world to be none *)
+          by rewrite /evalDist //=; rewrite /Dist1.f //= => /(Rlt_irrefl 0).
+        rewrite/evalDist//=.
+        by rewrite/Dist1.f => /ltR0n; rewrite lt0b =>/eqP [] -> //=.
+Qed. 
 
 
  
