@@ -524,10 +524,11 @@ Definition world_step_internal (w: World) (h: RndGen) : Comp [finType of (option
               | AdversaryEnd  => 
               if adversary_activation (world_global_state w)  then
                 (* increment round *)
+
                 let: updated_state := update_round (world_global_state w) in
                     let: w' := 
                       mkWorld
-                        (world_global_state w)
+                        updated_state
                         (world_transaction_pool w)
                         (world_inflight_pool w)
                         (world_message_pool w)

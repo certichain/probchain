@@ -856,6 +856,637 @@ Proof.
 Qed.
 
 
+Definition transaction_gen_step w' tx  := {|
+    world_global_state := world_global_state w';
+    world_transaction_pool := fixlist_insert (world_transaction_pool w') (BroadcastTransaction tx);
+    world_inflight_pool := world_inflight_pool w';
+    world_message_pool := world_message_pool w';
+    world_hash := world_hash w';
+    world_block_history := world_block_history w';
+    world_chain_history := world_chain_history w';
+    world_adversary_message_quota := world_adversary_message_quota w';
+    world_adversary_transaction_quota := world_adversary_transaction_quota w';
+    world_honest_transaction_quota := mod_incr Honest_max_Transaction_sends valid_Honest_max_Transaction_sends
+                                        (world_honest_transaction_quota w');
+    world_adoption_history := world_adoption_history w'
+  |}.
+
+
+Definition transaction_drop_step w' rem_ind:= {|
+    world_global_state := world_global_state w';
+    world_transaction_pool := fixlist_remove (world_transaction_pool w') rem_ind;
+    world_inflight_pool := world_inflight_pool w';
+    world_message_pool := world_message_pool w';
+    world_hash := world_hash w';
+    world_block_history := world_block_history w';
+    world_chain_history := world_chain_history w';
+    world_adversary_message_quota := world_adversary_message_quota w';
+    world_adversary_transaction_quota := world_adversary_transaction_quota w';
+    world_honest_transaction_quota := world_honest_transaction_quota w';
+    world_adoption_history := world_adoption_history w' |}.
+
+Definition honest_mint_step iscrpt os hash_value hash_vl blc_rcd addr lclstt result w' :=
+(let
+     '(updated_actor, new_message, new_oracle, new_block, new_chain) :=
+      if (result < T_Hashing_Difficulty)%nat
+      then
+       let
+       '(new_chain, _) :=
+        fixlist_enqueue (Some {| block_nonce := hash_value; block_link := hash_vl; block_records := blc_rcd |})
+          (honest_max_valid (update_transaction_pool addr lclstt (world_transaction_pool w')) (world_hash w')) in
+        ({|
+         honest_current_chain := new_chain;
+         honest_local_transaction_pool := fixlist_empty Transaction Honest_TransactionPool_size;
+         honest_local_message_pool := fixlist_empty [eqType of BlockChain] Honest_MessagePool_size |},
+        Some (BroadcastMsg new_chain), os,
+        Some {| block_nonce := hash_value; block_link := hash_vl; block_records := blc_rcd |}, 
+        Some new_chain)
+      else
+       if
+        honest_max_valid (update_transaction_pool addr lclstt (world_transaction_pool w')) (world_hash w') ==
+        honest_current_chain (update_transaction_pool addr lclstt (world_transaction_pool w'))
+       then
+        ({|
+         honest_current_chain := honest_current_chain
+                                   (update_transaction_pool addr lclstt (world_transaction_pool w'));
+         honest_local_transaction_pool := fixlist_empty Transaction Honest_TransactionPool_size;
+         honest_local_message_pool := fixlist_empty [eqType of BlockChain] Honest_MessagePool_size |}, None, os,
+        None, None)
+       else
+        ({|
+         honest_current_chain := honest_max_valid (update_transaction_pool addr lclstt (world_transaction_pool w'))
+                                   (world_hash w');
+         honest_local_transaction_pool := fixlist_empty Transaction Honest_TransactionPool_size;
+         honest_local_message_pool := fixlist_empty [eqType of BlockChain] Honest_MessagePool_size |},
+        Some
+          (BroadcastMsg
+             (honest_max_valid (update_transaction_pool addr lclstt (world_transaction_pool w')) (world_hash w'))),
+        os, None, None) in
+      {|
+      world_global_state := (if eq_op (nat_of_ord (global_currently_active (world_global_state w'))) n_max_actors.+1 as b0
+                              return
+                                ((eq_op (nat_of_ord((global_currently_active (world_global_state w')))) n_max_actors.+1) = b0 ->
+                                 GlobalState)
+                             then
+                              fun _ : (eq_op (nat_of_ord (global_currently_active (world_global_state w'))) n_max_actors.+1) = true
+                              =>
+                              {|
+                              global_local_states := set_tnth (global_local_states (world_global_state w'))
+                                                       (updated_actor, iscrpt)
+                                                       (global_currently_active (world_global_state w'));
+                              global_adversary := global_adversary (world_global_state w');
+                              global_currently_active := global_currently_active (world_global_state w');
+                              global_current_round := global_current_round (world_global_state w') |}
+                             else
+                              fun
+                                prf : (eq_op (nat_of_ord(global_currently_active (world_global_state w'))) n_max_actors.+1) = false
+                              =>
+                              ssr_suff ((global_currently_active (world_global_state w')).+1 < n_max_actors + 2)%nat
+                                (fun
+                                   H' : ((global_currently_active (world_global_state w')).+1 < n_max_actors + 2)%nat
+                                 =>
+                                 {|
+                                 global_local_states := set_tnth (global_local_states (world_global_state w'))
+                                                          (updated_actor, iscrpt)
+                                                          (global_currently_active (world_global_state w'));
+                                 global_adversary := global_adversary (world_global_state w');
+                                 global_currently_active := Ordinal (n:=n_max_actors + 2)
+                                                              (m:=(global_currently_active (world_global_state w')).+1)
+                                                              H';
+                                 global_current_round := global_current_round (world_global_state w') |})
+                                (round_in_range (global_currently_active (world_global_state w'))
+                                   (introN eqP (elimTF eqP prf))))
+                              (erefl (eq_op (nat_of_ord (global_currently_active (world_global_state w'))) n_max_actors.+1));
+      world_transaction_pool := world_transaction_pool w';
+      world_inflight_pool := option_insert (world_inflight_pool w') new_message;
+      world_message_pool := world_message_pool w';
+      world_hash := new_oracle;
+      world_block_history := BlockMap_put_honest_on_success new_block
+                               (global_current_round (world_global_state w')) (world_block_history w');
+      world_chain_history := option_insert (world_chain_history w') new_chain;
+      world_adversary_message_quota := world_adversary_message_quota w';
+      world_adversary_transaction_quota := world_adversary_transaction_quota w';
+      world_honest_transaction_quota := world_honest_transaction_quota w';
+      world_adoption_history := record_actor_current_chain (honest_current_chain lclstt) new_chain
+                                  (global_current_round (world_global_state w')) addr (world_adoption_history w') |}).
+
+
+Definition update_adversary_state w':=
+  finfun.FunFinfun.fun_of_fin
+                 (finfun.FunFinfun.fun_of_fin
+                    (adversary_generate_block
+                       (update_adversary_transaction_pool (global_adversary (world_global_state w'))
+                          (world_transaction_pool w')))
+                    (adversary_state
+                       (update_adversary_transaction_pool (global_adversary (world_global_state w'))
+                          (world_transaction_pool w')))) (world_inflight_pool w').
+
+Definition adversary_mint_player_step
+                 (oracle_state : oraclestate_finType) (old_adv_state : adversary_internal_state)
+                 (blc_rcd : BlockRecord) (nonce hash:  'I_Hash_value.+1) (hash_res: Hashed) w' :=
+    (let
+     '(new_adversary, new_oracle, new_block) :=
+      if (hash_res < T_Hashing_Difficulty)%nat
+      then
+       ({|
+        adversary_state := finfun.FunFinfun.fun_of_fin
+                             (finfun.FunFinfun.fun_of_fin
+                                (finfun.FunFinfun.fun_of_fin
+                                   (adversary_provide_block_hash_result
+                                      (update_adversary_transaction_pool (global_adversary (world_global_state w'))
+                                         (world_transaction_pool w'))) old_adv_state) (nonce, hash, blc_rcd))
+                             hash_res;
+        adversary_state_change := adversary_state_change
+                                    (update_adversary_transaction_pool (global_adversary (world_global_state w'))
+                                       (world_transaction_pool w'));
+        adversary_insert_transaction := adversary_insert_transaction
+                                          (update_adversary_transaction_pool
+                                             (global_adversary (world_global_state w'))
+                                             (world_transaction_pool w'));
+        adversary_insert_chain := adversary_insert_chain
+                                    (update_adversary_transaction_pool (global_adversary (world_global_state w'))
+                                       (world_transaction_pool w'));
+        adversary_generate_block := adversary_generate_block
+                                      (update_adversary_transaction_pool (global_adversary (world_global_state w'))
+                                         (world_transaction_pool w'));
+        adversary_provide_block_hash_result := adversary_provide_block_hash_result
+                                                 (update_adversary_transaction_pool
+                                                    (global_adversary (world_global_state w'))
+                                                    (world_transaction_pool w'));
+        adversary_send_chain := adversary_send_chain
+                                  (update_adversary_transaction_pool (global_adversary (world_global_state w'))
+                                     (world_transaction_pool w'));
+        adversary_send_transaction := adversary_send_transaction
+                                        (update_adversary_transaction_pool
+                                           (global_adversary (world_global_state w')) (world_transaction_pool w'));
+        adversary_last_hashed_round := adversary_last_hashed_round
+                                         (update_adversary_transaction_pool
+                                            (global_adversary (world_global_state w'))
+                                            (world_transaction_pool w')) |}, oracle_state,
+       Some {| block_nonce := nonce; block_link := hash; block_records := blc_rcd |})
+      else
+       ({|
+        adversary_state := finfun.FunFinfun.fun_of_fin
+                             (finfun.FunFinfun.fun_of_fin
+                                (finfun.FunFinfun.fun_of_fin
+                                   (adversary_provide_block_hash_result
+                                      (update_adversary_transaction_pool (global_adversary (world_global_state w'))
+                                         (world_transaction_pool w'))) old_adv_state) (nonce, hash, blc_rcd))
+                             hash_res;
+        adversary_state_change := adversary_state_change
+                                    (update_adversary_transaction_pool (global_adversary (world_global_state w'))
+                                       (world_transaction_pool w'));
+        adversary_insert_transaction := adversary_insert_transaction
+                                          (update_adversary_transaction_pool
+                                             (global_adversary (world_global_state w'))
+                                             (world_transaction_pool w'));
+        adversary_insert_chain := adversary_insert_chain
+                                    (update_adversary_transaction_pool (global_adversary (world_global_state w'))
+                                       (world_transaction_pool w'));
+        adversary_generate_block := adversary_generate_block
+                                      (update_adversary_transaction_pool (global_adversary (world_global_state w'))
+                                         (world_transaction_pool w'));
+        adversary_provide_block_hash_result := adversary_provide_block_hash_result
+                                                 (update_adversary_transaction_pool
+                                                    (global_adversary (world_global_state w'))
+                                                    (world_transaction_pool w'));
+        adversary_send_chain := adversary_send_chain
+                                  (update_adversary_transaction_pool (global_adversary (world_global_state w'))
+                                     (world_transaction_pool w'));
+        adversary_send_transaction := adversary_send_transaction
+                                        (update_adversary_transaction_pool
+                                           (global_adversary (world_global_state w')) (world_transaction_pool w'));
+        adversary_last_hashed_round := adversary_last_hashed_round
+                                         (update_adversary_transaction_pool
+                                            (global_adversary (world_global_state w'))
+                                            (world_transaction_pool w')) |}, oracle_state, None) in
+      {|
+      world_global_state := {|
+                            global_local_states := global_local_states (world_global_state w');
+                            global_adversary := if
+                                                 isSome
+                                                   (Addr_to_index (global_currently_active (world_global_state w')))
+                                                then new_adversary
+                                                else
+                                                 update_adversary_round new_adversary
+                                                   (global_current_round (world_global_state w'));
+                            global_currently_active := global_currently_active (world_global_state w');
+                            global_current_round := global_current_round (world_global_state w') |};
+      world_transaction_pool := world_transaction_pool w';
+      world_inflight_pool := world_inflight_pool w';
+      world_message_pool := world_message_pool w';
+      world_hash := new_oracle;
+      world_block_history := BlockMap_put_adversarial_on_success new_block
+                               (global_current_round (world_global_state w')) (world_block_history w');
+      world_chain_history := world_chain_history w';
+      world_adversary_message_quota := world_adversary_message_quota w';
+      world_adversary_transaction_quota := world_adversary_transaction_quota w';
+      world_honest_transaction_quota := world_honest_transaction_quota w';
+      world_adoption_history := world_adoption_history w' |}).
+
+
+
+Definition adversary_mint_global_step adv_state w' :=
+  (let '(new_adversary, new_oracle, new_block) := adv_state in
+      {|
+      world_global_state := {|
+                            global_local_states := global_local_states (world_global_state w');
+                            global_adversary := new_adversary;
+                            global_currently_active := global_currently_active (world_global_state w');
+                            global_current_round := global_current_round (world_global_state w') |};
+      world_transaction_pool := world_transaction_pool w';
+      world_inflight_pool := world_inflight_pool w';
+      world_message_pool := world_message_pool w';
+      world_hash := new_oracle;
+      world_block_history := BlockMap_put_adversarial_on_success new_block
+                               (global_current_round (world_global_state w')) (world_block_history w');
+      world_chain_history := world_chain_history w';
+      world_adversary_message_quota := world_adversary_message_quota w';
+      world_adversary_transaction_quota := world_adversary_transaction_quota w';
+      world_honest_transaction_quota := world_honest_transaction_quota w';
+      world_adoption_history := world_adoption_history w' |}).
+
+Definition adversary_corrupt_step lclstt addr' w' :=
+  {| world_global_state := {|
+                          global_local_states := set_tnth (global_local_states (world_global_state w'))
+                                                   (lclstt, true) addr';
+                          global_adversary := global_adversary (world_global_state w');
+                          global_currently_active := global_currently_active (world_global_state w');
+                          global_current_round := global_current_round (world_global_state w') |};
+    world_transaction_pool := world_transaction_pool w';
+    world_inflight_pool := world_inflight_pool w';
+    world_message_pool := world_message_pool w';
+    world_hash := world_hash w';
+    world_block_history := world_block_history w';
+    world_chain_history := world_chain_history w';
+    world_adversary_message_quota := world_adversary_message_quota w';
+    world_adversary_transaction_quota := world_adversary_transaction_quota w';
+    world_honest_transaction_quota := world_honest_transaction_quota w';
+    world_adoption_history := world_adoption_history w' |}.
+
+Definition broadcast_step nwadvst chain addrlist w' := {|
+    world_global_state := {|
+              global_local_states := global_local_states (world_global_state w');
+              global_adversary := {|
+                                  adversary_state := nwadvst;
+                                  adversary_state_change := adversary_state_change
+                                                              (global_adversary (world_global_state w'));
+                                  adversary_insert_transaction := adversary_insert_transaction
+                                                                    (global_adversary
+                                                                        (world_global_state w'));
+                                  adversary_insert_chain := adversary_insert_chain
+                                                              (global_adversary (world_global_state w'));
+                                  adversary_generate_block := adversary_generate_block
+                                                                (global_adversary
+                                                                    (world_global_state w'));
+                                  adversary_provide_block_hash_result := adversary_provide_block_hash_result
+                                                                          (global_adversary
+                                                                          (world_global_state w'));
+                                  adversary_send_chain := adversary_send_chain
+                                                            (global_adversary (world_global_state w'));
+                                  adversary_send_transaction := adversary_send_transaction
+                                                                  (global_adversary
+                                                                      (world_global_state w'));
+                                  adversary_last_hashed_round := adversary_last_hashed_round
+                                                                    (global_adversary
+                                                                      (world_global_state w')) |};
+              global_currently_active := global_currently_active (world_global_state w');
+              global_current_round := global_current_round (world_global_state w') |};
+    world_transaction_pool := world_transaction_pool w';
+    world_inflight_pool := fixlist_insert (world_inflight_pool w') (MulticastMsg addrlist chain);
+    world_message_pool := world_message_pool w';
+    world_hash := world_hash w';
+    world_block_history := world_block_history w';
+    world_chain_history := world_chain_history w';
+    world_adversary_message_quota := mod_incr Adversary_max_Message_sends valid_Adversary_max_Message_sends
+                                       (world_adversary_message_quota w');
+    world_adversary_transaction_quota := world_adversary_transaction_quota w';
+    world_honest_transaction_quota := world_honest_transaction_quota w';
+    world_adoption_history := world_adoption_history w' |}.
+
+Definition adversary_transaction_step adv_state tx addrlist w' :=
+{|
+    world_global_state := {|
+                          global_local_states := global_local_states (world_global_state w');
+                          global_adversary := {|
+                                              adversary_state := adv_state;
+                                              adversary_state_change := adversary_state_change
+                                                                          (global_adversary (world_global_state w'));
+                                              adversary_insert_transaction := adversary_insert_transaction
+                                                                                (global_adversary
+                                                                                   (world_global_state w'));
+                                              adversary_insert_chain := adversary_insert_chain
+                                                                          (global_adversary (world_global_state w'));
+                                              adversary_generate_block := adversary_generate_block
+                                                                            (global_adversary
+                                                                               (world_global_state w'));
+                                              adversary_provide_block_hash_result := adversary_provide_block_hash_result
+                                                                                      (global_adversary
+                                                                                      (world_global_state w'));
+                                              adversary_send_chain := adversary_send_chain
+                                                                        (global_adversary (world_global_state w'));
+                                              adversary_send_transaction := adversary_send_transaction
+                                                                              (global_adversary
+                                                                                 (world_global_state w'));
+                                              adversary_last_hashed_round := adversary_last_hashed_round
+                                                                               (global_adversary
+                                                                                  (world_global_state w')) |};
+                          global_currently_active := global_currently_active (world_global_state w');
+                          global_current_round := global_current_round (world_global_state w') |};
+    world_transaction_pool := fixlist_insert (world_transaction_pool w') (MulticastTransaction (tx, addrlist));
+    world_inflight_pool := world_inflight_pool w';
+    world_message_pool := world_message_pool w';
+    world_hash := world_hash w';
+    world_block_history := world_block_history w';
+    world_chain_history := world_chain_history w';
+    world_adversary_message_quota := world_adversary_message_quota w';
+    world_adversary_transaction_quota := mod_incr Adversary_max_Transaction_sends
+                                           valid_Adversary_max_Transaction_sends
+                                           (world_adversary_transaction_quota w');
+    world_honest_transaction_quota := world_honest_transaction_quota w';
+    world_adoption_history := world_adoption_history w' |}.
+
+
+Definition round_end_step msgs new_pool w' :=
+{|
+    world_global_state := deliver_messages msgs (next_round (world_global_state w'));
+    world_transaction_pool := world_transaction_pool w';
+    world_inflight_pool := initMessagePool;
+    world_message_pool := new_pool;
+    world_hash := world_hash w';
+    world_block_history := world_block_history w';
+    world_chain_history := world_chain_history w';
+    world_adversary_message_quota := Ordinal (n:=Adversary_max_Message_sends) (m:=0)
+                                       valid_Adversary_max_Message_sends;
+    world_adversary_transaction_quota := Ordinal (n:=Adversary_max_Transaction_sends) (m:=0)
+                                           valid_Adversary_max_Transaction_sends;
+    world_honest_transaction_quota := Ordinal (n:=Honest_max_Transaction_sends) (m:=0)
+                                        valid_Honest_max_Transaction_sends;
+    world_adoption_history := world_adoption_history w' |}.
+
+Definition adversary_end_step w' := {|
+    world_global_state := update_round (world_global_state w');
+    world_transaction_pool := world_transaction_pool w';
+    world_inflight_pool := world_inflight_pool w';
+    world_message_pool := world_message_pool w';
+    world_hash := world_hash w';
+    world_block_history := world_block_history w';
+    world_chain_history := world_chain_history w';
+    world_adversary_message_quota := world_adversary_message_quota w';
+    world_adversary_transaction_quota := world_adversary_transaction_quota w';
+    world_honest_transaction_quota := world_honest_transaction_quota w';
+    world_adoption_history := world_adoption_history w' |}.
+
+
+Lemma world_stepP (P : World -> Prop) sc w:
+  P initWorld ->
+  (* transaction gen step *)
+  (forall lcl corrupt addr tx w' xs, P w' ->
+  0 < P[ world_step initWorld xs === Some w'] ->
+  tnth (global_local_states (world_global_state w')) addr = (lcl, corrupt) ->
+  Transaction_valid tx (BlockChain_unwrap (honest_current_chain lcl)) = true ->
+  P (transaction_gen_step w' tx)) ->
+  (* transaction drop step *)
+  (forall rem_ind msg w' xs, P w' ->
+  0 < P[ world_step initWorld xs === Some w'] ->
+  fixlist_get_nth (world_transaction_pool w') rem_ind = Some msg ->
+  P (transaction_drop_step w' rem_ind)) ->
+
+  (* honest mint block step *)
+  (forall iscrpt os hash_value hash_vl blc_rcd addr lclstt result w' xs, P w' ->
+  0 < P[ world_step initWorld xs === Some w'] ->
+  P (honest_mint_step iscrpt os hash_value hash_vl blc_rcd addr lclstt result w')) ->
+
+  (* adversary player step *)
+  (forall oracle_state old_adv_state blc_rcd nonce hash hash_res w' xs, P w' ->
+  0 < P[ world_step initWorld xs === Some w'] ->
+  adversary_activation (world_global_state w') = true ->
+  update_adversary_state w' = (old_adv_state, (nonce, hash, blc_rcd)) ->
+  0 < P[ Deterministic.hash (nonce, hash, blc_rcd) (world_hash w') === (oracle_state, hash_res)] ->
+  P (adversary_mint_player_step oracle_state old_adv_state blc_rcd nonce hash hash_res w')) ->
+
+  (* adversary global step *)
+  (forall adv_state w' xs, P w' ->
+  0 < P[ world_step initWorld xs === Some w'] ->
+  adversary_activation (world_global_state w') = true ->
+  (adversary_last_hashed_round (global_adversary (world_global_state w')) <
+  global_current_round (world_global_state w'))%nat = false ->
+  (isSome (Addr_to_index (global_currently_active (world_global_state w'))) = true ) ->
+  0 < P[ adversary_attempt_hash
+           (update_adversary_transaction_pool (global_adversary (world_global_state w'))
+           (world_transaction_pool w')) (world_inflight_pool w') (world_hash w') === adv_state] ->
+  P (adversary_mint_global_step adv_state w')) ->
+
+  (* adversary corrupt step *)
+  (forall addr' lclstt w' xs, P w' ->
+  0 < P[ world_step initWorld xs === Some w'] ->
+  adversary_activation (world_global_state w') = true ->
+  is_uncorrputed_actor (global_local_states (world_global_state w')) 
+              (global_currently_active (world_global_state w')) = Some (addr', lclstt) ->
+  (no_corrupted_players (world_global_state w') < t_max_corrupted)%nat = true ->
+  P (adversary_corrupt_step lclstt addr' w')) ->
+
+  (* broadcast step *)
+  (forall nwadvst chain addrlist w' xs,
+  P w' ->
+  0 < P[ world_step initWorld xs === Some w'] ->
+  adversary_activation (world_global_state w') &&
+          (world_adversary_message_quota w' < Adversary_max_Message_sends - 1)%nat = true ->
+  finfun.FunFinfun.fun_of_fin (adversary_send_chain (global_adversary (world_global_state w')))
+           (adversary_state (global_adversary (world_global_state w'))) = (nwadvst, chain) ->
+  P (broadcast_step nwadvst chain addrlist w')) ->
+
+  (* adversary transaction gen *)
+  (forall adv_state tx addrlist w' xs, P w' ->
+   0 < P[ world_step initWorld xs === Some w'] ->
+   (world_adversary_transaction_quota w' < Adversary_max_Transaction_sends - 1)%nat = true ->
+   finfun.FunFinfun.fun_of_fin (adversary_send_transaction (global_adversary (world_global_state w')))
+           (adversary_state (global_adversary (world_global_state w'))) = (adv_state, tx, addrlist) ->
+   P (adversary_transaction_step adv_state tx addrlist w')) ->
+
+
+  (* round end step *)
+  (forall msgs new_pool w' xs, P w' ->
+  0 < P[ world_step initWorld xs === Some w'] ->
+  update_message_pool_queue (world_message_pool w') (world_inflight_pool w') = (msgs, new_pool) ->
+  P (round_end_step msgs new_pool w')) ->
+
+
+  (* adversary end step *)
+  (forall w' xs,  
+   P w' ->
+   0 < P[ world_step initWorld xs === Some w'] ->
+   adversary_activation (world_global_state w') = true ->
+   P (adversary_end_step w')) ->
+
+  (P[ world_step initWorld sc === Some w] <> 0) ->
+  P w.
+Proof.
+  move=> Hinitial Htxgen Htxdrop Hhongen Hadvplyr Hadvglbl Hcrrpt Hbrdcst Hadvtxgen Hrndended Hadvend.
+  move: w.
+  elim :sc => //=.
+  move=> w.
+  rewrite /Dist1.f.
+  case H: (eq_op (Some w) (Some initWorld)) => //= _.
+  by move/eqP: H => [] -> //=.
+
+  move=> x xs IHn w.
+    move=>/prsumr_ge0 [] o_w.
+       by apply Rmult_le_pos; case (evalDist _); move=> [pos_f Hdist].
+    move=>/gtRP/Rgt_lt/Rlt_0_Rmult_inv Hexist.
+    case: Hexist.
+      by case (evalDist _); move=> [pos_f Hdist] .
+      by case (evalDist _); move=> [pos_f Hdist] .
+    destruct o_w  as [w'|]; last first .
+      (* It is an absurdity for the immediately prior world to be none*)
+      by rewrite /Dist1.f//= => _ /ltR0n.
+    move=> Hpr_w'; move: (Hpr_w').
+    move=> /Rlt_not_eq/nesym/IHn Hw'.
+    move=> Hpr_wstep; move: (Hpr_wstep).
+    case_eq x => //=.
+     (* if x is a transaction gen *)
+       - move=> [tx addr] Heq.
+        case (_ < _)%nat => //=; last first.
+        by rewrite /Dist1.f//= => /ltR0n.
+        destruct (tnth _ addr) as [lcl corrupt] eqn: H; case corrupt => //=.
+        by rewrite /Dist1.f//= => /ltR0n.
+        case Htxvld: (Transaction_valid _); rewrite /evalDist//= /Dist1.f ltR0n lt0b =>/eqP o_w'; case: o_w' => -> //=.
+        rewrite -/(transaction_gen_step w' tx).
+        by apply (Htxgen lcl corrupt addr tx w' xs).
+    (* if x is a transaction drop *)
+       - move=> tp_len Heq.
+        case Htxmsg: (fixlist_get_nth _) => [txMsg|]; rewrite /evalDist//= /Dist1.f ltR0n lt0b =>/eqP [] -> //=.
+        rewrite -/(transaction_drop_step w' tp_len).
+        by apply (Htxdrop tp_len txMsg w' xs).
+    (* if x is a honest mint*)
+        move=> Heqq.
+        move=> _.
+        move:(@world_step_honest_mint_simplify x w w' Heqq Hpr_wstep) => [lclstt [iscrpt [addr [result [blc_rcd [hash_vl [hash_value [os]]]]]]]] => -> //=.
+        rewrite /honest_step_world //=.
+        rewrite -/(honest_mint_step iscrpt os hash_value hash_vl blc_rcd addr lclstt result w').
+        by apply (Hhongen iscrpt os hash_value hash_vl blc_rcd addr lclstt result w' xs).
+
+    (* if x is an adversary mint operation *)
+        move=> Heqq.
+        case Hadv: (adversary_activation _); last first .
+          (* obviously invalid for the prior world to be none *)
+          by rewrite /evalDist //=; rewrite /Dist1.f //= => /(Rlt_irrefl 0).
+        case Hlt: (_ < _)%nat => //=.
+        rewrite /DistBind.f//=.
+        move=> /Rlt_not_eq/nesym/prsumr_ge0//= Hexists.
+        case: Hexists => //= [[[adv os] bl]].
+          apply /Rmult_le_pos.
+            by case (evalDist _) => [[f hposf] hdist].
+            by exact (Dist1.f0 _ _).
+          move=>  adv_state /gtRP/Rgt_lt/Rlt_0_Rmult_inv Hexists.
+          case: Hexists.
+            by case (evalDist _) => [[f hposf] hdist].
+            by exact (Dist1.f0 _ _).
+          move=> /Rlt_not_eq/nesym .
+          rewrite /adversary_attempt_hash//=.
+          rewrite -/(update_adversary_state w').
+          case Hadv_state :
+            (update_adversary_state w') => [old_adv_state [[nonce hash] blc_rcd]] //=.
+          rewrite /DistBind.f//= => /prsumr_ge0 Hexists.
+          case: Hexists. move => [oracle_state hash_res].
+             apply /Rmult_le_pos.
+             by case (evalDist _) => [[f hposf] hdist].
+             by exact (Dist1.f0 _ _).
+          move => [oracle_state hash_res].
+          move=>  /gtRP/Rgt_lt/Rlt_0_Rmult_inv Hexists.
+          case: Hexists.
+             by case (evalDist _) => [[f hposf] hdist].
+             by exact (Dist1.f0 _ _).
+          move=> Hhash_res.
+          rewrite /Dist1.f.
+          case Heqn: (eq_op adv_state _) ;last first.
+          have: INR false = 0. by []. by move => -> /(Rlt_irrefl 0).
+          move=> _.
+          move/eqP: Heqn => ->.
+
+          case Heqn: (eq_op (Some w) _); last first.
+          have: INR false = 0. by []. by move => -> /(Rlt_irrefl 0).
+          move=> _.
+          move/eqP: Heqn => [] ->.
+          rewrite -/(adversary_mint_player_step oracle_state old_adv_state blc_rcd nonce hash hash_res w').
+          by apply (Hadvplyr oracle_state old_adv_state blc_rcd nonce hash hash_res w' xs).
+
+          case Hissome: (isSome _) => //=; last first.
+              rewrite /Dist1.f.
+              have: (eq_op (Some w) None) = false. by []. by move=> -> => /(Rlt_irrefl 0).
+
+          rewrite/DistBind.f//=.
+          move=> /Rlt_not_eq/nesym/prsumr_ge0 Hexists.
+          case: Hexists => adv_state.
+          apply /Rmult_le_pos.
+            by case (evalDist _) => [[f hposf] hdist].
+            by exact (Dist1.f0 _ _).
+         move=>/gtRP/Rgt_lt/Rlt_0_Rmult_inv Hexists.
+         case: Hexists.
+            by case (evalDist _) => [[f hposf] hdist].
+            by exact (Dist1.f0 _ _).
+         move=> Hadv_state.
+         rewrite/Dist1.f.
+         case Heqn: (eq_op (Some _) (Some _)); last first.
+             by move=> /(Rlt_irrefl 0).
+         move=> _. move/eqP: Heqn => [] ->.
+         rewrite -/(adversary_mint_global_step adv_state w').
+         by apply (Hadvglbl adv_state w' xs).
+
+    (* if x is a corruption operation*)
+       - move=> addr Heqq.
+        case Hadv: (adversary_activation _); last first .
+          (* obviously invalid for the prior world to be none *)
+          by rewrite /evalDist //=; rewrite /Dist1.f //= => /(Rlt_irrefl 0).
+        case Hiscrpt: (is_uncorrputed_actor _) => [[addr' lclstt]]; last first.
+          (* obviously invalid for the prior world to be none *)
+          by rewrite /evalDist //=; rewrite /Dist1.f //= => /(Rlt_irrefl 0).
+        case Hnocorrupt: (no_corrupted_players _ < _)%nat ;last first.
+          (* obviously invalid for the prior world to be none *)
+          by rewrite /evalDist //=; rewrite /Dist1.f //= => /(Rlt_irrefl 0).
+ 
+        rewrite /evalDist //=; rewrite /Dist1.f => /ltR0n; rewrite lt0b => /eqP [] -> //=.
+        rewrite -/(adversary_corrupt_step lclstt addr' w').
+        by apply (Hcrrpt addr' lclstt w' xs).
+     (* if x is a broadcast operation *)
+        - move=> addrlist Heqq.
+        case Hcond: ( _ && _); last first.
+          (* obviously invalid for the prior world to be none *)
+          by rewrite /evalDist //=; rewrite /Dist1.f //= => /(Rlt_irrefl 0).
+        case Hfun :(finfun.FunFinfun.fun_of_fin _) => [nwadvst chain] //=.
+        rewrite/Dist1.f => /ltR0n; rewrite lt0b =>/eqP [] -> //=.
+        rewrite -/(broadcast_step nwadvst chain addrlist w').
+        by apply (Hbrdcst nwadvst chain addrlist w' xs).
+
+     (* if x is a adversary transaction gen *)
+        move=> Heqq.
+        case Hcond: ( _ < _)%nat; last first.
+          (* obviously invalid for the prior world to be none *)
+          by rewrite /evalDist //=; rewrite /Dist1.f //= => /(Rlt_irrefl 0).
+        case Hfun :(finfun.FunFinfun.fun_of_fin _) => [[adv_state tx] addrlist] //=.
+        rewrite/Dist1.f => /ltR0n; rewrite lt0b =>/eqP [] -> //=.
+        rewrite -/(adversary_transaction_step adv_state tx addrlist w').
+        by apply (Hadvtxgen adv_state tx addrlist w' xs).
+     (* if x is round ended *)
+        move=> Heqq.
+        case Hrndend: (round_ended w'); last first.
+          (* obviously invalid for the prior world to be none *)
+          by rewrite /evalDist //=; rewrite /Dist1.f //= => /(Rlt_irrefl 0).
+        case Hupd: (update_message_pool_queue _) => [msgs new_pool]//=.
+        rewrite/Dist1.f => /ltR0n; rewrite lt0b =>/eqP [] -> //=.
+        rewrite -/(round_end_step msgs new_pool w').
+        by apply (Hrndended msgs new_pool w' xs).
+     (* if x is an adversary end gen *)
+        move=> Heqq.
+        case Hadv: (adversary_activation _); last first.
+          (* obviously invalid for the prior world to be none *)
+          by rewrite /evalDist //=; rewrite /Dist1.f //= => /(Rlt_irrefl 0).
+        rewrite/evalDist//=.
+        rewrite/Dist1.f => /ltR0n; rewrite lt0b =>/eqP [] -> //=.
+        rewrite -/(adversary_end_step w').
+        by apply (Hadvend w' xs).
+Qed.
+
 
 
 
@@ -864,6 +1495,11 @@ Lemma world_step_adoption_history_top_heavy sc w :
   (P[ world_step initWorld sc === Some w] <> 0) ->
     fixlist_is_top_heavy (world_adoption_history w).
 Proof.
+  move=> Hb.
+  apply /(world_stepP (fun w => fixlist_is_top_heavy (world_adoption_history w)) sc w) => //=.
+  (* stopped here now only 4 subgoals!!! *)
+
+  fail.
   move: w.
   elim sc => // [w |x xs IHn w ].
   rewrite /world_step //= /Dist1.f.
