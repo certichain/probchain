@@ -1052,9 +1052,14 @@ Proof.
         case:(fixlist_enqueue _) => chain block //=.
         move: Hw' => //= Hw'.
         generalize (erefl (eq_op tm n_max_actors.+1)) => //= .
-        set (Hx:=(eq_op tm n_max_actors.+1) ).
-
-        (* Fails here *)
+        (* set (Hx:=(eq_op tm n_max_actors.+1) ). rewrite add0n. *)
+        move: (elimTF eqP).
+        move: (introN eqP).
+        move: (round_in_range (Ordinal (n:=n_max_actors + 2) (m:=tm) Htmvld)).
+        move: (ssr_suff (tm.+1 < n_max_actors + 2)%nat (fun H' : (tm.+1 < n_max_actors + 2)%nat => _)).
+        move: ((@eq_op nat_eqType tm (S n_max_actors))).
+        case.
+        (* No longer Fails here *)
 
         admit.
         admit.
