@@ -1170,20 +1170,6 @@ Proof.
     by case n .
 Qed.
 
-Lemma ltn_sub a b : a > 0 -> a < b -> a.-1 < b.
-Proof.
-  case: a => //= a avld.
-
-  elim: b => //= b IHn.
-  rewrite ltnS.
-  rewrite leq_eqVlt => /orP [/eqP|].
-  move=> Heqn.
-  by rewrite Heqn.
-  move=>/IHn Hltn.
-  rewrite -(addn1 b).
-  by apply ltn_addr.
-Qed.
-
 Lemma ltn_weaken a b c : a + b < c -> a < c.
 Proof.
   elim: c => //= c IHc.
@@ -1293,29 +1279,26 @@ Proof.
   by rewrite leq_eqVlt; apply /orP; right.
 Qed. 
  
-Lemma bounded_successful_round_lim w r : 
+Lemma bounded_successful_round_lim w r : (0 < r) ->
   bounded_successful_round w r -> forall r', (r < r') && (r' < r + delta) -> ~~ bounded_successful_round w r'.
 Proof.
-  rewrite /bounded_successful_round => /andP [Half Hsucc].
+  rewrite /bounded_successful_round => Hrvld /andP [Half Hsucc].
 
   move=> r' /andP [Hlt Hgt].
 
   apply bounded_successful_round_exists.
   exists r.
   move: Hsucc Half Hlt Hgt.
-  case  Heqnr: ((delta == 0) && (r == 0)).
-    move/andP: Heqnr => [/eqP ->  /eqP -> ] Hsuc Hall.
-    by move=>/ltn_trans H /H; rewrite ltnn.
-  move/negP/negP: Heqnr.
-  rewrite negb_and => /orP []; rewrite -!lt0n => Hltn Hsucc Halft Hlt Hgt.
+  move=> Hsucc Halft Hlt Hgt.
   apply/andP; split; last first. by [].
   apply/andP; split; last first. by [].
-  Search _ (_ + _ < _).
-  Search _ "ltn_sub".
-  move/(@ltn_sub2r delta): Hgt .
-  rewrite -subnBA //=; rewrite subnn subn0 .
-  move=> H. apply H.
-  Search _ (_ < _ + _).
+  apply ltn_subLR => //=.
+Qed.
+
+Lemma bounded_successful_round_lim_base w : bounded_successful_round w 0 -> forall r', (0 < r' < delta) -> ~~ bounded_successful_round w r'.
+Proof.
+  (* TODO(Kiran): Solve this problem *)
+Admitted.
 
 
 Definition bounded_uniquely_successful_round (w : World) (r : nat) :=
