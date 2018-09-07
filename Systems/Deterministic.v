@@ -442,13 +442,14 @@ Definition world_step_internal (w: World) (h: RndGen) : Comp [finType of (option
                 (* that the index is valid, and to a uncorrupt node *)
                 let: state := world_global_state w in
                 let: actors := global_local_states state in 
-                let: addr := global_currently_active state in
+                let: current_addr := global_currently_active state in
                 let: adversary := global_adversary state in
                 let: round := global_current_round state in
-                if is_uncorrputed_actor actors addr is Some((real_addr, actor)) then
+                let: (actor,corrupt) := tnth actors addr in 
+                if ~~  corrupt then
                   if no_corrupted_players (world_global_state w) < t_max_corrupted then
-                    let: new_actors := set_tnth actors (actor, true) real_addr  in 
-                    let: new_state := mkGlobalState new_actors adversary addr round in
+                    let: new_actors := set_tnth actors (actor, true) addr  in 
+                    let: new_state := mkGlobalState new_actors adversary current_addr round in
                     let: w' := 
                       mkWorld
                         new_state

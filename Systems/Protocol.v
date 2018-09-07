@@ -29,7 +29,10 @@ Parameter adversary_internal_send_transaction: {ffun adversary_internal_state ->
 
 
 
-  
+Definition to_addr (value : 'I_n_max_actors) : Addr :=
+  ((widen_ord (m:=n_max_actors + 2))^~ value) (leq_addr 2 n_max_actors).
+
+ 
 Definition verify_hash (blk : Block) (oracle : OracleState) : option Hashed := 
    oraclestate_find (block_nonce blk, block_link blk, block_records blk) oracle.
 
