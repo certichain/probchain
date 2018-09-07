@@ -1223,11 +1223,11 @@ Qed.
 
 Definition bounded_successful_round (w : World) (r : nat) :=
   (* (forallb (r' : nat), (r' < r) && (r' >= r - delta) -> unsuccessful_round w r') &&   *)
-  (all (fun r' => unsuccessful_round w r') (itoj (r - delta + 1) (r))) &&  
+  (all (fun r' => unsuccessful_round w r') (itoj (r + 1 - delta ) (r))) &&  
     successful_round w r.
 
 Lemma bounded_successful_round_forall w r :
-  bounded_successful_round w r -> forall r', (r - delta < r' < r) -> unsuccessful_round w r'.
+  bounded_successful_round w r -> forall r', ((r - delta).+1 <= r' < r) -> unsuccessful_round w r'.
 Proof.
   case Heqn: (delta == 0).
     move/eqP: Heqn => ->.
@@ -1249,16 +1249,25 @@ Proof.
   rewrite /itoj.
   rewrite mem_iota.
   apply/andP; split.
-  by rewrite -ltnS -(addn1 r') ltn_add2r.
+  rewrite -ltnS.
+  rewrite addn1.
+  case Hltd: (delta <= r).
+  by rewrite subSn //=.
+  move/negP/negP: Hltd.
+  rewrite -ltnNge.
+  by rewrite -subn_eq0 => /eqP ->.
   rewrite subnKC //=.
-  apply (@leq_trans r').
-  move: Hltr.
-  by rewrite -(ltn_add2r 1) (addn1 r') ltnS.
-  by rewrite leq_eqVlt; apply /orP; right.
+  rewrite addn1.
+  case Hltd: (delta <= r).
+  rewrite subSn //=.
+  by move: (ltn_trans Hltr Hgtr).
+  move/negP/negP: Hltd.
+  rewrite -ltnNge.
+  by rewrite -subn_eq0 => /eqP ->.
 Qed.
 
 Lemma bounded_successful_round_exists w r :
-    (exists r', (r - delta < r' < r) && successful_round w r') -> ~~ bounded_successful_round w r.
+    (exists r', ((r - delta).+1 <= r' < r) && successful_round w r') -> ~~ bounded_successful_round w r.
 Proof.
   move=> [r' /andP [ /andP [Hltr Hgt] Hsuc]].
   rewrite /bounded_successful_round.
@@ -1270,19 +1279,115 @@ Proof.
   rewrite /itoj.
   rewrite mem_iota.
   apply/andP; split.
-  move: Hltr.
-  by rewrite -(ltn_add2r 1) (addn1 r') ltnS.
+  move: Hltr; rewrite addn1.
+  case Hltd: (delta <= r).
+  by rewrite subSn //=.
+  by move/negP/negP: Hltd; rewrite -ltnNge; rewrite -subn_eq0 => /eqP ->.
   rewrite subnKC //=.
-  apply (@leq_trans r').
-  move: Hltr.
-  by rewrite -(ltn_add2r 1) (addn1 r') ltnS.
-  by rewrite leq_eqVlt; apply /orP; right.
-Qed. 
+  rewrite addn1.
+  case Hltd: (delta <= r).
+  rewrite subSn //=.
+  by move: (ltn_trans Hltr Hgt).
+  move/negP/negP: Hltd.
+  rewrite -ltnNge.
+  by rewrite -subn_eq0 => /eqP ->.
+Qed.
+
+
+
+(* Lemma bounded_successful_round_exists_base w r : *)
+(*     r <= delta -> *)
+(*     ((successful_round w 0 /\ (0 < r)) \/ (exists r', (0 < r' < r) /\ successful_round w r')) -> ~~ bounded_successful_round w r. *)
+(* Proof. *)
+(*   move=> Hrltd [ [Hsuc Hlt]| [r' [/andP [Hgt Hlt] Hsucc]]       ]. *)
+(*   rewrite/bounded_successful_round. *)
+(*   rewrite negb_and. *)
+(*   apply/orP. *)
+
+
+(*   . *)
+
+(*   [|]. *)
+(*   rewrite leq_eqVlt in Hltr. *)
+(*   move/orP: Hltr => [/eqP Heq0|]. *)
+(*   move: Hsuc Hgt. *)
+(*   rewrite -Heq0 => Hsuc Hgt. *)
+(*   rewrite /bounded_successful_round. *)
+(*   rewrite negb_and ;apply/orP. *)
+(*   left. *)
+(*   apply /allPn. *)
+(*   exists 0; last first. *)
+(*   by rewrite -successful_roundP. *)
+(*   rewrite /itoj. *)
+(*   rewrite -subn_eq0 in Hrltd. *)
+(*   move/eqP: Hrltd => ->. *)
+(*   rewrite add0n. *)
+(*   About mem_iota. *)
+(*   rewrite (mem_iota 1 (r - 1)). *)
+(*   rewrite leq_eqVlt in Hltr. *)
+(*   move/orP: Hltr => [/eqP Heq0|]. *)
+(*   rewrite -Heq0. *)
+(*   rewrite -subn_eq0 in Hrltd. *)
+(*   move/eqP: Hrltd => ->. *)
+(*   rewrite add0n addnC subn1 addn1. *)
+(*   by rewrite prednK; rewrite Heq0; [| apply ltnW]. *)
+(*   rewrite -subn_eq0 in Hrltd. *)
+(*   move/eqP: Hrltd => -> //=. *)
+(*   move=> Gt1. *)
+(*   apply/andP; split. *)
+(*   apply ltnW. *)
+(*   by rewrite (add0n 1). *)
+(*   rewrite add0n addnC subn1 addn1. *)
+(*   rewrite prednK //=. *)
+(*   apply (@ltn_trans r') => //=. *)
+
+(*   rewrite addn1. *)
+(*   move: Hltr. *)
+(*   by rewrite -(ltn_add2r 1) (addn1 r') ltnS. *)
+(*   rewrite subnKC //=. *)
+(*   apply (@leq_trans r'). *)
+(*   move: Hltr. *)
+(*   by rewrite -(ltn_add2r 1) (addn1 r') ltnS. *)
+(*   by rewrite leq_eqVlt; apply /orP; right. *)
+(* Qed.  *)
+
+Lemma bounded_successful_round_lim_base w : bounded_successful_round w 0 -> forall r', (0 < r' < delta) -> ~~ bounded_successful_round w r'.
+Proof.
+  move=> /andP [_ Hsuc] r'.
+  move=>/andP [Hgt0 Hltd].
+  rewrite /bounded_successful_round.
+  rewrite negb_and.
+  apply/orP.
+  left.
+  apply /allPn.
+  exists 0.
+  rewrite mem_iota.
+  apply/andP; split.
+  rewrite addn1.
+  rewrite -subn_eq0 in Hltd.
+  by move/eqP: Hltd => -> //=.
+
+  rewrite subnKC //=.
+  rewrite addn1.
+  rewrite -subn_eq0 in Hltd.
+  by move/eqP: Hltd => -> //=.
+
+  by rewrite -successful_roundP.
+Qed.
+
+
+
  
-Lemma bounded_successful_round_lim w r : (0 < r) ->
+Lemma bounded_successful_round_lim w r : 
   bounded_successful_round w r -> forall r', (r < r') && (r' < r + delta) -> ~~ bounded_successful_round w r'.
 Proof.
-  rewrite /bounded_successful_round => Hrvld /andP [Half Hsucc].
+  case Hrvld : (0 < r); last first.
+  move/negP/negP: Hrvld.
+  rewrite -eqn0Ngt => /eqP ->.
+  rewrite add0n.
+  by apply bounded_successful_round_lim_base.
+
+  rewrite /bounded_successful_round => /andP [Half Hsucc].
 
   move=> r' /andP [Hlt Hgt].
 
@@ -1290,15 +1395,11 @@ Proof.
   exists r.
   move: Hsucc Half Hlt Hgt.
   move=> Hsucc Halft Hlt Hgt.
-  apply/andP; split; last first. by [].
-  apply/andP; split; last first. by [].
-  apply ltn_subLR => //=.
-Qed.
 
-Lemma bounded_successful_round_lim_base w : bounded_successful_round w 0 -> forall r', (0 < r' < delta) -> ~~ bounded_successful_round w r'.
-Proof.
-  (* TODO(Kiran): Solve this problem *)
-Admitted.
+  apply/andP; split; last first. by [].
+  apply/andP; split; last first. by [].
+    by apply ltn_subLR => //=.
+Qed.
 
 
 Definition bounded_uniquely_successful_round (w : World) (r : nat) :=
