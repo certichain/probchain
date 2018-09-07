@@ -1138,22 +1138,184 @@ Definition unsuccessful_round (w : World) (r : nat) :=
       (hash_round  == r) && (~~ is_corrupt))
       (BlockMap_records (world_block_history w))) == 0.
 
+Lemma successful_roundP w r : successful_round w r = ~~ unsuccessful_round w r.
+Proof.
+  by rewrite /successful_round/unsuccessful_round lt0n.
+Qed.
+
+Lemma unsuccessful_roundP w r : unsuccessful_round w r = ~~ successful_round w r.
+Proof.
+  by rewrite /successful_round/unsuccessful_round eqn0Ngt.
+Qed.
+
+
 
 
 Definition uniquely_successful_round (w : World) (r : nat) :=
   length
     (filter
       (fun block_pair =>
+
         let: (is_corrupt, hash_round) := block_pair in  
       (hash_round  == r) && (~~ is_corrupt))
       (BlockMap_records (world_block_history w))) == 1.
 
+Lemma uniquely_successful_roundP w r : uniquely_successful_round w r -> successful_round w r.
+Proof.
+  by rewrite /successful_round/uniquely_successful_round => /eqP ->.
+Qed.
 
+Lemma ltnn_subS n : (n > 0) -> n.-1 < n.
+Proof.
+    by case n .
+Qed.
+
+Lemma ltn_sub a b : a > 0 -> a < b -> a.-1 < b.
+Proof.
+  case: a => //= a avld.
+
+  elim: b => //= b IHn.
+  rewrite ltnS.
+  rewrite leq_eqVlt => /orP [/eqP|].
+  move=> Heqn.
+  by rewrite Heqn.
+  move=>/IHn Hltn.
+  rewrite -(addn1 b).
+  by apply ltn_addr.
+Qed.
+
+Lemma ltn_weaken a b c : a + b < c -> a < c.
+Proof.
+  elim: c => //= c IHc.
+  rewrite leq_eqVlt => /orP [/eqP [] <- |].
+  rewrite -addnS.
+  by elim a => //=.
+  rewrite -(addn1 (a + b)).
+  rewrite -(addn1 c).
+  rewrite ltn_add2r.
+  move=>/IHc Hlt.
+  by apply ltn_addr.
+Qed.
+
+
+Lemma ltn_subl1 a b : a < b -> a.-1 < b.
+Proof.
+  move: b.
+  elim:a => //= a IHa b.
+  by rewrite -{1}(addn1 a) => /ltn_weaken.
+Qed.
+
+Lemma ltn_subl a b c : a < b -> a - c < b.
+Proof.
+  move: a b.
+  elim: c => //= [a b | c IHc a b].
+  by rewrite subn0.
+  move=> /IHc Hlt.
+  rewrite subnS.
+  by apply ltn_subl1.
+Qed.
+
+Lemma ltn_subLR  m n p : ( p > 0) -> (n  < p + m) -> (n - m < p).
+Proof.
+  move: n p.
+  elim: m => [//=|m IHn].
+  move=>  n p.
+  by rewrite addn0 subn0.
+  move=> n p p_vld H.
+  rewrite subnS.
+  rewrite -subn1.
+  rewrite subnAC.
+  apply IHn =>//=.
+  rewrite addnS  ltnS in H.
+  rewrite leq_eqVlt in H.
+  move/orP: H => [/eqP ->|].
+  by rewrite addnC -addnBA; [rewrite ltn_add2l subn1; apply ltnn_subS|].
+  move=> H.
+  rewrite subn1.
+  by apply ltn_subl1.
+Qed.
 
 Definition bounded_successful_round (w : World) (r : nat) :=
   (* (forallb (r' : nat), (r' < r) && (r' >= r - delta) -> unsuccessful_round w r') &&   *)
   (all (fun r' => unsuccessful_round w r') (itoj (r - delta + 1) (r))) &&  
     successful_round w r.
+
+Lemma bounded_successful_round_forall w r :
+  bounded_successful_round w r -> forall r', (r - delta < r' < r) -> unsuccessful_round w r'.
+Proof.
+  case Heqn: (delta == 0).
+    move/eqP: Heqn => ->.
+    move=>Hbr r' /andP [].
+    by move=>/ltn_trans H /H ; rewrite subn0 ltnn.
+  move/negP/negP: Heqn.
+  rewrite -lt0n => Hdelta.
+  case  Heqnr: (r == 0).
+    move/eqP: Heqnr => ->.
+    rewrite sub0n.
+    move=>Hbr r' /andP [].
+    by move=>/ltn_trans H /H ; rewrite ltnn.
+  move/negP/negP: Heqnr.
+  rewrite -lt0n => Hr.
+
+  rewrite /bounded_successful_round => /andP [].
+  move=>/allP Hbs Hsc r' /andP [Hltr Hgtr].
+  apply Hbs.
+  rewrite /itoj.
+  rewrite mem_iota.
+  apply/andP; split.
+  by rewrite -ltnS -(addn1 r') ltn_add2r.
+  rewrite subnKC //=.
+  apply (@leq_trans r').
+  move: Hltr.
+  by rewrite -(ltn_add2r 1) (addn1 r') ltnS.
+  by rewrite leq_eqVlt; apply /orP; right.
+Qed.
+
+Lemma bounded_successful_round_exists w r :
+    (exists r', (r - delta < r' < r) && successful_round w r') -> ~~ bounded_successful_round w r.
+Proof.
+  move=> [r' /andP [ /andP [Hltr Hgt] Hsuc]].
+  rewrite /bounded_successful_round.
+  rewrite negb_and ;apply/orP.
+  left.
+  apply /allPn.
+  exists r'; last first.
+  by rewrite -successful_roundP.
+  rewrite /itoj.
+  rewrite mem_iota.
+  apply/andP; split.
+  move: Hltr.
+  by rewrite -(ltn_add2r 1) (addn1 r') ltnS.
+  rewrite subnKC //=.
+  apply (@leq_trans r').
+  move: Hltr.
+  by rewrite -(ltn_add2r 1) (addn1 r') ltnS.
+  by rewrite leq_eqVlt; apply /orP; right.
+Qed. 
+ 
+Lemma bounded_successful_round_lim w r : 
+  bounded_successful_round w r -> forall r', (r < r') && (r' < r + delta) -> ~~ bounded_successful_round w r'.
+Proof.
+  rewrite /bounded_successful_round => /andP [Half Hsucc].
+
+  move=> r' /andP [Hlt Hgt].
+
+  apply bounded_successful_round_exists.
+  exists r.
+  move: Hsucc Half Hlt Hgt.
+  case  Heqnr: ((delta == 0) && (r == 0)).
+    move/andP: Heqnr => [/eqP ->  /eqP -> ] Hsuc Hall.
+    by move=>/ltn_trans H /H; rewrite ltnn.
+  move/negP/negP: Heqnr.
+  rewrite negb_and => /orP []; rewrite -!lt0n => Hltn Hsucc Halft Hlt Hgt.
+  apply/andP; split; last first. by [].
+  apply/andP; split; last first. by [].
+  Search _ (_ + _ < _).
+  Search _ "ltn_sub".
+  move/(@ltn_sub2r delta): Hgt .
+  rewrite -subnBA //=; rewrite subnn subn0 .
+  move=> H. apply H.
+  Search _ (_ < _ + _).
 
 
 Definition bounded_uniquely_successful_round (w : World) (r : nat) :=
@@ -1334,11 +1496,11 @@ Definition no_successful_rounds' (w : World) (from : nat) (to : nat) : nat :=
     (itoj from to)).
 
 
-Definition no_successful_rounds (w: World) (from to : nat) : 'I_N_rounds. 
-  case ((no_successful_rounds' w from to) < N_rounds) eqn: H.
-  exact (Ordinal H).
-  exact (Ordinal valid_N_rounds).
-Defined.
+Definition no_successful_rounds (w: World) (from to : nat) : 'I_N_rounds :=
+  let b := no_successful_rounds' w from to < N_rounds in
+    (if b as b0 return ((no_successful_rounds' w from to < N_rounds) = b0 -> 'I_N_rounds)
+      then fun H => Ordinal H
+      else fun _ => Ordinal valid_N_rounds) (erefl b).
 
 
 Definition no_bounded_successful_rounds' (w : World) (from : nat) (to : nat) : nat :=
@@ -1346,11 +1508,11 @@ Definition no_bounded_successful_rounds' (w : World) (from : nat) (to : nat) : n
     (fun round => bounded_successful_round w round)
     (itoj from to)).
 
-Definition no_bounded_successful_rounds (w: World) (from to : nat) : 'I_N_rounds. 
-  case ((no_bounded_successful_rounds' w from to) < N_rounds ) eqn: H.
-  exact (Ordinal H).
-  exact (Ordinal valid_N_rounds).
-Defined.
+Definition no_bounded_successful_rounds (w: World) (from to : nat) : 'I_N_rounds :=
+  let b := ((no_bounded_successful_rounds' w from to) < N_rounds ) in
+   (if b as b0 return (((no_bounded_successful_rounds' w from to) < N_rounds ) = b0 -> 'I_N_rounds)
+      then fun H => Ordinal H
+      else fun _ => Ordinal valid_N_rounds) (erefl b).
 
 
 
@@ -1360,11 +1522,13 @@ Definition no_bounded_uniquely_successful_rounds' (w : World) (from : nat) (to :
     (fun round => bounded_uniquely_successful_round w round)
     (itoj from to)).
 
-Definition no_bounded_uniquely_successful_rounds (w: World) (from to : nat) : 'I_N_rounds. 
-  case ((no_bounded_successful_rounds' w from to) < N_rounds) eqn: H.
-  exact (Ordinal H).
-  exact (Ordinal valid_N_rounds).
-Defined.
+Print no_bounded_uniquely_successful_rounds'.
+Definition no_bounded_uniquely_successful_rounds (w: World) (from to : nat) : 'I_N_rounds :=
+  let b := ((no_bounded_uniquely_successful_rounds' w from to) < N_rounds ) in
+   (if b as b0 return (((no_bounded_uniquely_successful_rounds' w from to) < N_rounds ) = b0 -> 'I_N_rounds)
+      then fun H => Ordinal H
+      else fun _ => Ordinal valid_N_rounds) (erefl b).
+
 
 
 

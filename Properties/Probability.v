@@ -2273,28 +2273,8 @@ Proof.
 
   rewrite subSn //=.
 
-  (* (bounded_successful_round w (s - delta) ->
-     no_bounded_successful_rounds r (s - delta) = no_bounded_successful_rounds r (s - 2 * delta + 1) *)
-  
-  (* we have, by IH
-      at round s,
-      forall n,
-             actor_n_has_chain_length_ge_at_round w (l + no_bounded_successful_rounds r (s - delta))
-   *)
 
-  (* (bounded_successful_round w (s - delta) ->
-      (at round s,
-      forall n,
-             actor_n_has_chain_length_ge_at_round w (l + no_bounded_successful_rounds r (s - delta))) ->
-      (at round s - delta,
-      forall n,
-             actor_n_has_chain_length_ge_at_round w (l + no_bounded_successful_rounds r (s - 2 * delta + 1))) ->
-
-   *)
-
-
-
-  (* (bounded_successful_round w (s - delta) ->
+(* (bounded_successful_round w (s - delta) ->
      (no_bounded_successful_rounds r (s - delta).+1 = no_bounded_successful_rounds r (s - 2 * delta + 1).+1 *)
   move=> Hwexec.
   rewrite (bounded_successful_exclusion (x::xs) w r s l Hpr_valid Hbsuc).
