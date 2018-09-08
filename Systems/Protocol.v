@@ -11,6 +11,11 @@ Require Import ssreflect ssrbool ssrnat eqtype fintype choice ssrfun seq path fi
 From mathcomp.ssreflect
 Require Import tuple.
 
+Require Import Coq.Logic.FunctionalExtensionality.
+Require Import Coq.Logic.ProofIrrelevance.
+Require Import Coq.Program.Equality.
+
+
 
 From Probchain
 Require Import BlockChain AddressList OracleState BlockMap InvMisc Parameters FixedList FixedMap.
@@ -26,6 +31,146 @@ Parameter adversary_internal_generate_block: {ffun adversary_internal_state -> {
 Parameter adversary_internal_provide_block_hash_result: {ffun adversary_internal_state -> {ffun (Nonce * Hashed * BlockRecord) -> {ffun Hashed -> adversary_internal_state}}}.
 Parameter adversary_internal_send_chain: {ffun adversary_internal_state -> (adversary_internal_state * BlockChain)}.
 Parameter adversary_internal_send_transaction: {ffun adversary_internal_state -> (adversary_internal_state * Transaction * AddressList)}.
+
+Lemma negb_eqn b: b != true -> eq_op b false.
+Proof.
+  by case b.
+Qed.
+
+
+Lemma length_sizeP (T : Type) (ls : seq.seq T) : size ls = length ls.
+Proof.
+  by elim ls.
+Qed.
+
+Lemma has_countPn (T : Type) (a : pred T) (s : seq T) : ~~ has a s -> count a s = 0.
+Proof.
+  rewrite has_count.
+  by rewrite -eqn0Ngt => /eqP .
+Qed.
+
+Lemma ltn_transPn n r : n < r -> r < n.+1 -> False.
+Proof.
+  elim: n => //= .
+  by elim r => //=.
+  move=> n IHn.
+  move=> Hltn Hltr.
+  apply IHn.
+  rewrite leq_eqVlt in Hltn.
+  move/orP: Hltn => [/eqP <- //=|].
+  move/ltn_trans: Hltr => H /H.
+  by rewrite ltnn.
+  rewrite leq_eqVlt in Hltr.
+  move/orP: Hltr => [/eqP [] Hwr|].
+  move: Hltn.
+  rewrite Hwr.
+  by rewrite ltnn.
+  rewrite -{1}(addn1 r).
+  rewrite -{1}(addn1 n.+1).
+  by rewrite ltn_add2r.
+Qed.
+
+Lemma subn_eqP n m : n <= m -> n - m = 0.
+Proof.
+  by rewrite -subn_eq0 => /eqP ->.
+Qed.
+
+
+
+
+Lemma ltn1 n : (n < 1)%nat = (n == 0%nat)%bool.
+Proof.
+  by elim n.
+Qed.
+
+
+
+Lemma ltnSn_eq a b : (a < b.+1)%nat -> (b < a.+1)%nat -> (a == b)%bool.
+Proof.
+  move: a.
+  induction b => //= a.
+  rewrite ltn1.
+  by move=>  /eqP -> .
+  have H (x y : nat) : (x > 0)%nat -> (x.-1 == y)%bool = (x == y.+1)%bool. by elim x  =>//=.
+  case (0 < a)%nat eqn: Hva.
+  rewrite -H //=.
+  move=> Haltb Hblta.
+  apply IHb.
+  rewrite -ltnS.
+  by rewrite prednK.
+  by rewrite prednK.
+
+  move/negP/negP: Hva.
+  rewrite -leqNgt.
+  rewrite leq_eqVlt.
+  rewrite (ltnS b.+1).
+  move=>/orP[/eqP ->|].
+  by rewrite ltn0.
+  by rewrite ltn0.
+Qed.
+
+Lemma addr_ltn a b c:
+   (a + b < c)%nat -> (a < c)%nat.
+Proof.
+    by move=>/(ltn_addr b); rewrite ltn_add2r.
+Qed.
+
+
+
+
+Lemma ltn_leq_split a b c : (a + b - 1 < c.+1)%nat -> ~~ (b <= c)%nat -> ((b == c.+1)%bool  && (a == 0%nat)%bool).
+Proof.
+  rewrite -ltnNge.
+  case (b) => [|b'].
+  by rewrite ltn0.
+  rewrite subn1 addnS.
+  move=> Hab. move: (Hab).
+  have Hltnadn x : (x > 0)%nat -> x.+1.-1 = x.-1.+1. by elim x => //=.
+  move=> Habltn; move: Hab; rewrite prednK //=.
+  move=> Hab; move: (Hab); rewrite addnC.
+  move=> /addr_ltn Hbltc Hcltb.
+  move: (ltnSn_eq _ _ Hbltc Hcltb) => /eqP Hbeq; move: Hab.
+  rewrite Hbeq -(addn1 c) addnC ltn_add2l ltn1.
+  move=>/eqP ->; apply/andP.
+  by [].
+Qed.
+
+
+Lemma ltn_SnnP a b : (a.+1 < b.+1)%nat <-> (a < b)%nat.
+Proof.
+  split.
+  by elim: a => //=.
+  by elim: a => //=.
+Qed.
+
+
+
+Lemma subn_ltn_pr a b c : (a < c)%nat -> (a - b < c)%nat.
+Proof.
+  move: a b.
+  elim: c => //= c .
+  move=> IHn a b.
+  case H: (a < c)%nat.
+    move=> _.
+    rewrite -(addn1 c).
+    apply ltn_addr.
+    by apply IHn.
+  move/negP/negP: H .
+  rewrite -leqNgt .
+  rewrite -ltnS.
+  move=> /ltnSn_eq H /(H) /eqP Heqa.
+  induction a => //=.
+  induction b => //=.
+  by rewrite -Heqa subn0.
+  rewrite subSS.
+  rewrite -(addn1 c).
+  apply ltn_addr.
+  apply IHn.
+  by rewrite Heqa.
+Qed. 
+
+
+
 
 
 
@@ -1295,61 +1440,6 @@ Qed.
 
 
 
-(* Lemma bounded_successful_round_exists_base w r : *)
-(*     r <= delta -> *)
-(*     ((successful_round w 0 /\ (0 < r)) \/ (exists r', (0 < r' < r) /\ successful_round w r')) -> ~~ bounded_successful_round w r. *)
-(* Proof. *)
-(*   move=> Hrltd [ [Hsuc Hlt]| [r' [/andP [Hgt Hlt] Hsucc]]       ]. *)
-(*   rewrite/bounded_successful_round. *)
-(*   rewrite negb_and. *)
-(*   apply/orP. *)
-
-
-(*   . *)
-
-(*   [|]. *)
-(*   rewrite leq_eqVlt in Hltr. *)
-(*   move/orP: Hltr => [/eqP Heq0|]. *)
-(*   move: Hsuc Hgt. *)
-(*   rewrite -Heq0 => Hsuc Hgt. *)
-(*   rewrite /bounded_successful_round. *)
-(*   rewrite negb_and ;apply/orP. *)
-(*   left. *)
-(*   apply /allPn. *)
-(*   exists 0; last first. *)
-(*   by rewrite -successful_roundP. *)
-(*   rewrite /itoj. *)
-(*   rewrite -subn_eq0 in Hrltd. *)
-(*   move/eqP: Hrltd => ->. *)
-(*   rewrite add0n. *)
-(*   About mem_iota. *)
-(*   rewrite (mem_iota 1 (r - 1)). *)
-(*   rewrite leq_eqVlt in Hltr. *)
-(*   move/orP: Hltr => [/eqP Heq0|]. *)
-(*   rewrite -Heq0. *)
-(*   rewrite -subn_eq0 in Hrltd. *)
-(*   move/eqP: Hrltd => ->. *)
-(*   rewrite add0n addnC subn1 addn1. *)
-(*   by rewrite prednK; rewrite Heq0; [| apply ltnW]. *)
-(*   rewrite -subn_eq0 in Hrltd. *)
-(*   move/eqP: Hrltd => -> //=. *)
-(*   move=> Gt1. *)
-(*   apply/andP; split. *)
-(*   apply ltnW. *)
-(*   by rewrite (add0n 1). *)
-(*   rewrite add0n addnC subn1 addn1. *)
-(*   rewrite prednK //=. *)
-(*   apply (@ltn_trans r') => //=. *)
-
-(*   rewrite addn1. *)
-(*   move: Hltr. *)
-(*   by rewrite -(ltn_add2r 1) (addn1 r') ltnS. *)
-(*   rewrite subnKC //=. *)
-(*   apply (@leq_trans r'). *)
-(*   move: Hltr. *)
-(*   by rewrite -(ltn_add2r 1) (addn1 r') ltnS. *)
-(*   by rewrite leq_eqVlt; apply /orP; right. *)
-(* Qed.  *)
 
 Lemma bounded_successful_round_lim_base w : bounded_successful_round w 0 -> forall r', (0 < r' < delta) -> ~~ bounded_successful_round w r'.
 Proof.
@@ -1402,6 +1492,8 @@ Proof.
 Qed.
 
 
+
+
 Definition bounded_uniquely_successful_round (w : World) (r : nat) :=
   (* (forall (r' : nat), ((r' <= r + delta) && (r' >= r - delta) && (r' != r)) -> unsuccessful_round w r') /\ *)
   (all (fun r' => (unsuccessful_round w r') || (r' == r)) (itoj (r - delta + 1) (r + delta))) &&
@@ -1446,14 +1538,6 @@ Definition nth_block_equals (w : World) (chain : BlockChain) (n : nat) (block : 
 Definition nth_block (w : World) (chain : BlockChain) (n : nat) :=
   (fixlist_get_nth chain n).
 
-Lemma unique_round (w : World) (n : nat) (chain : BlockChain) :
-    chain \in (fixlist_unwrap (world_chain_history w)) -> length chain > n -> nth_block_is_honest chain n w  -> nth_block_hashed_in_a_uniquely_successful_round w chain n ->
-    (forall (other_chain : BlockChain), 
-    other_chain \in (fixlist_unwrap (world_chain_history w)) -> 
-    length other_chain > n -> 
-    nth_block_is_adversarial w other_chain n  \/ nth_block_equals w other_chain n (nth_block w chain n)).
-Admitted.
-
 
 
 Definition actor_n_chain_length (w : World) (n : 'I_n_max_actors) : nat :=
@@ -1488,27 +1572,6 @@ Defined.
 
 
 
-
-(* Lemma chain_growth (w : World) (round : nat) (l : nat) :
-  (world_round w) = round ->
-  (exists 
-  (n : 'I_n_max_actors), 
-
-
-  (actor_n_chain_length w n = l) /\ 
-
-  ~~ (actor_n_is_corrupt w n)) 
-  ->
-  
-  (forall (future_w : World), 
-    ((world_round future_w) >= round + delta - 1) ->
-    (forall (n : 'I_n_max_actors), ~~ (actor_n_is_corrupt w n) ->
-      actor_n_chain_length w n >= l + no_successful_rounds w round ((world_round future_w) - 1))).
-
-Proof.
-Admitted.
- *)
-
 Definition adopt_at_round (w' : World) (w : World) (bc : BlockChain) (agent: Addr) (r : nat) :=
   match r with
     | 0 => false
@@ -1530,22 +1593,6 @@ Definition adopt_at_round (w' : World) (w : World) (bc : BlockChain) (agent: Add
         else false
     end.
 
-(* Definition common_prefix_property (current_w : World) (k r1 r2 : nat) (a1 a2 : 'I_n_max_actors) (c1 c2 : BlockChain) :=
-  (* current w is valid *)
-  (world_round_no current_w) >= r2 ->
-  r1 <= r2 ->
-  (a1 < n_max_actors) -> (a2 < n_max_actors) ->
-  ~~ (actor_n_is_corrupt current_w a1) -> ~~ (actor_n_is_corrupt current_w a1) ->
-  (* players a1 a2 adopting the chains at rounds r1, r2 *)
-  (exists (w' wr1 : World), 
-  (* reachable initWorld w' -> reachable w' wr1 -> reachable wr1 current_w ->   *)
-    adopt_at_round w' wr1 c1 (widen_ord (leq_addr _ _) a1) r1) ->
-  (exists (w'' wr2 : World), 
-  (* reachable initWorld w'' -> reachable w'' wr2 -> reachable wr2 current_w ->   *)
-    adopt_at_round w'' wr2 c2 (widen_ord (leq_addr _ _) a2) r2) ->
-  (* then pruning k blocks from the head of c1 is a subsequence of c2*)
-  prefix (drop k c1) c2.
- *)
 
 Definition chain_quality_property (w : World) (l u : nat) (agent : 'I_n_max_actors) := 
   (* states that... *)
@@ -1598,6 +1645,133 @@ Definition no_bounded_successful_rounds (w: World) (from to : nat) : 'I_N_rounds
       then fun H => Ordinal H
       else fun _ => Ordinal valid_N_rounds) (erefl b).
 
+Lemma no_bounded_successful_roundsP (P : 'I_N_rounds -> Prop) w from to : 
+  P (Ordinal  valid_N_rounds) ->
+  (forall prf : ((no_bounded_successful_rounds' w from to < N_rounds) = true), P (Ordinal prf )) ->
+  P (no_bounded_successful_rounds w from to).
+Proof.
+  move=> H0 Hind.
+  rewrite/no_bounded_successful_rounds.
+  set (Nb := ((no_bounded_successful_rounds' w from to))).
+  case Heq: (Nb >= N_rounds).
+    move: (erefl _).
+    move: [eta Ordinal (n:=N_rounds) (m:=Nb)].
+    rewrite leqNgt in Heq.
+    move/negP/negP: Heq.
+    rewrite -eqbF_neg => /eqP Heq.
+    by rewrite Heq.
+  move: (erefl _ ).
+  move/negP/negP: Heq.
+  rewrite -ltnNge.
+  move=> Hlt.
+  suff: [eta Ordinal (n:=N_rounds) (m:=Nb)] = fun _ => Ordinal Hlt.
+  move=> ->.
+  by rewrite Hlt.
+  apply: functional_extensionality=> G.
+  by rewrite (proof_irrelevance _ Hlt G).
+Qed.
+
+Lemma no_bounded_successful_rounds_excl_lower w r : 
+        (bounded_successful_round w r) ->
+          no_bounded_successful_rounds' w (r + 1 - delta) r = 0.
+Proof.
+  rewrite/bounded_successful_round => /andP [] /allP Hall Hsucc.
+  rewrite /no_bounded_successful_rounds'.
+  rewrite -!length_sizeP !size_filter  !has_countPn //=.
+  apply /hasPn => r' Hrrng; rewrite /bounded_successful_round negb_and.
+  by apply/orP; right; rewrite -unsuccessful_roundP; apply Hall.
+Qed.
+
+Lemma no_bounded_successful_rounds_excl_upper w r :  
+        (bounded_successful_round w r) ->
+          no_bounded_successful_rounds' w r.+1 (r + delta) = 0.
+  case Hdlta: (0 < delta ); last first.
+  move/negP/negP: Hdlta.
+  rewrite -eqn0Ngt => /eqP dtis0 _.
+  rewrite /no_bounded_successful_rounds'.
+  rewrite -!length_sizeP !size_filter  !has_countPn //=.
+  apply /hasPn => r' .
+  rewrite dtis0 addn0.
+  rewrite mem_iota.
+  rewrite subn_eqP //= addn0 => /andP [].
+  by move=>/ltn_transPn H /H.
+  move=> /bounded_successful_round_lim Hbs.
+  rewrite /no_bounded_successful_rounds'.
+  rewrite -!length_sizeP !size_filter  !has_countPn //=.
+  apply /hasPn => r' .
+  rewrite mem_iota subnKC //=.
+  move=> Hrng.
+  by apply Hbs.
+  by elim r => //=.
+Qed.
+
+
+
+Lemma iota_predn r s : iota r s.+1 = iota r s ++ [:: r + s].
+Proof.
+  move: r.
+  elim: s => [//=| s IHs   ] r.
+  by rewrite addn0.
+  rewrite -{1}(addn1 ).
+  rewrite iota_add .
+  have: (iota (r + s.+1) 1 = [:: r + s.+1]). by [].
+  by move=> ->.
+Qed.
+
+ 
+Lemma size_iota_rcons (P : nat -> bool) r s : ~~ P (r + s.-1) -> size (filter P (iota r s)) = size (filter P (iota r s.-1)).
+Proof.
+  elim: s => [//=|] s' IHs Hs'.
+  rewrite iota_predn.
+  rewrite -pred_Sn.
+  rewrite -pred_Sn in Hs'.
+  rewrite filter_cat.
+  have: ([seq x <- [:: r + s'] | P x] = [::]).
+  move=> //=.
+  by apply ifN.
+  move=> ->.
+  by rewrite cats0.
+Qed.
+
+
+Lemma no_bounded_successful_rounds'_excl w s r :
+        (~~ bounded_successful_round w s) ->
+          no_bounded_successful_rounds' w r s = no_bounded_successful_rounds' w r s.+1.
+Proof.
+  move=> Hbnd.
+  rewrite /no_bounded_successful_rounds';
+  rewrite /itoj .
+  case Hltr: (r <= s).
+  rewrite subSn; last first. by [].
+  rewrite -addn1.
+  rewrite iota_add filter_cat //= ifN .
+  by rewrite cats0.
+  by rewrite subnKC .
+  move/negP/negP:Hltr.
+  rewrite -ltnNge => Heq0.
+  rewrite subn_eqP //=.
+  rewrite -subn_eq0 in Heq0.
+  move/eqP: Heq0 => -> //=.
+  by apply ltnW.
+Qed.
+
+Lemma no_bounded_successful_rounds_excl w s r :
+        (~~ bounded_successful_round w s) ->
+          no_bounded_successful_rounds w r s = no_bounded_successful_rounds w r s.+1.
+Proof.
+  move=> Hsb.
+  rewrite /no_bounded_successful_rounds.
+  rewrite -no_bounded_successful_rounds'_excl //=.
+Qed.
+
+
+Lemma no_bounded_successful_rounds_lim w s r :
+  bounded_successful_round w (s - delta) ->
+                nat_of_ord (no_bounded_successful_rounds w r (s.+1 - delta))%nat =
+               (no_bounded_successful_rounds w r (s.+1 - 2 * delta) + 1)%nat.
+Proof.
+  rewrite /no_bounded_successful_rounds.
+Admitted.
 
 
 

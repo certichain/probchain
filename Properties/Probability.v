@@ -24,22 +24,6 @@ Set Implicit Arguments.
 
 Variable probability_constant : R.
 
-Lemma addr_ltn a b c:
-   (a + b < c)%nat -> (a < c)%nat.
-Proof.
-    by move=>/(ltn_addr b); rewrite ltn_add2r.
-Qed.
-Lemma negb_eqn b: b != true -> eq_op b false.
-Proof.
-  by case b.
-Qed.
-
-
-
-Lemma ltn1 n : (n < 1)%nat = (n == 0%nat)%bool.
-Proof.
-  by elim n.
-Qed.
 
 
 Lemma Rleq_eqVlt : forall m n : R, (m <= n) <-> (m = n) \/ (m < n).
@@ -77,86 +61,6 @@ Proof.
   by move=>/orP[/eqP -> | ]; [left; rewrite subnn | rewrite ltn1; move=>/eqP ->; left].
   by destruct IHn as [_ Heq0]; move/eqP:Heq0 -> ; left.
 Qed.  
-
-
-
-
-Lemma ltnSn_eq a b : (a < b.+1)%nat -> (b < a.+1)%nat -> (a == b)%bool.
-Proof.
-  move: a.
-  induction b => //= a.
-  rewrite ltn1.
-  by move=>  /eqP -> .
-  have H (x y : nat) : (x > 0)%nat -> (x.-1 == y)%bool = (x == y.+1)%bool. by elim x  =>//=.
-  case (0 < a)%nat eqn: Hva.
-  rewrite -H //=.
-  move=> Haltb Hblta.
-  apply IHb.
-  rewrite -ltnS.
-  by rewrite prednK.
-  by rewrite prednK.
-
-  move/negP/negP: Hva.
-  rewrite -leqNgt.
-  rewrite leq_eqVlt.
-  rewrite (ltnS b.+1).
-  move=>/orP[/eqP ->|].
-  by rewrite ltn0.
-  by rewrite ltn0.
-Qed.
-
-
-
-Lemma ltn_leq_split a b c : (a + b - 1 < c.+1)%nat -> ~~ (b <= c)%nat -> ((b == c.+1)%bool  && (a == 0%nat)%bool).
-Proof.
-  rewrite -ltnNge.
-  case (b) => [|b'].
-  by rewrite ltn0.
-  rewrite subn1 addnS.
-  move=> Hab. move: (Hab).
-  have Hltnadn x : (x > 0)%nat -> x.+1.-1 = x.-1.+1. by elim x => //=.
-  move=> Habltn; move: Hab; rewrite prednK //=.
-  move=> Hab; move: (Hab); rewrite addnC.
-  move=> /addr_ltn Hbltc Hcltb.
-  move: (ltnSn_eq _ _ Hbltc Hcltb) => /eqP Hbeq; move: Hab.
-  rewrite Hbeq -(addn1 c) addnC ltn_add2l ltn1.
-  move=>/eqP ->; apply/andP.
-  by [].
-Qed.
-
-
-Lemma ltn_SnnP a b : (a.+1 < b.+1)%nat <-> (a < b)%nat.
-Proof.
-  split.
-  by elim: a => //=.
-  by elim: a => //=.
-Qed.
-
-
-
-Lemma subn_ltn_pr a b c : (a < c)%nat -> (a - b < c)%nat.
-Proof.
-  move: a b.
-  elim: c => //= c .
-  move=> IHn a b.
-  case H: (a < c)%nat.
-    move=> _.
-    rewrite -(addn1 c).
-    apply ltn_addr.
-    by apply IHn.
-  move/negP/negP: H .
-  rewrite -leqNgt .
-  rewrite -ltnS.
-  move=> /ltnSn_eq H /(H) /eqP Heqa.
-  induction a => //=.
-  induction b => //=.
-  by rewrite -Heqa subn0.
-  rewrite subSS.
-  rewrite -(addn1 c).
-  apply ltn_addr.
-  apply IHn.
-  by rewrite Heqa.
-Qed. 
 
 (* Subtracts a value from an ordinal value returning another value in the ordinal range *)
 Definition ordinal_sub {max : nat} (value : 'I_max) (suband : nat) : 'I_max :=
@@ -1900,19 +1804,9 @@ Lemma no_bounded_successful_rounds_ext sc w r s :
         (~~ bounded_successful_round w s) ->
           no_bounded_successful_rounds w r s = no_bounded_successful_rounds w r s.+1.
 Proof.
-  move: w.
-  elim sc => // [w |x xs IHn w ].
-  rewrite /world_step //= /Dist1.f.
-  case Hinworld: (Some w == Some initWorld)%bool => //= _.
-  move/eqP: Hinworld => Hinworld; injection Hinworld => ->  //=.
-  rewrite /no_bounded_successful_rounds /no_bounded_successful_rounds'/bounded_successful_round//=.
-  rewrite negb_andb => /orP [] //=.
-  move=>/negb_true_iff .
-
-
-  (* TODO(Kiran): Complete this proof *)
-Admitted.
-
+  move=> _.
+  by move=> /no_bounded_successful_rounds_excl. (* Not so hard now, eh??? *)
+Qed.
 
 
 
