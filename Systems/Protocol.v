@@ -1761,16 +1761,69 @@ Lemma no_bounded_successful_rounds_excl w s r :
 Proof.
   move=> Hsb.
   rewrite /no_bounded_successful_rounds.
-  rewrite -no_bounded_successful_rounds'_excl //=.
+  by rewrite -no_bounded_successful_rounds'_excl //=.
 Qed.
 
-
-Lemma no_bounded_successful_rounds_lim w s r :
-  bounded_successful_round w (s - delta) ->
-                nat_of_ord (no_bounded_successful_rounds w r (s.+1 - delta))%nat =
-               (no_bounded_successful_rounds w r (s.+1 - 2 * delta) + 1)%nat.
+Lemma no_bounded_successful_rounds'_lim_gen w s r:
+  bounded_successful_round w s ->
+      no_bounded_successful_rounds' w r s = no_bounded_successful_rounds' w r (s - delta).
 Proof.
-  rewrite /no_bounded_successful_rounds.
+  rewrite/bounded_successful_round => /andP [] /allP Hall Hsucc.
+  rewrite /no_bounded_successful_rounds'.
+  rewrite -!length_sizeP !size_filter  //=.
+  rewrite /itoj.
+  rewrite subnAC.
+  case Hltn : (delta <= s - r).
+  rewrite -{1}(@subnK delta (s - r)).
+  rewrite iota_add.
+  rewrite count_cat.
+  suff: count [eta bounded_successful_round w] (iota (r + (s - r - delta)) delta) = 0.
+  by move=> ->//=.
+  apply has_countPn.
+  apply /hasPn.
+  move=> r' Hrng.
+  rewrite /bounded_successful_round.
+  rewrite negb_and.
+  apply/orP.
+  right.
+  rewrite -unsuccessful_roundP.
+  apply Hall.
+  move: Hrng.
+  rewrite !mem_iota.
+  rewrite !subnKC //=.
+  suff: (r + (s - r - delta)) = s - delta.
+  move=> ->.
+  rewrite subnK .
+  move=> /andP [Hgtsd Hltsd].
+  apply/andP; split.
+  apply Hall.
+
+  rewrite -subnDA.
+  Search _ (_ - _ + _).
+  apply /hasPn => r' Hrrng; rewrite /bounded_successful_round negb_and.
+  by apply/orP; right; rewrite -unsuccessful_roundP; apply Hall.
+
+
+Lemma no_bounded_successful_rounds'_lim w s r :
+  bounded_successful_round w (s - delta) ->
+                (no_bounded_successful_rounds' w r (s.+1 - delta))%nat =
+               (no_bounded_successful_rounds' w r (s.+1 - 2 * delta) + 1)%nat.
+Proof.
+  move=> Hbound; move: (Hbound); move=> /bounded_successful_round_lim Hnsuc.
+  move: (Hbound) =>  /no_bounded_successful_rounds_excl_lower .
+  rewrite /no_bounded_successful_rounds'.
+  rewrite -!length_sizeP !size_filter => Hcount.
+  elim r => //=.
+  move: Hcount.
+  rewrite /itoj//=.
+  rewrite subnAC.
+  rewrite subnKC.
+  Search _ iota.
+  Search _ count.
+
+  About has_countPn.
+  !has_countPn //=.
+
 Admitted.
 
 

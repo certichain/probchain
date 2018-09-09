@@ -1843,9 +1843,10 @@ Lemma chain_growth_weak sc w l (r : 'I_N_rounds) :
                     l
                     o_addr
                     s.
-
 Proof.
   (* TODO: Complete this proof *)
+  move=> Hpr [addr [r' /andP [Hr'ltr Hacthaschain]]] s /eqP Hreqs wexec o_addr Hhon.
+
 
 Admitted.
 
