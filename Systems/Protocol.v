@@ -1809,271 +1809,95 @@ Proof.
 Qed.
 
 
-Lemma no_bounded_successful_rounds'_lim_gen w s r:
+Lemma no_bounded_successful_rounds'_lim_gen w s r: 0 < delta ->
   bounded_successful_round w s ->
       no_bounded_successful_rounds' w r s = no_bounded_successful_rounds' w r (s.+1 - delta).
 Proof.
-  move=> Hbounded_success; move: (Hbounded_success).
+  move=> Hdelta Hbounded_success; move: (Hbounded_success).
   rewrite/bounded_successful_round => /andP [] //= /allP Hall Hsucc.
   move: (Hbounded_success) => /no_bounded_successful_rounds_excl_lower.
   move: (Hbounded_success) => /no_bounded_successful_rounds_excl_upper.
   rewrite /no_bounded_successful_rounds' -!length_sizeP !size_filter  //= /itoj subnAC.
   move=> Hupper_bound Hlower_bound.
-  case Hltn : (delta <= s - r); last first.
-  admit.
-  (* move/negP/negP: Hltn. *)
-  (* rewrite -ltnNge => Hltn; move: (Hltn); move=> /(ltn_addr 1). *)
-  (* rewrite addn1 -subn_eq0 subSS => /eqP -> //=. *)
-  (* apply has_countPn; apply /hasPn => r'; rewrite mem_iota => /andP[ Hgtsd ]. *)
-  (* case Hlts: (r < s); last first. *)
-  (* move/negP/negP: Hlts. *)
-  (* rewrite -ltnNge  -subn_eq0 subSS => /eqP ->. *)
-  (* rewrite addn0. move/leq_ltn_trans: Hgtsd => H /H. by rewrite ltnn. *)
-  (* rewrite subnKC//=; last first. by apply ltnW. *)
-  (* move=> Hrlts. *)
-  (* rewrite /bounded_successful_round negb_and. *)
-  (* apply/orP. *)
-  (* move: (Hltn). *)
-  (* rewrite -subn_eq0 -subSn; last first. by apply ltnW. *)
-  (* rewrite subnAC subn_eq0 =>/leq_trans Hlt. *)
-  (* move/Hlt: Hgtsd => Hlbndr. clear Hlt; right. *)
-  (* rewrite -unsuccessful_roundP. *)
-  (* apply Hall; rewrite /itoj addn1 mem_iota. *)
-  (* apply/andP; split=> //=. *)
-  (* move/leq_ltn_trans: (Hlbndr) => Hlt. *)
-  (* move/Hlt: (Hrlts); clear Hlt. *)
-  (* move: Hltn Hlts Hrlts. *)
-  (* case: delta => //= delta . *)
-  (* case Hdlt: (delta <= s). by rewrite !subSS subKn //= subnK //=. *)
-  (* move/negP/negP: Hdlt. *)
-  (* rewrite -ltnNge . *)
-  (* move=> Hdlt; move: (Hdlt). *)
-  (* move=>/(ltn_addr 1). *)
-  (* rewrite addn1 -subn_eq0 subSS => /eqP ->. *)
-  (* by rewrite subn0 add0n. *)
-
-
- (* case Hrltsb:(r < s); last first. *)
- (*    move/negP/negP: Hrltsb. *)
- (*    rewrite -leqNgt -subn_eq0 => /eqP Hsr0.  *)
- (*    rewrite Hsr0 sub0n //=. *)
- (* have Hrltseq: (r <= s). *)
- (*    by apply ltnW. *)
- (* case Hdltgt0:(delta > 0); last first. *)
- (*  move/negP/negP: Hdltgt0. *)
- (*  rewrite -eqn0Ngt => /eqP Hdlta0. *)
- (*  by rewrite Hdlta0 //= subn0. *)
-
-
+  case Hsltr :(s < r).
+    move: (Hsltr); rewrite -subn_eq0 => /eqP ->; rewrite sub0n.
+    by move: (Hsltr) => /(ltn_addr 1); rewrite addn1 -subn_eq0 subSS => /eqP -> //=.
+  move/negP/negP: Hsltr; rewrite -leqNgt => Hsltr.
+  case Hltn : (delta <= s - r).
+ move: Hsltr.
+ rewrite leq_eqVlt =>/orP [ /eqP Hrseq | ] .
+ move: Hltn Hdelta.
+ rewrite Hrseq subnn leqn0 => /eqP ->.
+ by rewrite ltnn.
+ move=> Hsltr.
+ have Hsleqnr: (r <= s). by apply ltnW.
  rewrite -{1}(@subnK delta  (s - r)) //=.
  rewrite -{2}(@subnK 1 delta ) //=.
  rewrite subn1.
  rewrite (addnC delta.-1).
  rewrite addnA addn1.
- rewrite -subSn.
- rewrite -subSn.
- rewrite iota_add.
- move: Hlower_bound.
-  rewrite !subnBA !addnC.
-  rewrite -(@subnBA delta (s + 1)).
-  rewrite (addnC s) //=.
-  rewrite -(@subnBA 1 s) //= subnn subn0 (addnC 1) addn1 subn1.
-
-
-
-
- rewrite (addnC (_ - delta)).
- rewrite addnA.
- rewrite {2}(pred_Sn delta).
- Search _ (_ - _.-1).
- rewrite -subn1.
- rewrite subnBA.
- rewrite addn1 -subSn.
- rewrite iota_add.
- rewrite subnS.
-
- rewrite addnBA //=.
- rewrite subnKC //=.
- Print bounded_successful_round.
- rewrite count_cat.
- move: Hlower_bound.
- rewrite subnBA.
- rewrite (addnC s delta).
- rewrite -(subnBA delta) .
- rewrite addnC.
- rewrite -(@subnBA 1 s) //=.
- rewrite subnn subn0 addnC addn1.
- Search _ count.
-
-
-
-
-
- rewrite -addnBA.
- move: Hltn.
- rewrite leq_eqVlt => /orP [ /eqP Hdlta | ].
- rewrite Hdlta subnn //= add0n addn0.
-
-
-
-
-
- apply has_countPn.
- apply/hasPn => r'.
- rewrite -Hdlta mem_iota => /andP [Hgtr Hltrdelta].
-
- have Hdelta_lts: (delta <= s). rewrite Hdlta. by rewrite leq_subr.
- case Hrltsb:(r < s); last first.
-    move/negP/negP: Hrltsb.
-    rewrite -leqNgt -subn_eq0 => /eqP Hsr0. 
-    rewrite Hsr0 in Hdlta.
-    rewrite Hdlta in  Hltrdelta.
-    move/leq_ltn_trans:Hgtr => H.
-    move/H: Hltrdelta.
-    by rewrite addn0 ltnn.
- have Hrltseq: (r <= s).
-    by apply ltnW.
- case Hdltgt0:(delta > 0); last first.
-  move/negP/negP: Hdltgt0.
-  rewrite -eqn0Ngt => /eqP Hdlta0.
-  move/leq_ltn_trans: Hgtr => Hwrong.
-  move/Hwrong: Hltrdelta.
-  by rewrite Hdlta0 addn0 ltnn.
- move: (Hdlta) => /(f_equal (fun x => x + r)).
- rewrite subnK //= => Hseq.
- symmetry in Hseq.
-
-
- apply bounded_successful_round_exists.
- exists s; apply/andP; split => //=. apply/andP; split.
- Search _ (_ < _ + _).
- move/ltn_subLR: Hltrdelta.
-
- rewrite /bounded_successful_round negb_and -unsuccessful_roundP.
- move: Hgtr; rewrite leq_eqVlt => /orP [/eqP Hreqr' | ].
- rewrite -Hreqr'.
- apply/orP. right.
- apply Hall.
-
-
-
- rewrite Hseq.
- rewrite addnC.
- rewrite (addnC delta).
- rewrite addnA.
- rewrite -addnBA //= subnn addn0 addnC addn1.
- rewrite mem_iota => //=.
- rewrite addnBA //=.
- rewrite (addnC r.+1 (r + delta)).
- rewrite -addnBA //= subnn addn0.
- rewrite -addnBA.
- rewrite (addnC r delta).
-
-oSearch _ (_ + _ - _).
- rewrite /itoj.
-
-  (* now if delta <= s - r *)
- rewrite /bounded_successful_round.
- move/eqP/eqP: (Hltn).
- have Hdelta_lts: (delta <= s).
-  by move/leq_subn_pr: Hltn.
- case Hdltgt0:(delta > 0); last first.
-  move/negP/negP: Hdltgt0; rewrite -eqn0Ngt => /eqP -> //=.
-  by rewrite subn0.
- case Hrltsb:(r < s); last first.
-    move/negP/negP: Hrltsb.
-    rewrite -leqNgt -subn_eq0 => /eqP ->.
-    rewrite subn0 => /eqP Hwrong.
-    move: Hdltgt0.
-    by rewrite Hwrong.
- have Hrltseq: (r <= s).
-    by apply ltnW.
-
+ rewrite -subSn //=.
+ rewrite -subSn //=.
+ case HrltSs: (r <= s.+1 - delta); last first.
+    move/negP/negP: HrltSs.
+    rewrite -ltnNge => HrltSs.
+    move: (HrltSs) => /(ltn_addr 1).
+    rewrite addn1.
+    move: (Hltn).
+    move: (Hsltr)=> /(ltn_addr 1).
+    rewrite addn1.
+    rewrite -!subn_eq0.
+    rewrite !subSS subnAC subnBA //=.
+    rewrite !subn_eq0 => _ /leq_add H /H.
+    rewrite addnBA.
+    rewrite addnC.
+    rewrite -addnBA.
+    by rewrite -addnBA //= subnn addn0 addSn ltnn.
+    by apply leq_addl.
+    by rewrite -addn1; apply ltnW; apply ltn_addr.
+ rewrite iota_add count_cat {2}subnAC addnBA //=.
+ move: (Hltn).
+ rewrite -subn_eq0 //= subnBA //= => Hltn'.
+ move: (Hdelta); rewrite (addnC r) -addnBA //= subnn addn0.
+ move: Hlower_bound; rewrite {1}addn1 -subnBA //= subKn. by rewrite subn1 => ->.
+ rewrite leq_subLR addnC; apply (leq_trans Hltn); rewrite -ltnS -(addn1 (s + _)).
+ by apply ltn_addr; rewrite addn1 ltnS; apply leq_subr.
  
- rewrite subnBA //=.
- rewrite addnC.
- rewrite -subnBA //=.
- rewrite subn_eq0.
- rewrite -{1}(@subnK delta (s - r)) //=.
- rewrite iota_add //=.
- rewrite count_cat //=.
- rewrite addnBA //= => Hrsdl //=.
-
- suff: count
-   (fun round : nat => all [eta unsuccessful_round w] (itoj (round + 1 - delta) round) && successful_round w round)
-   (iota (r + (s - r) - delta) delta) = 0. by move=> ->//=.
- rewrite addnBA //=.
- rewrite addnC.
-  rewrite -addnBA //= subnn addn0.
- apply has_countPn; apply /hasPn => r'.
- rewrite mem_iota => /andP[ ].
- rewrite leq_subLR addnC -leq_subLR subnK //=. move => Hsdltr Hrlts.
- move: (Hsdltr).
- rewrite leq_eqVlt => /orP []; last first.
-    move=> Hsdltr'.
-    rewrite negb_and.
-    apply/orP; right; rewrite -unsuccessful_roundP; apply Hall.
-    rewrite addn1 subSn //= mem_iota subnS subKn //= -(addn1 (s - _)).
-    rewrite -subn1 addnBA //= {2}(addnC (s - _)) -addnA.
-    rewrite subnK //= (addnC 1) -addnBA //= subnn addn0.
-    apply/andP; split => //=.
-    rewrite (addn1 (s - delta)).
-    move: Hsdltr'.
-    rewrite -!subSn //= .
-    rewrite !leq_subLR.
-    by rewrite addnC.
-    by apply ltnW.
-
- move=>/eqP Heql.
-
- move: Hltn.
- rewrite -Heql.
- rewrite -subn_eq0.
- rewrite subnBA //= addnC addnBA //=; last first. by apply ltnW.
- rewrite subnAC -addnBA //= subnn addn0 subn_eq0.
+  move/negP/negP: Hltn.
+  rewrite -ltnNge => Hltn; move: (Hltn).
+  rewrite -subn_eq0 .
+  rewrite -subSn //= => /eqP -> //=.
+  apply has_countPn; apply /hasPn => r'; rewrite mem_iota => /andP[ Hgtsd ].
+  case Hlts: (r < s); last first.
+  move/negP/negP: Hlts.
+  rewrite -ltnNge  -subn_eq0 subSS => /eqP ->.
+  rewrite addn0. move/leq_ltn_trans: Hgtsd => H /H. by rewrite ltnn.
+  rewrite subnKC//= => Hrlts.
+  rewrite /bounded_successful_round negb_and.
+  apply/orP.
+  move: (Hltn).
+  rewrite -subn_eq0 -subSn; last first. by apply ltnW.
+  rewrite subnAC subn_eq0 =>/leq_trans Hlt.
+  move/Hlt: Hgtsd => Hlbndr. clear Hlt; right.
+  rewrite -unsuccessful_roundP.
+  apply Hall; rewrite /itoj addn1 mem_iota.
+  apply/andP; split=> //=.
+  move/leq_ltn_trans: (Hlbndr) => Hlt.
+  move/Hlt: (Hrlts); clear Hlt.
+  move: Hltn Hlts Hrlts.
+  case: delta => //= delta .
+  case Hdlt: (delta <= s). by rewrite !subSS subKn //= subnK //=.
+  move/negP/negP: Hdlt.
+  rewrite -ltnNge .
+  move=> Hdlt; move: (Hdlt).
+  move=>/(ltn_addr 1).
+  rewrite addn1 -subn_eq0 subSS => /eqP ->.
+  by rewrite subn0 add0n.
+Qed.
 
 
- move: Hdelta_lts.
- rewrite leq_eqVlt => /orP [/eqP Heq | ].
- move: (Heql).
- rewrite -Heq.
- move=> /subn_eqQ [ Hdlt0 | Hr0].
- move: Hrlts.
- by rewrite -Heq Hdlt0 ltn0.
- rewrite Hr0 //=.
- rewrite -unsuccessful_roundP.
- apply Hall.
- rewrite -Heq.
- rewrite addnC.
- rewrite -subnBA //= subnn subn0 /itoj.
- rewrite mem_iota.
-
- About ltn0.
- Search _ (_ - _ == _).
- move:  Hltn.
- rewrite -{1}Heql.
- rewrite -subn_eq0.
- rewrite subnBA //=.
- rewrite addnC.
- rewrite -subnBA; last first. by move: Hdelta_lts; rewrite Heql.
- rewrite subKn; last first. by apply/ltnW.
- rewrite subn_eq0.
- rewrite/itoj.
- rewrite subnBA.
- rewrite {1}addn1.
- rewrite subnBA.
- rewrite -addnC addnA .
- rewrite /itoj.
- rewrite !subnBA.
- rewrite subnBA.
- Search _ (?x + ?x).
- Search _ (0 < _ - _).
- rewrite subn_gt0.
-
- rewrite -Heql.
 
 
-Admitted.
 
 
 
