@@ -1895,6 +1895,18 @@ Proof.
   by rewrite subn0 add0n.
 Qed.
 
+Lemma no_bounded_successful_rounds'_lim_subd w s r : (0 < delta) -> (r <= s) ->
+  bounded_successful_round w (s) ->
+                (no_bounded_successful_rounds' w r s.+1)%nat =
+                (no_bounded_successful_rounds' w r (s.+1 - delta) + 1)%nat.
+Proof.
+  move=> Hdlta0 Hrlts Hbound .
+  rewrite -no_bounded_successful_rounds'_lim_gen //=.
+  rewrite /no_bounded_successful_rounds'.
+  rewrite  -!length_sizeP !size_filter  //= /itoj subSn; last first. by [].
+  rewrite -addn1 iota_add count_cat.
+  by rewrite addnBA //= (addnC r) -addnBA //= subnn addn0 addn0 Hbound //=.
+Qed.
 
 
 
@@ -1903,26 +1915,42 @@ Qed.
 
 
 Lemma no_bounded_successful_rounds'_lim w s r :
+  0 < delta ->
+  delta <= s ->
+  r <= s - delta ->
   bounded_successful_round w (s - delta) ->
                 (no_bounded_successful_rounds' w r (s.+1 - delta))%nat =
                (no_bounded_successful_rounds' w r (s.+1 - 2 * delta) + 1)%nat.
 Proof.
-  move=> Hbound; move: (Hbound); move=> /bounded_successful_round_lim Hnsuc.
-  move: (Hbound) =>  /no_bounded_successful_rounds_excl_lower .
-  rewrite /no_bounded_successful_rounds'.
-  rewrite -!length_sizeP !size_filter => Hcount.
-  elim r => //=.
-  move: Hcount.
-  rewrite /itoj//=.
-  rewrite subnAC.
-  rewrite subnKC.
-  Search _ iota.
-  Search _ count.
+  move=> Hdlta0 Hdltas Hrbnd Hbound.
+  rewrite subSn //=.
+  rewrite no_bounded_successful_rounds'_lim_subd //=.
+  rewrite -subSn //= .
+  by rewrite -subnDA addnn -muln2 mulnC //=.
+Qed.
 
-  About has_countPn.
-  !has_countPn //=.
+Lemma no_bounded_successful_rounds_lim w s r :
+  0 < delta ->
+  delta <= s ->
+  r <= s - delta ->
+  ((no_bounded_successful_rounds' w r (s.+1 - 2 * delta)) + 1) < N_rounds ->
+  bounded_successful_round w (s - delta) ->
+                (nat_of_ord (no_bounded_successful_rounds w r (s.+1 - delta))%nat) =
+               (nat_of_ord (no_bounded_successful_rounds w r (s.+1 - 2 * delta)) + 1)%nat.
+Proof.
+  move=> Hdlta0 Hdltas Hrbnd Hbound.
+  rewrite /no_bounded_successful_rounds => Hbounded_succ.
+  rewrite no_bounded_successful_rounds'_lim //= .
+  move: [eta _ ].
+  move: [eta _ ].
+  move: (erefl _ ).
+  move: (erefl _ ).
+  rewrite {2 4}Hbound.
+  move/ltn_weaken: (Hbound) => Hbound'.
+  by rewrite {2 4}Hbound' => prf prf' H1 H2; rewrite /nat_of_ord //=.
+Qed.
 
-Admitted.
+
 
 
 
@@ -1931,7 +1959,6 @@ Definition no_bounded_uniquely_successful_rounds' (w : World) (from : nat) (to :
     (fun round => bounded_uniquely_successful_round w round)
     (itoj from to)).
 
-Print no_bounded_uniquely_successful_rounds'.
 Definition no_bounded_uniquely_successful_rounds (w: World) (from to : nat) : 'I_N_rounds :=
   let b := ((no_bounded_uniquely_successful_rounds' w from to) < N_rounds ) in
    (if b as b0 return (((no_bounded_uniquely_successful_rounds' w from to) < N_rounds ) = b0 -> 'I_N_rounds)
