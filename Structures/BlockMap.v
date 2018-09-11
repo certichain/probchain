@@ -25,6 +25,15 @@ Definition BlockMap_find (bl : Block) (map : BlockMap) : option BlockMap_valuety
 Definition BlockMap_records (bmap : BlockMap) : seq (bool * nat) :=
     map (fun pair => let: (b, or) := pair in (b, nat_of_ord or)) (fixlist_unwrap (fixmap_value bmap)).
 
+Lemma BlockMap_records_roundP bmap : all (fun pair => let: (_, or) := pair in  or < N_rounds) (BlockMap_records (bmap)).
+Proof.
+  rewrite /BlockMap_records.
+  elim: (fixlist_unwrap (fixmap_value bmap)) => //= pair' xs IHb.
+  apply/andP; split.
+  by move: pair' => [is_crpt [vl Hvl]] //=.
+  by apply IHb.
+Qed.
+
 Definition BlockMap_blocks (bmap : BlockMap) : seq Block :=
     (fixlist_unwrap (fixmap_key bmap)).
 
