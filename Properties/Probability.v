@@ -455,25 +455,24 @@ Qed.
   Qed.
 
 
+Lemma no_bounded_successful_rounds'_eq0 : forall w r s, (s < r \/ (eq_op r s /\ eq_op r 0))%nat -> (no_bounded_successful_rounds' w r s) = 0%nat.
+Proof.
+  move=> w r s Hrs; rewrite /no_bounded_successful_rounds/no_bounded_successful_rounds'; apply/eqP => //=.
+  destruct Hrs .
+  by rewrite itoj_eq_0 => //=.
+  by move: H => [/eqP -> /eqP ->] //=.
+Qed.
+
+
+
+
 Lemma no_bounded_successful_rounds_eq0 : forall w r s, (s < r \/ (eq_op r s /\ eq_op r 0))%nat -> nat_of_ord (no_bounded_successful_rounds w r s) = 0%nat.
 Proof.
   move=> w r s Hrs; rewrite /no_bounded_successful_rounds/no_bounded_successful_rounds'; apply/eqP => //=.
   destruct Hrs .
-  rewrite itoj_eq_0 => //=.
-  suff Hgeq: [eta Ordinal (n:=N_rounds) (m:=0)] = (fun x => Ordinal (n:=N_rounds) (m:=0) valid_N_rounds).
-  rewrite Hgeq.
-  rewrite valid_N_rounds => //=.
- apply: functional_extensionality=> G.
-  by rewrite (proof_irrelevance _ valid_N_rounds G).
-  destruct H as [Heqrs Heq0].
-  move/eqP: Heqrs=> <-.
-  move/eqP: Heq0=> -> //=.
-  suff Hgeq: [eta Ordinal (n:=N_rounds) (m:=0)] = (fun x => Ordinal (n:=N_rounds) (m:=0) valid_N_rounds).
-  rewrite Hgeq.
-  rewrite valid_N_rounds => //=.
- apply: functional_extensionality=> G.
-  by rewrite (proof_irrelevance _ valid_N_rounds G).
-Qed. 
+  by rewrite itoj_eq_0 => //=.
+  by move: H => [/eqP -> /eqP ->] //=.
+Qed.
 
 Lemma actor_has_chain_length_generalize  w l o_addr s :
   actor_n_has_chain_length_at_round w l o_addr s ->
@@ -1874,7 +1873,7 @@ Lemma chain_growth_implicit_weaken sc w l (r : 'I_N_rounds) s : forall Hsvalid H
             every actor must have had a chain longer than l + sum{s - 2 * delta + 1)*)
   (forall o_addr : 'I_n_max_actors,
   actor_n_is_honest w o_addr ->
-  actor_n_has_chain_length_ge_at_round w (l + no_bounded_successful_rounds w r (s - 2 * delta + 1)) o_addr
+  actor_n_has_chain_length_ge_at_round w (l + no_bounded_successful_rounds w r (s.+1 - 2 * delta )) o_addr
     (Ordinal (n:=N_rounds) (m:=s - delta) Hsvddelta)).
 Proof.
   (* TODO: Complete this proof *)
@@ -1891,7 +1890,7 @@ Lemma chain_growth_direct_weaken sc w l (r : 'I_N_rounds) s : forall Hsvddelta H
             every part actor has a chain longer than l + sum_{r .. s - 2 * delta + 1} *) 
   (forall o_addr : 'I_n_max_actors,
   actor_n_is_honest w o_addr ->
-  actor_n_has_chain_length_ge_at_round w (l + no_bounded_successful_rounds w r (s - 2 * delta + 1)) o_addr
+  actor_n_has_chain_length_ge_at_round w (l + no_bounded_successful_rounds w r (s.+1 - 2 * delta)) o_addr
     (Ordinal (n:=N_rounds) (m:=s - delta) Hsvddelta)) ->
 
   (*  then by round s.+1, every actor has a chain longer than l + sum_{r + s - 2 * delta + 1} + 1
@@ -1899,7 +1898,7 @@ Lemma chain_growth_direct_weaken sc w l (r : 'I_N_rounds) s : forall Hsvddelta H
    *)
   (forall o_addr : 'I_n_max_actors,
   actor_n_is_honest w o_addr ->
-  actor_n_has_chain_length_ge_at_round w (l + no_bounded_successful_rounds w r (s - 2 * delta + 1) + 1) o_addr
+  actor_n_has_chain_length_ge_at_round w (l + no_bounded_successful_rounds w r (s.+1 - 2 * delta ) + 1) o_addr
     (Ordinal (n:=N_rounds) (m:=s.+1) Hsvd)).
 Proof.
   (* TODO: Complete this proof *)
@@ -1913,22 +1912,16 @@ Admitted.
  *)
 Lemma bounded_successful_exclusion sc w r s (l: nat) :
   (r <= s - delta)%nat ->
-  (2 * delta <= s)%nat ->
+  (delta <= s)%nat ->
   P[ world_step initWorld sc === Some w] <> 0 ->
   bounded_successful_round w (s - delta) ->
-                (l + no_bounded_successful_rounds w r (s - delta).+1)%nat =
-                (l + no_bounded_successful_rounds w r (s - 2 * delta + 1) + 1)%nat.
+                (l + no_bounded_successful_rounds w r (s.+1 - delta))%nat =
+                (l + no_bounded_successful_rounds w r (s.+1 - 2 * delta) + 1)%nat.
 Proof.
-  move=> Hrsdlta H2dlta Hpr Hbnd.
-  have Hlt12: (1 <= 2)%nat. by [].
-  move/(leq_mul ): (H2dlta) => Hlt.
-  move: (Hlt 1%nat 2%nat Hlt12).
-  rewrite muln1 mulnC leq_pmul2r //= => Hdlta.
-  rewrite -subSn //=.
-  rewrite (addn1 (s - _)).
-  rewrite -subSn; last first. by rewrite mulnC.
+  move=> Hrsdlta Hdlta Hpr Hbnd.
   rewrite no_bounded_successful_rounds_lim //= .
   by rewrite mulnC addnA.
+  exact delta_valid.
   (* TODO(Kiran): Complete this proof *)
 Admitted.
 
@@ -2074,7 +2067,7 @@ Proof.
      3. when s is s'.+1 and r - delta + 1 < s'.+1   (the true inductive case) *)
   (* simple base case - r - delta + 1 == 0*)
   rewrite subn_eq0;rewrite leq_eqVlt => /orP; case => //=.
-  rewrite sub0n; rewrite no_bounded_successful_rounds_eq0.
+  rewrite sub0n //=.  rewrite no_bounded_successful_rounds'_eq0.
   rewrite addn0.
   suff Hexist: (exists (addr0 : 'I_n_max_actors) (k : 'I_N_rounds),
                    (k <= (Ordinal Hrvalid))%nat && actor_n_has_chain_length_at_round w l addr0 k).
@@ -2090,7 +2083,7 @@ Proof.
   have Hltn_1_eqn0 a b : (a + b < 1)%nat -> (a == 0%nat) && (b == 0%nat). by induction a ; induction b => //=.
   move=>/Hltn_1_eqn0/andP;case => /eqP Hr0 /eqP Hd0.
   destruct r => //=.
-  rewrite no_bounded_successful_rounds_eq0. rewrite addn0 => //=.
+  rewrite no_bounded_successful_rounds'_eq0. rewrite addn0 => //=.
   suff Hexist: (exists (addr0 : 'I_n_max_actors) (k : 'I_N_rounds),
                    (k <= (Ordinal Hrvalid))%nat && actor_n_has_chain_length_at_round w l addr0 k).
   apply: (chain_growth_weak (x::xs) w l (Ordinal Hrvalid) Hpr_valid Hexist (Ordinal Hsvalid)) => //=.
@@ -2177,13 +2170,12 @@ Proof.
   by exact Hdlts.
 
 
-  rewrite subSn //=.
 
 
 (* (bounded_successful_round w (s - delta) ->
      (no_bounded_successful_rounds r (s - delta).+1 = no_bounded_successful_rounds r (s - 2 * delta + 1).+1 *)
   move=> Hwexec.
-  rewrite (bounded_successful_exclusion (x::xs) w r s l Hpr_valid Hbsuc).
+  rewrite (bounded_successful_exclusion (x::xs) w r s l ) //=.
   apply: (chain_growth_direct_weaken (x::xs) w l (Ordinal Hrvalid) s).
   by rewrite subn_ltn_pr.
   by [].
@@ -2196,7 +2188,14 @@ Proof.
   by [].
 
   by apply: (world_executed_to_weaken (x::xs) w s Hs'valid Hsvd).
+  move: sltvalid.
+  rewrite ltnS.
+  rewrite leq_subLR.
+  move=>/(leq_sub2r delta).
+  rewrite -addnBA //= subnn addn0.
+  rewrite -addnBA //= addnC addn1.
 
+Admitted.
   (* now to prove the full inductive step *)
   (* if X'(s - delta) is true, *)
   (* then forall  in s - 2 delta,  to s - delta - 1, X'i = 0 *)
@@ -2220,7 +2219,6 @@ Proof.
   (* qed *)
 
 
-Qed.
 
 
 

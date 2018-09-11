@@ -1210,123 +1210,7 @@ Proof.
 Qed.
 
 
-(* Lemma maintain_corrupt_deliver_messages (w : World) (l : seq Message) :
-      no_corrupted_players (deliver_messages l (next_round (world_global_state w))) = no_corrupted_players (world_global_state w).
-Proof.
-  elim w => //= state _ _ _ _ _ _.
-  rewrite /next_round.
-  destruct state;  do 2 destruct p => //=.
-  rewrite /deliver_messages. 
-  apply  foldr_rec.
-  case (eqn _ _) => //=.
-  move=> msg state H1.
-  destruct msg.
-  rewrite /insert_multicast_message .
-  apply foldr_rec.
-    by [].
-    move=> a_1 state_0 H2.
-    by rewrite maintain_corrupt_insert_message.
-    by rewrite /broadcast_message.
-Qed.
 
-
-
-(* Trivial lemma to ensure that steps work *)
-Lemma adversarial_minority_induction  (w w' : World) (q : RndGen) :
-   world_step w w' q -> adversarial_minority w -> adversarial_minority w'.
-Proof.
-
-  (* TODO(kiran): Complete this proof*)
-  move=> S.
-  rewrite /adversarial_minority .
-
-  destruct S.
-    - destruct (update_message_pool_queue _ _) => H1.
-      rewrite H0 => //=.
-      suff H2: no_corrupted_players (deliver_messages l (next_round (world_global_state w))) = no_corrupted_players (world_global_state w).
-      by rewrite H2.
-      by rewrite maintain_corrupt_deliver_messages. 
-
-    - rewrite H1 =>//=.
-
-    - rewrite H3 => //=.
-      move: H1 H0.
-      destruct w => //=.
-      destruct world_global_state0.
-      destruct p => //=.
-      destruct p => //=.
-      destruct (nth _) as [dated_actor corrupt] eqn:H'.
-      destruct (retrieve_head_link _).
-      destruct (find_maximal_valid_subset) .
-      destruct (hash _) .
-      case (_ < _).
-      case (eqn _ _).
-      move=> H1 H2.
-      rewrite H1 => //=.
-      destruct H2.
-      rewrite nth_set_nth_ident => //=.
-        by rewrite H'.
-        case (honest_max_valid _).
-        move=>  -> //=.
-        move=> [ltlen not_corrupt].
-        rewrite nth_set_nth_ident => //=.
-        by rewrite H'.
-        move=> new_bl blocks w'_def [ltlen not_corrupt] //=.
-        rewrite w'_def => //=.
-        rewrite nth_set_nth_ident => //=.
-          by rewrite H'.
-          move=> w'_def [ltlne not_corrupt].
-          move: w'_def.
-          destruct (_ == _).
-          destruct (eqn _ _) => -> //=.
-          rewrite nth_set_nth_ident => //=.
-          by rewrite H'.
-          rewrite nth_set_nth_ident => //=.
-          by rewrite H'.
-          destruct (eqn _ _) => -> //=.
-          rewrite nth_set_nth_ident => //=.
-          by rewrite H'.
-          rewrite nth_set_nth_ident => //=.
-          by rewrite H'.
-          move=> w'_defn [ltlen not_corrupt].
-          move: w'_defn.
-          destruct (_ == _).
-          destruct (eqn _ _) =>  -> //=.
-          rewrite nth_set_nth_ident => //=.
-          by rewrite H'.
-          rewrite nth_set_nth_ident => //=.
-          by rewrite H'.
-          destruct (eqn _ _) =>  -> //=.
-          rewrite nth_set_nth_ident => //=.
-          by rewrite H'.
-          rewrite nth_set_nth_ident => //=.
-          by rewrite H'.
-
-    - destruct (world_global_state _).
-      destruct p.
-      destruct p.
-      destruct (adversary_send_transaction _).
-      rewrite H0 => //=.
-
-    - destruct (world_global_state _).
-      destruct p.
-      destruct p.
-      destruct (adversary_attempt_hash _).
-      destruct p.
-      rewrite H2 => //=.
-      case (eqn _ _) => //=.
-      
-    - case: (world_global_state _) H0 H1=>[[[a b]]] c d H0.
-      by case: (adversary_send_chain b _)=>??->.
-Qed. *)
-
-
-
-
-
-(* Lemma adversarial_minority_induction  (w w' : World) (q : RndGen) :
-   world_step w w' q -> adversarial_minority w -> adversarial_minority w'. *)
- 
 
 
 Definition block_hash_round (b : Block) (w : World) :=
@@ -1683,11 +1567,13 @@ Definition no_bounded_successful_rounds' (w : World) (from : nat) (to : nat) : n
     (fun round => bounded_successful_round w round)
     (itoj from to)).
 
-Definition no_bounded_successful_rounds (w: World) (from to : nat) : 'I_N_rounds :=
-  let b := ((no_bounded_successful_rounds' w from to) < N_rounds ) in
-   (if b as b0 return (((no_bounded_successful_rounds' w from to) < N_rounds ) = b0 -> 'I_N_rounds)
+Lemma valid_Sn n : n > 0 -> n.+1 > 0. by []. Qed.
+
+Definition no_bounded_successful_rounds (w: World) (from to : nat) : 'I_N_rounds.+1 :=
+  let b := ((no_bounded_successful_rounds' w from to) < N_rounds.+1 ) in
+   (if b as b0 return (((no_bounded_successful_rounds' w from to) < N_rounds.+1 ) = b0 -> 'I_N_rounds.+1)
       then fun H => Ordinal H
-      else fun _ => Ordinal valid_N_rounds) (erefl b).
+      else fun _ => Ordinal (valid_Sn _ valid_N_rounds)) (erefl b).
 
 
 Lemma count_bounded_successful_rounds'_rangeP_weak w from to : from >= N_rounds -> count [eta bounded_successful_round w] (iota from to) = 0.
@@ -1727,6 +1613,7 @@ Qed.
 
 
 Lemma addn_ltn_eqn' a b c : a > 0 -> a + c = b -> c < b.
+
 Proof.
   move=> Hgt0a Heqn.
   rewrite -subn_eq0.
@@ -1821,18 +1708,55 @@ Proof.
   by [].
 Qed.
 
+Lemma no_bounded_successful_rounds'_rangeSP w from to : no_bounded_successful_rounds' w from to < N_rounds.+1.
+Proof.
+  case Hfltr: (0 < from).
+    by apply (ltn_trans (no_bounded_successful_rounds'_rangeP w from to Hfltr)) => //=.
+  move: (no_bounded_successful_rounds'_rangeP_alt w from to) => Hrng.
+  move/negP/negP: Hfltr.
+  rewrite -eqn0Ngt => /eqP Heq0.
+  case Hto: (to < N_rounds).
+    move/(subn_ltn_pr ): (Hto) => Ht.
+    move: (Ht from) => Hfr.
+    apply (leq_ltn_trans Hrng).
+    rewrite Heq0 subn0 -(addn1 N_rounds).
+    by apply ltn_addr.
+  move/negP/negP: Hto; rewrite -leqNgt => Hto.
+  case Htvld: (to > 0); last first.
+    move/negP/negP: Htvld; rewrite -eqn0Ngt => /eqP Heq0'.
+    by rewrite Heq0 Heq0' //=.
+   
+  move: (Hto); rewrite leq_eqVlt => /orP [/eqP HNroeq| Hltn]; last first.
+    move: (Hltn) valid_N_rounds => /ltn_exists H /H [mid [Hltto Heq]].
+    rewrite -Heq.
+    rewrite Heq0.
+    rewrite /no_bounded_successful_rounds' -length_sizeP size_filter /itoj .
+    rewrite subn0 iota_add count_cat add0n addnC.
+    rewrite  count_bounded_successful_rounds'_rangeP_weak //= add0n.
+    move: (count_size [eta bounded_successful_round w] (iota 0 N_rounds)).
+    by rewrite size_iota ltnS.
+  rewrite HNroeq.
+  rewrite /no_bounded_successful_rounds' -length_sizeP size_filter /itoj .
+  rewrite Heq0 subn0.
+  move: (count_size [eta bounded_successful_round w] (iota 0 to)).
+  by rewrite size_iota ltnS.
+Qed.
 
-Lemma no_bounded_successful_roundsP (P : 'I_N_rounds -> Prop) w from to : 
-  P (Ordinal  valid_N_rounds) ->
-  (forall prf : ((no_bounded_successful_rounds' w from to < N_rounds) = true), P (Ordinal prf )) ->
+
+
+
+
+Lemma no_bounded_successful_roundsP (P : 'I_N_rounds.+1 -> Prop) w from to : 
+  P (Ordinal  (valid_Sn _ valid_N_rounds)) ->
+  (forall prf : ((no_bounded_successful_rounds' w from to < N_rounds.+1) = true), P (Ordinal prf )) ->
   P (no_bounded_successful_rounds w from to).
 Proof.
   move=> H0 Hind.
   rewrite/no_bounded_successful_rounds.
   set (Nb := ((no_bounded_successful_rounds' w from to))).
-  case Heq: (Nb >= N_rounds).
+  case Heq: (Nb >= N_rounds.+1).
     move: (erefl _).
-    move: [eta Ordinal (n:=N_rounds) (m:=Nb)].
+    move: [eta Ordinal (n:=N_rounds.+1) (m:=Nb)].
     rewrite leqNgt in Heq.
     move/negP/negP: Heq.
     rewrite -eqbF_neg => /eqP Heq.
@@ -1841,7 +1765,7 @@ Proof.
   move/negP/negP: Heq.
   rewrite -ltnNge.
   move=> Hlt.
-  suff: [eta Ordinal (n:=N_rounds) (m:=Nb)] = fun _ => Ordinal Hlt.
+  suff: [eta Ordinal (n:=N_rounds.+1) (m:=Nb)] = fun _ => Ordinal Hlt.
   move=> ->.
   by rewrite Hlt.
   apply: functional_extensionality=> G.
@@ -2094,7 +2018,7 @@ Lemma no_bounded_successful_rounds_lim w s r :
   0 < delta ->
   delta <= s ->
   r <= s - delta ->
-  ((no_bounded_successful_rounds' w r (s.+1 - 2 * delta)) + 1) < N_rounds ->
+  ((no_bounded_successful_rounds' w r (s.+1 - 2 * delta)) + 1) < N_rounds.+1 ->
   bounded_successful_round w (s - delta) ->
                 (nat_of_ord (no_bounded_successful_rounds w r (s.+1 - delta))%nat) =
                (nat_of_ord (no_bounded_successful_rounds w r (s.+1 - 2 * delta)) + 1)%nat.
