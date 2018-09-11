@@ -1912,12 +1912,23 @@ Admitted.
       no_bounded_successful_rounds w r (s - 2 * delta + 1) + 1.
  *)
 Lemma bounded_successful_exclusion sc w r s (l: nat) :
+  (r <= s - delta)%nat ->
+  (2 * delta <= s)%nat ->
   P[ world_step initWorld sc === Some w] <> 0 ->
   bounded_successful_round w (s - delta) ->
                 (l + no_bounded_successful_rounds w r (s - delta).+1)%nat =
                 (l + no_bounded_successful_rounds w r (s - 2 * delta + 1) + 1)%nat.
 Proof.
-
+  move=> Hrsdlta H2dlta Hpr Hbnd.
+  have Hlt12: (1 <= 2)%nat. by [].
+  move/(leq_mul ): (H2dlta) => Hlt.
+  move: (Hlt 1%nat 2%nat Hlt12).
+  rewrite muln1 mulnC leq_pmul2r //= => Hdlta.
+  rewrite -subSn //=.
+  rewrite (addn1 (s - _)).
+  rewrite -subSn; last first. by rewrite mulnC.
+  rewrite no_bounded_successful_rounds_lim //= .
+  by rewrite mulnC addnA.
   (* TODO(Kiran): Complete this proof *)
 Admitted.
 

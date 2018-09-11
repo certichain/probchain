@@ -24,6 +24,16 @@ Parameter Transaction_valid : Transaction -> seq Transaction -> bool.
 Parameter T_Hashing_Difficulty : nat.
 (* delay between activation and success *)
 Parameter delta : nat.
+(* the lemmas formulated in the bounded delay model are not transferrable to a synchronous one
+   Justification - pg.36 of Garay et. al.
+
+    The chain growth property is formulated as: if a party has a chain of length l at round r,
+    then by round s >= r + delta - 1 every honest party has adopted a chain greater or equal to l.
+
+   Notice how when delta is 0, the lemma states by round s >= r - 1, which is incorrect
+   (we can trivially derive a contradiction from this fact).
+ *)
+Parameter delta_valid : delta > 0.
 
 Parameter Transactions_per_block : nat.
 
