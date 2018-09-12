@@ -1643,8 +1643,7 @@ Proof.
                               H_fail_update Hsuccess_update_last Hsuccess_update.
   rewrite /honest_mint_step.
   case Hltn: (_ < _ )%nat; last first.
-  case Hmxvld: (eq_op _).
-  move: (elimTF _ ).
+  case Hmxvld: (eq_op _). move: (elimTF _ ).
   move: (introN _ ).
   move: (erefl _).
   move: (round_in_range _).
@@ -2105,6 +2104,63 @@ Qed.
 
 
 
+(* contains the main meat of the chain growth weak lemma *)
+Lemma chain_growth_weak_internal 
+  (sc : seq.seq RndGen) (w : world_finType) (l : nat_eqType)
+  (Hpr : P[ world_step initWorld sc === Some w] <> 0)
+  (addr : 'I_n_max_actors) (r' : 'I_N_rounds) (o_addr : 'I_n_max_actors)
+  (iscrpt : bool) (os : OracleState) (hash_value hash_vl : 'I_Hash_value.+1)
+  (blc_rcd : BlockRecord) (addr0 : 'I_n_max_actors) (lclstt : LocalState)
+  (result : nat) (w' : World) (xs : seq.seq RndGen) :
+  (actor_n_has_chain_length_at_round w' l addr r' ->
+   actor_n_is_honest w' o_addr ->
+   forall s r : 'I_N_rounds,
+   (r' <= r)%nat ->
+   (r + delta - 1)%nat = s -> world_executed_to_round w' s -> actor_n_has_chain_length_ge_at_round w' l o_addr s) ->
+  0 < P[ world_step initWorld xs === Some w'] ->
+  actor_n_has_chain_length_at_round (honest_mint_step iscrpt os hash_value hash_vl blc_rcd addr0 lclstt result w')
+    l addr r' ->
+  actor_n_is_honest (honest_mint_step iscrpt os hash_value hash_vl blc_rcd addr0 lclstt result w') o_addr ->
+  forall s r : 'I_N_rounds,
+  (r' <= r)%nat ->
+  (r + delta - 1)%nat = s ->
+  world_executed_to_round (honest_mint_step iscrpt os hash_value hash_vl blc_rcd addr0 lclstt result w') s ->
+  actor_n_has_chain_length_ge_at_round
+    (honest_mint_step iscrpt os hash_value hash_vl blc_rcd addr0 lclstt result w') l o_addr s.
+Proof.
+
+    (* honest mint case  *)
+    move=> IHw' Hprw' Hacthaschain Hhon  s.
+    apply /(honest_mint_stepP (fun w =>
+            forall r : 'I_N_rounds,
+            (r' <= r)%nat ->
+            (r + delta - 1)%nat = s ->
+            world_executed_to_round w s ->
+            actor_n_has_chain_length_ge_at_round
+              w l o_addr s)) => //=.
+
+    move: Hacthaschain Hhon.
+    rewrite /actor_n_has_chain_length_ge_at_round/honest_mint_step //=.
+    case: ((result < T_Hashing_Difficulty)%nat) => //=; last first.
+    case: (eq_op _).
+    move: (elimTF _ ).
+    move: (introN _ ).
+    move: (erefl _).
+    move: (round_in_range _).
+    case: (eq_op (nat_of_ord (global_currently_active (world_global_state w'))) n_max_actors.+1) =>   //=.
+    move=> _ _ Hngcr _.
+    move: IHw'.
+    rewrite /actor_n_has_chain_length_ge_at_round/actor_n_has_chain_length_at_round //= => IHw'.
+    move=> Hhaslength Hhonest.
+    rewrite /world_executed_to_round//= => r Hrltr' Hwexec.
+    rewrite /actor_n_is_honest//=.
+    (* stopped here *)
+
+
+
+
+
+Admitted.
 
 
 
@@ -2179,27 +2235,9 @@ Proof.
   by rewrite/fixlist_is_empty => /eqP -> //= /andP [/eqP Hnreq0  Hleq0] //=.
 
   (* honest mint case *)
-    move=> IHw' Hprw' Hacthaschain Hhon  s.
+  (* this one ends up being the longest and contains the real "logic" steps, so it has been refactored out *)
+  apply chain_growth_weak_internal with (sc := sc) (w := w) => //=.
 
-    move: Hacthaschain Hhon.
-    rewrite /actor_n_has_chain_length_ge_at_round/honest_mint_step //=.
-    case: ((result < T_Hashing_Difficulty)%nat) => //=; last first.
-    case: (eq_op _).
-    move: (elimTF _ ).
-    move: (introN _ ).
-    move: (erefl _).
-    move: (round_in_range _).
-    case: (eq_op (nat_of_ord (global_currently_active (world_global_state w'))) n_max_actors.+1) =>   //=.
-    move=> _ _ Hngcr _.
-    move: IHw'.
-    rewrite /actor_n_has_chain_length_ge_at_round/actor_n_has_chain_length_at_round //= => IHw'.
-    move=> Hhaslength Hhonest.
-    rewrite /world_executed_to_round//= => r Hrltr' Hwexec.
-    rewrite /actor_n_is_honest//=.
-    (* stopped here *)
-
-    (* this one ends up being the longest, so we'll skip it for now *)
-    admit.
   (* adversary mint case *)
     move=> IHw' Hprw' Hacthaschain Hhon  s.
     rewrite /adversary_mint_player_step/actor_n_has_chain_length_ge_at_round/actor_n_has_chain_length_at_round//=.
@@ -2269,8 +2307,9 @@ Proof.
     rewrite /actor_n_is_corrupt //=.
     by move=> /update_round_preserves_honest.
 
-Admitted.
 
+
+Qed.
 
 
 
