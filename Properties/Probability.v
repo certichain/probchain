@@ -1818,6 +1818,36 @@ Proof.
 Qed.
 
 
+Lemma deliver_messages_preserves_honest w a msgs : forall prf,
+  ~~
+  (let
+   '(_, is_corrupted) :=
+    tnth (global_local_states (deliver_messages msgs (next_round (world_global_state w))))
+      (Ordinal (n:=n_max_actors) (m:=a) prf) in is_corrupted) ->
+  ~~
+  (let
+   '(_, is_corrupted) :=
+    tnth (global_local_states (world_global_state w))
+      (Ordinal (n:=n_max_actors) (m:=a) prf) in is_corrupted).
+Proof.
+  (* TODO (Kiran): Prove this *)
+
+Admitted.
+
+Lemma update_round_preserves_honest w a : forall prf,
+  ~~
+  (let
+   '(_, is_corrupted) :=
+    tnth (global_local_states (update_round (world_global_state w)))
+      (Ordinal (n:=n_max_actors) (m:=a) prf) in is_corrupted) ->
+  ~~
+  (let
+   '(_, is_corrupted) :=
+    tnth (global_local_states (world_global_state w))
+      (Ordinal (n:=n_max_actors) (m:=a) prf) in is_corrupted).
+Proof.
+  (* TODO (Kiran): Prove this *)
+Admitted.
 
 
 
@@ -1929,13 +1959,15 @@ Proof.
 
   (* global adversary case *)
     move=> IHw' Hprw' Hacthaschain Hhon  s Hpradv.
-    rewrite /adversary_mint_global_step/actor_n_has_chain_length_ge_at_round/actor_n_has_chain_length_at_round//=.
+    rewrite /adversary_mint_global_step/actor_n_has_chain_length_ge_at_round.
+    rewrite /actor_n_has_chain_length_at_round//=.
     (* once again trivially true *)
     by move: adv_state Hpradv => [[stt os] blk] //=.
   
   (* adversary corrupt case *)
     move=> IHw' Hprw' Hacthaschain Hhon  s Hpradv Hhonw' s0 r0 Hr0gtr' Heqn .
-    rewrite /adversary_corrupt_step/actor_n_has_chain_length_ge_at_round/actor_n_has_chain_length_at_round//=.
+    rewrite /adversary_corrupt_step/actor_n_has_chain_length_ge_at_round.
+    rewrite /actor_n_has_chain_length_at_round//=.
     rewrite /world_executed_to_round//= -/world_executed_to_round => Hwrld.
     apply IHw' with (r := r0) => //=.
     move: Hhonw'.
@@ -1947,16 +1979,45 @@ Proof.
     move/negP/negP: (Hgt); rewrite -ltnNge => Hprf.
     rewrite {3 4  7 }Hprf => //= _ Hprfltn.
     destruct ((global_local_states (world_global_state w'))) as [ls Hls].
-    induction ls => //=.
-    (* stopped here  *)
-    rewrite /set_tnth //=.
-    Search _ "tnth".
-    rewrite tnthP.
-    Search _ tnth.
-    rewrite /tnth/set_tnth//=.
 
-    Search _ false.
-    rewrite eqb_negb1 .
+    move: Hhon IHw' Hpradv Hgt Hprf Hprfltn.
+    move: o_addr addr0 => [addr0 Haddr0] [o_addr H_o_addr].
+    move=> Hhon IHw' Hpradv Hgt Hprf Hprfltn.
+    case Haddreqn: (eq_op o_addr addr0).
+    rewrite tnth_set_nth_eq => //=.
+    by apply/eqP; symmetry; apply/eqP.
+    by rewrite tnth_set_nth_neq => //=; apply/eqP/not_eq_sym; move/negP/negP/eqP: Haddreqn.
+  (* round end case *)
+    move=> IHw' Hprw' Hacthaschain Hhon  s Hpradv.
+    rewrite /round_end_step/actor_n_has_chain_length_ge_at_round.
+    rewrite /actor_n_has_chain_length_at_round//=.
+    rewrite /world_executed_to_round //= => r Hrltr' Hrdelta Hwexec.
+    apply IHw' with (r:=r) => //=.
+    move: s.
+    rewrite /actor_n_is_honest/round_end_step/actor_n_is_corrupt//=.
+    move: (erefl _ ).
+    case Hltn: ((o_addr >= n_max_actors)%nat).
+      move: Hltn; rewrite leqNgt => /negP/eqP/eqP/not_true_is_false Hwrong.
+      by rewrite { 2 3 7 }Hwrong.
+    move/negP/negP: Hltn; rewrite -{1}ltnNge => Hltn.
+    rewrite { 2 3 7 }Hltn => prf'.
+    by move=> /deliver_messages_preserves_honest .
+  (* adversary end case *)
+    move=> IHw' Hprw' Hacthaschain Hhon  s Hpradv.
+    rewrite /adversary_end_step/actor_n_has_chain_length_ge_at_round.
+    rewrite /actor_n_has_chain_length_at_round/world_executed_to_round//=.
+    move=> r Hrltr Hreqdls Hhas.
+    apply IHw' with (r:= r) => //=.
+    move: s.
+    rewrite /actor_n_is_honest/adversary_end_step//=.
+    move: (erefl _).
+    case Hltn: ((o_addr >= n_max_actors)%nat).
+      move: Hltn; rewrite leqNgt => /negP/eqP/eqP/not_true_is_false Hwrong.
+      by rewrite { 2 3 7 }Hwrong.
+    move/negP/negP: Hltn; rewrite -{1}ltnNge => Hltn.
+    rewrite { 2 3 7 }Hltn => prf'.
+    rewrite /actor_n_is_corrupt //=.
+    by move=> /update_round_preserves_honest.
 
 Admitted.
 
