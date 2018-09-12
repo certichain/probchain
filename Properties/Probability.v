@@ -639,7 +639,100 @@ Definition honest_step_world  (w w' : World) lclstt iscrpt addr result blk_rcd h
     world_adoption_history := record_actor_current_chain (honest_current_chain lclstt) new_chain
                                 (global_current_round (world_global_state w')) addr (world_adoption_history w') |}).
 
+Definition honest_mint_failed_no_update iscrpt addr lclstt os w gca := {|
+    world_global_state := {|
+                          global_local_states := set_tnth (global_local_states (world_global_state w))
+                                                   ({|
+                                                    honest_current_chain := honest_current_chain
+                                                                              (update_transaction_pool addr lclstt
+                                                                                 (world_transaction_pool w));
+                                                    honest_local_transaction_pool := fixlist_empty Transaction
+                                                                                      Honest_TransactionPool_size;
+                                                    honest_local_message_pool := fixlist_empty
+                                                                                   [eqType of BlockChain]
+                                                                                   Honest_MessagePool_size |},
+                                                   iscrpt) (global_currently_active (world_global_state w));
+                          global_adversary := global_adversary (world_global_state w);
+                          global_currently_active := gca;
+                          global_current_round := global_current_round (world_global_state w )|};
+    world_transaction_pool := world_transaction_pool w;
+    world_inflight_pool := world_inflight_pool w;
+    world_message_pool := world_message_pool w;
+    world_hash := os;
+    world_block_history := world_block_history w;
+    world_chain_history := world_chain_history w;
+    world_adversary_message_quota := world_adversary_message_quota w;
+    world_adversary_transaction_quota := world_adversary_transaction_quota w;
+    world_honest_transaction_quota := world_honest_transaction_quota w;
+    world_adoption_history := fixlist_insert (world_adoption_history w)
+                                (honest_current_chain lclstt, global_current_round (world_global_state w), addr) |}.
 
+Definition honest_mint_failed_update iscrpt addr lclstt os w gca := {|
+    world_global_state := {|
+                          global_local_states := set_tnth (global_local_states (world_global_state w))
+                                                   ({|
+                                                    honest_current_chain := honest_max_valid
+                                                                              (update_transaction_pool addr lclstt
+                                                                                 (world_transaction_pool w))
+                                                                              (world_hash w);
+                                                    honest_local_transaction_pool := fixlist_empty Transaction
+                                                                                      Honest_TransactionPool_size;
+                                                    honest_local_message_pool := fixlist_empty
+                                                                                   [eqType of BlockChain]
+                                                                                   Honest_MessagePool_size |},
+                                                   iscrpt) (global_currently_active (world_global_state w));
+                          global_adversary := global_adversary (world_global_state w);
+                          global_currently_active := gca;
+                          global_current_round := global_current_round (world_global_state w) |};
+    world_transaction_pool := world_transaction_pool w;
+    world_inflight_pool := fixlist_insert (world_inflight_pool w)
+                             (BroadcastMsg
+                                (honest_max_valid (update_transaction_pool addr lclstt (world_transaction_pool w))
+                                   (world_hash w)));
+    world_message_pool := world_message_pool w;
+    world_hash := os;
+    world_block_history := world_block_history w;
+    world_chain_history := world_chain_history w;
+    world_adversary_message_quota := world_adversary_message_quota w;
+    world_adversary_transaction_quota := world_adversary_transaction_quota w;
+    world_honest_transaction_quota := world_honest_transaction_quota w;
+    world_adoption_history := fixlist_insert (world_adoption_history w)
+                                (honest_current_chain lclstt, global_current_round (world_global_state w), addr) |}.
+
+
+Definition honest_mint_succeed_update iscrpt addr lclstt os blc_rcd hashed nonce gca w := (let
+     '(updated_actor, new_message, new_oracle, new_block, new_chain) :=
+      let
+      '(new_chain, _) :=
+       fixlist_enqueue (Some {| block_nonce := nonce; block_link := hashed; block_records := blc_rcd |})
+         (honest_max_valid (update_transaction_pool addr lclstt (world_transaction_pool w)) (world_hash w)) in
+       ({|
+        honest_current_chain := new_chain;
+        honest_local_transaction_pool := fixlist_empty Transaction Honest_TransactionPool_size;
+        honest_local_message_pool := fixlist_empty [eqType of BlockChain] Honest_MessagePool_size |},
+       Some (BroadcastMsg new_chain), os,
+       Some {| block_nonce := nonce; block_link := hashed; block_records := blc_rcd |}, 
+       Some new_chain) in
+      {|
+      world_global_state := {|
+                            global_local_states := set_tnth (global_local_states (world_global_state w))
+                                                     (updated_actor, iscrpt)
+                                                     (global_currently_active (world_global_state w));
+                            global_adversary := global_adversary (world_global_state w);
+                            global_currently_active := gca;
+                            global_current_round := global_current_round (world_global_state w) |};
+      world_transaction_pool := world_transaction_pool w;
+      world_inflight_pool := option_insert (world_inflight_pool w) new_message;
+      world_message_pool := world_message_pool w;
+      world_hash := new_oracle;
+      world_block_history := BlockMap_put_honest_on_success new_block (global_current_round (world_global_state w))
+                               (world_block_history w);
+      world_chain_history := option_insert (world_chain_history w) new_chain;
+      world_adversary_message_quota := world_adversary_message_quota w;
+      world_adversary_transaction_quota := world_adversary_transaction_quota w;
+      world_honest_transaction_quota := world_honest_transaction_quota w;
+      world_adoption_history := record_actor_current_chain (honest_current_chain lclstt) new_chain
+                                  (global_current_round (world_global_state w)) addr (world_adoption_history w) |}).
 
 
 (* contains some common simplifications used repeatedly in most proofs *)
@@ -1484,6 +1577,146 @@ Qed.
 
 
 
+Lemma honest_mint_stepP (P : World -> Prop) w iscrpt os nonce hashed blc_rcd
+      addr lclstt round : 
+          (forall iscrpt addr lclstt os,
+              (eq_op
+                  (honest_max_valid
+                    (update_transaction_pool addr lclstt (world_transaction_pool w)) (world_hash w))
+                  (honest_current_chain (update_transaction_pool addr lclstt (world_transaction_pool w)))) ->
+              (eq_op
+                 (nat_of_ord (global_currently_active (world_global_state w)))
+                 n_max_actors.+1) ->
+              P (honest_mint_failed_no_update iscrpt addr lclstt os w
+                                              (global_currently_active (world_global_state w)) )) ->
+          (forall
+              iscrpt addr
+              lclstt os
+              (Hlt : ((nat_of_ord (global_currently_active (world_global_state w))).+1 < n_max_actors + 2)%nat),
+              (eq_op
+                 (honest_max_valid (update_transaction_pool addr lclstt (world_transaction_pool w)) (world_hash w))
+                  (honest_current_chain (update_transaction_pool addr lclstt (world_transaction_pool w)))) ->
+              P
+              (honest_mint_failed_no_update iscrpt addr lclstt os w
+        (Ordinal (n:=n_max_actors + 2) (m:=(global_currently_active (world_global_state w)).+1) Hlt))) ->
+
+          (forall iscrpt  addr  lclstt  os,
+              (eq_op
+                 (honest_max_valid (update_transaction_pool addr lclstt (world_transaction_pool w)) (world_hash w))
+                 (honest_current_chain (update_transaction_pool addr lclstt (world_transaction_pool w)))) = false ->
+              (eq_op (nat_of_ord (global_currently_active (world_global_state w))) n_max_actors.+1) ->
+              P
+                (honest_mint_failed_update
+                   iscrpt addr lclstt os w
+                   (global_currently_active (world_global_state w)))) ->
+
+          (forall
+              iscrpt addr
+              lclstt os
+              (Hlt : ((nat_of_ord (global_currently_active (world_global_state w))).+1 < n_max_actors + 2)%nat),
+              (eq_op
+                 (honest_max_valid (update_transaction_pool addr lclstt (world_transaction_pool w)) (world_hash w))
+                 (honest_current_chain (update_transaction_pool addr lclstt (world_transaction_pool w)))) = false ->
+              P
+                (honest_mint_failed_update iscrpt addr lclstt os w
+                  (Ordinal (n:=n_max_actors + 2) (m:=(global_currently_active (world_global_state w)).+1) Hlt))) ->
+
+
+          (forall iscrpt  addr  lclstt  os nonce  hashed  blc_rcd  round ,
+            (round < T_Hashing_Difficulty)%nat = true ->
+            (eq_op (nat_of_ord (global_currently_active (world_global_state w))) n_max_actors.+1) = true ->
+            P
+              (honest_mint_succeed_update iscrpt addr lclstt os blc_rcd hashed nonce
+              (global_currently_active (world_global_state w)) w)) ->
+
+          (forall iscrpt addr  lclstt  os nonce  hashed  blc_rcd  round
+             (Hlt : ((nat_of_ord (global_currently_active (world_global_state w))).+1 < n_max_actors + 2)%nat),
+              (round < T_Hashing_Difficulty)%nat ->
+              (eq_op (nat_of_ord (global_currently_active (world_global_state w))) n_max_actors.+1) = false ->
+            P
+              (honest_mint_succeed_update iscrpt addr lclstt os blc_rcd hashed nonce
+              (Ordinal (n:=n_max_actors + 2) (m:=(global_currently_active (world_global_state w)).+1) Hlt) w)) ->
+
+          P (honest_mint_step iscrpt os nonce hashed blc_rcd addr lclstt round w).
+Proof.
+  move=> H_fail_no_update_last H_fail_no_update H_fail_update_last
+                              H_fail_update Hsuccess_update_last Hsuccess_update.
+  rewrite /honest_mint_step.
+  case Hltn: (_ < _ )%nat; last first.
+  case Hmxvld: (eq_op _).
+  move: (elimTF _ ).
+  move: (introN _ ).
+  move: (erefl _).
+  move: (round_in_range _).
+  case Heqlstact: (eq_op (nat_of_ord (global_currently_active (world_global_state w))) n_max_actors.+1) =>   //=.
+  move=> _ _ _ _.
+  rewrite -/(honest_mint_failed_no_update iscrpt addr lclstt os w _).
+  by apply H_fail_no_update_last => //=.
+
+  move=> Hror.
+  move: (Hror isT) => Hlt.
+  rewrite /ssr_suff => e introN elimTF .
+  rewrite (proof_irrelevance _ ((Hror (introN (elimTF e)))) Hlt).
+
+  rewrite -/(honest_mint_failed_no_update
+               iscrpt
+               addr
+               lclstt
+               os
+               w
+               _).
+
+  move: iscrpt addr lclstt os Hlt Hmxvld .
+  by apply H_fail_no_update => //=.
+
+  move: (elimTF _ ).
+  move: (introN _ ).
+  move: (erefl _).
+  move: (round_in_range _).
+  case Heqlstact: (eq_op (nat_of_ord (global_currently_active (world_global_state w))) n_max_actors.+1) =>   //=.
+  rewrite -/(honest_mint_failed_update iscrpt addr lclstt os w _) => _ _ _ _.
+  move: iscrpt addr lclstt os Hmxvld Heqlstact.
+  by apply H_fail_update_last => //=.
+
+  move=> Hror.
+  move: (Hror isT) => Hlt.
+  rewrite /ssr_suff => e introN elimTF .
+  rewrite (proof_irrelevance _ ((Hror (introN (elimTF e)))) Hlt).
+
+  rewrite -/(honest_mint_failed_update
+               iscrpt
+               addr
+               lclstt
+               os
+               w
+               _).
+
+  move: iscrpt addr lclstt os Hlt Hmxvld .
+  by apply H_fail_update => //=.
+  move: (elimTF _ ).
+  move: (introN _ ).
+  move: (erefl _).
+  move: (round_in_range _).
+  case Heqlstact: (eq_op (nat_of_ord (global_currently_active (world_global_state w))) n_max_actors.+1) =>   //=.
+  move=> _ _ _ _.
+  rewrite -/(honest_mint_succeed_update iscrpt addr lclstt os  _ _ _ _ _).
+
+  move: Hltn Heqlstact.
+  move:   iscrpt addr lclstt os nonce hashed blc_rcd round.
+  by apply Hsuccess_update_last => //=.
+  move=> Hror.
+  move: (Hror isT) => Hlt.
+  rewrite /ssr_suff => e introN elimTF .
+  rewrite (proof_irrelevance _ ((Hror (introN (elimTF e)))) Hlt).
+  rewrite -/(honest_mint_succeed_update iscrpt addr lclstt os  _ _ _ _ _).
+
+  move: Hltn Heqlstact.
+  move:   iscrpt addr lclstt os nonce hashed blc_rcd round Hlt .
+  by apply Hsuccess_update => //=.
+Qed.
+
+
+
 
 
 Lemma world_step_adoption_history_top_heavy sc w :
@@ -1947,7 +2180,24 @@ Proof.
 
   (* honest mint case *)
     move=> IHw' Hprw' Hacthaschain Hhon  s.
+
+    move: Hacthaschain Hhon.
     rewrite /actor_n_has_chain_length_ge_at_round/honest_mint_step //=.
+    case: ((result < T_Hashing_Difficulty)%nat) => //=; last first.
+    case: (eq_op _).
+    move: (elimTF _ ).
+    move: (introN _ ).
+    move: (erefl _).
+    move: (round_in_range _).
+    case: (eq_op (nat_of_ord (global_currently_active (world_global_state w'))) n_max_actors.+1) =>   //=.
+    move=> _ _ Hngcr _.
+    move: IHw'.
+    rewrite /actor_n_has_chain_length_ge_at_round/actor_n_has_chain_length_at_round //= => IHw'.
+    move=> Hhaslength Hhonest.
+    rewrite /world_executed_to_round//= => r Hrltr' Hwexec.
+    rewrite /actor_n_is_honest//=.
+    (* stopped here *)
+
     (* this one ends up being the longest, so we'll skip it for now *)
     admit.
   (* adversary mint case *)
