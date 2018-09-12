@@ -121,8 +121,13 @@ Notation " w '>>=' a '<||>' b " := (fun w => ret (a  || b )) (at level 49).
 Lemma add_lt0 x y: (0 < x + y)%nat = ((0 <x)%nat && (0 <= y)%nat) || ((0 <=x)%nat && (0 < y)%nat).
 Proof.
     by induction x => //=.
-  Qed.
+Qed.
 
+
+Lemma addn_lt1 x y :  ((x + y)%nat <= 1)%nat -> (((x == 0)) || ((y == 0)))%nat.
+Proof.
+  by case: x => //= x; case: x => //=; case: y => //=.
+Qed.
 
 Lemma addRA_rsum  (A : finType) f g : 
   \rsum_(i in A) (f i + g i)%R = (\rsum_(i in A) f i + \rsum_(i in A) g i)%R .
@@ -333,7 +338,10 @@ Definition actor_n_has_chain_length_at_round w l addr r : bool :=
           (* by the actor *) 
           (nat_of_ord rec_actr == addr) ])
       (fixlist_unwrap (world_adoption_history w))
-   ).
+   )
+   ||
+   (* or - implicit in the starting conditions, every actor has a chain length of 0 at round 0 *)
+   ((eq_op (nat_of_ord r) 0%nat)%nat && (eq_op l 0)%nat).
 
 
 
@@ -350,13 +358,16 @@ Definition actor_n_has_chain_length_ge_at_round w l addr (r : 'I_N_rounds) : boo
           (* by the actor *) 
           (nat_of_ord rec_actr == addr) ])
       (fixlist_unwrap (world_adoption_history w))
-   ).
+   )
+   ||
+   (* or - implicit in the starting conditions, every actor has a chain length of 0 at round 0 *)
+   ((eq_op l 0)%nat).
 
 
 
 
 (* note: rewrite this to use a weaker statement - rather than reasoning about the list
- directly, use the length instead *)
+ directly, use the length instead  - done *)
 Definition chain_growth_pred w :=
   [forall r : 'I_N_rounds,
       forall l : 'I_Maximum_blockchain_length,
@@ -480,6 +491,9 @@ Lemma actor_has_chain_length_generalize  w l o_addr s :
 Proof.
   have blt0 (x:bool) : (x > 0)%nat = x. by case x.
   rewrite /actor_n_has_chain_length_ge_at_round/actor_n_has_chain_length_at_round !has_count.
+  move=> /orP [ | /andP [/eqP Hseq  Hleq]]; last first.
+  by apply/orP; right.
+  move=> H; apply/orP; left; move: H.
   elim (fixlist_unwrap _) => //= [[[c r] addr] xs] IHn.
   rewrite add_lt0; move=>/orP; case => //=.
   by rewrite blt0; move=>/andP; case; [move=>/andP [/eqP -> /andP [/eqP -> /eqP ->]]] => _; rewrite !leqnn eq_refl.
@@ -498,11 +512,17 @@ Proof.
   rewrite leq_eqVlt; move=>/orP[/eqP -> |] //=.
   move=>  Hvalid.  
   induction (fixlist_unwrap _) => //=.
+    by move=>/eqP Heq; move: Hvalid; rewrite Heq ltn0.
+  move=> /orP [ | /eqP  Heq]; last first.
+    by move: Hvalid; rewrite Heq ltn0.
   rewrite !add_lt0; move=>/orP; case => //= ;last first.
-  by move=> /IHl0 Hv; apply/orP; right.
+  move=> /(@or_introl _ (is_true (eq_op l 0)%nat))/orP/IHl0 => /orP [ Hlt |  Hleq0]; last first.
+    by apply/orP; right.
+    by apply/orP; left; apply/orP; right.
   move=>/andP [ Hgt0  Hlt0] //=.
   apply/orP.
   left .
+  apply/orP; left.
   apply/andP;split.
   move: Hgt0.
   have bool_gt0 (b : bool) : (0 < b)%nat = b. by case b.
@@ -1716,15 +1736,25 @@ Proof.
     move=> Hth_base.
     rewrite {1}fixlist_insert_rewrite => //=.
     rewrite has_rcons =>/orP ; case; last first.
+    rewrite {1}fixlist_insert_rewrite => //= .
+    by move=> Heq; apply/orP; right.
+    by exact (world_step_adoption_history_top_heavy xs w' Hpr_wbase).
+    by exact (world_step_adoption_history_overflow_safe xs w' Hpr_wbase).
+    move=>/orP []; last first.
+    move=>/(@or_introl _ (is_true (eq_op l 0%nat)%nat))/orP/Hth_base/orP [ Hb' | Heq0] ; last first.
+    by apply/orP; right.
+    apply/orP; left.
+    (* move=> /Hth_base  Hb'. *)
     rewrite {1}fixlist_insert_rewrite => //=.
-    move=> /Hth_base  Hb'.
     by rewrite has_rcons; apply /orP; right.
     by exact (world_step_adoption_history_top_heavy xs w' Hpr_wbase).
     by exact (world_step_adoption_history_overflow_safe xs w' Hpr_wbase).
+    (* by exact (world_step_adoption_history_top_heavy xs w' Hpr_wbase). *)
+    (* by exact (world_step_adoption_history_overflow_safe xs w' Hpr_wbase). *)
     (* TODO (Kiran): Refactor this into a neater form *)
     move=>/andP[Hltls /andP [H_gcrlts /eqP Heqadr]].
     rewrite {1}fixlist_insert_rewrite => //=.
-    rewrite has_rcons; apply/orP; left.
+    rewrite has_rcons; apply/orP; left; apply/orP; left.
     apply/andP;split => //=. apply/andP; split => //=.
     apply (@leq_trans s') => //=.
     by apply ltnW => //=.
@@ -1737,10 +1767,12 @@ Proof.
     rewrite /actor_n_has_chain_length_ge_at_round//=.
     move=> Hth_base.
     case (eq_op _ _) => //=.
+    move=>/orP [ | Heq0]; last first. by apply/orP; right.
     rewrite {1}fixlist_insert_rewrite => //=.
     rewrite has_rcons =>/orP ; case; last first.
     rewrite {1}fixlist_insert_rewrite => //=.
-    move=> /Hth_base  Hb'.
+    move=> /(@or_introl _ (is_true (eq_op l 0)%nat))/orP/Hth_base/orP [ Hb' | Heq0]; last first. by apply/orP; right.
+    apply/orP; left.
     by rewrite has_rcons; apply /orP; right.
     by exact (world_step_adoption_history_top_heavy xs w' Hpr_wbase).
     by exact (world_step_adoption_history_overflow_safe xs w' Hpr_wbase).
@@ -1748,7 +1780,7 @@ Proof.
 
     move=>/andP[Hltls /andP [H_gcrlts /eqP Heqadr]].
     rewrite {1}fixlist_insert_rewrite => //=.
-    rewrite has_rcons; apply/orP; left.
+    rewrite has_rcons; apply/orP; left; apply/orP; left.
     apply/andP;split => //=. apply/andP; split => //=.
     apply (@leq_trans s') => //=.
     by apply ltnW => //=.
@@ -1758,16 +1790,17 @@ Proof.
     by exact (world_step_adoption_history_top_heavy xs w' Hpr_wbase).
     by exact (world_step_adoption_history_overflow_safe xs w' Hpr_wbase).
 
+    move=> /orP [ | Heq0]; last first. by apply/orP; right.
     rewrite {1}fixlist_insert_rewrite => //=.
     rewrite has_rcons =>/orP ; case; last first.
     rewrite {1}fixlist_insert_rewrite => //=.
-    move=> /Hth_base  Hb'.
-    by rewrite has_rcons; apply /orP; right.
+    move=> /(@or_introl _ (is_true (eq_op l 0)%nat))/orP/Hth_base/orP [Hb' | Heq0]; last first. by apply/orP; right.
+    by rewrite has_rcons; apply /orP; left; apply/orP; right.
     by exact (world_step_adoption_history_top_heavy xs w' Hpr_wbase).
     by exact (world_step_adoption_history_overflow_safe xs w' Hpr_wbase).
     move=>/andP[Hltls /andP [H_gcrlts /eqP Heqadr]].
     rewrite {1}fixlist_insert_rewrite => //=.
-    rewrite has_rcons; apply/orP; left.
+    rewrite has_rcons; apply/orP; left; apply/orP; left.
     apply/andP;split => //=. apply/andP; split => //=.
     apply (@leq_trans s') => //=.
     by apply ltnW => //=.
@@ -1812,7 +1845,6 @@ Qed.
 
 
 
-
 (*
   If an honest party has a chain of length l,
   then by round r + delta -1, every other party will have a chain of length at least l
@@ -1845,7 +1877,86 @@ Lemma chain_growth_weak sc w l (r : 'I_N_rounds) :
 Proof.
   (* TODO: Complete this proof *)
   move=> Hpr [addr [r' /andP [Hr'ltr Hacthaschain]]] s /eqP Hreqs wexec o_addr Hhon.
+  move:  Hacthaschain Hhon   s r Hr'ltr  Hreqs wexec.
 
+  apply /(world_stepP
+            (fun w _ =>
+              actor_n_has_chain_length_at_round w l addr r' ->
+              actor_n_is_honest w o_addr -> forall s r : 'I_N_rounds, (r' <= r)%nat ->
+              (r + delta - 1)%nat = s -> world_executed_to_round w s -> actor_n_has_chain_length_ge_at_round w l o_addr s
+            ) sc w) => //=  [ |
+                              iscrpt  os  hash_value hash_vl  blc_rcd addr0  lclstt  result  w'  xs  |
+                              oracle_state  old_adv_state  blc_rcd nonce hash hash_res  w'  xs |
+                              adv_state  w' xs |
+                              addr0  actr  w'  xs |
+                              msgs new_pool w' xs |
+                              w'  xs ] //=.
+  (* base case *)
+  move=> Hacthaschain Hhon  s.
+  case: s => [s ].
+  elim: s => //= [Hlt0 | s IHs HSsltN ].
+    move=> r Hrlr' => /eqP.
+    rewrite subn_eq0 => Hltnn ; move: (Hltnn).
+    move=> /addn_lt1/orP [] /eqP Heq0; last first.
+      by move: delta_valid; rewrite Heq0 ltnn.
+    move: Hltnn.
+    rewrite Heq0 add0n leq_eqVlt => /orP [] /eqP ; last first.
+      by rewrite subn1 -pred_Sn => Heq0'; move: delta_valid; rewrite Heq0' ltnn.
+    move=> Hdlta. move: Hrlr'.
+    rewrite Heq0 leqn0 => /eqP .
+    move: Hacthaschain.
+    case: (r') => [n_r' Hr'] //= Hacthaschain Heq0r'; move: Hacthaschain.
+    rewrite /actor_n_has_chain_length_ge_at_round/actor_n_has_chain_length_at_round//=/initWorldAdoptionHistory .
+    move: (@fixlist_empty_is_empty [eqType of BlockChain * 'I_N_rounds * 'I_n_max_actors] ((n_max_actors * N_rounds))%nat ).
+    by rewrite/fixlist_is_empty => /eqP -> //= /andP [/eqP Hnreq0  Hleq0] //=.
+  move: Hacthaschain IHs.
+  case: (r') => [n_r' Hr'].
+  rewrite /actor_n_has_chain_length_ge_at_round/actor_n_has_chain_length_at_round//=/initWorldAdoptionHistory .
+  move: (@fixlist_empty_is_empty [eqType of BlockChain * 'I_N_rounds * 'I_n_max_actors] ((n_max_actors * N_rounds))%nat ).
+  by rewrite/fixlist_is_empty => /eqP -> //= /andP [/eqP Hnreq0  Hleq0] //=.
+
+  (* honest mint case *)
+    move=> IHw' Hprw' Hacthaschain Hhon  s.
+    rewrite /actor_n_has_chain_length_ge_at_round/honest_mint_step //=.
+    (* this one ends up being the longest, so we'll skip it for now *)
+    admit.
+  (* adversary mint case *)
+    move=> IHw' Hprw' Hacthaschain Hhon  s.
+    rewrite /adversary_mint_player_step/actor_n_has_chain_length_ge_at_round/actor_n_has_chain_length_at_round//=.
+    (* trivially true - it doesn't matter whether the adversary succeeds in hashing or not, as either way,
+       the adoption history is not changed*)
+    by case: (hash_res < T_Hashing_Difficulty)%nat => //=.
+
+  (* global adversary case *)
+    move=> IHw' Hprw' Hacthaschain Hhon  s Hpradv.
+    rewrite /adversary_mint_global_step/actor_n_has_chain_length_ge_at_round/actor_n_has_chain_length_at_round//=.
+    (* once again trivially true *)
+    by move: adv_state Hpradv => [[stt os] blk] //=.
+  
+  (* adversary corrupt case *)
+    move=> IHw' Hprw' Hacthaschain Hhon  s Hpradv Hhonw' s0 r0 Hr0gtr' Heqn .
+    rewrite /adversary_corrupt_step/actor_n_has_chain_length_ge_at_round/actor_n_has_chain_length_at_round//=.
+    rewrite /world_executed_to_round//= -/world_executed_to_round => Hwrld.
+    apply IHw' with (r := r0) => //=.
+    move: Hhonw'.
+    rewrite/actor_n_is_honest/actor_n_is_corrupt //=.
+    move: (erefl _) => //=; move: (xpred0) => //= .
+    case Hgt: ((o_addr >= n_max_actors)%nat).
+    move: Hgt; rewrite leqNgt => /negP/eqP/eqP/ not_true_is_false Hwrong.
+    by rewrite {3 4  7 }Hwrong => //=.
+    move/negP/negP: (Hgt); rewrite -ltnNge => Hprf.
+    rewrite {3 4  7 }Hprf => //= _ Hprfltn.
+    destruct ((global_local_states (world_global_state w'))) as [ls Hls].
+    induction ls => //=.
+    (* stopped here  *)
+    rewrite /set_tnth //=.
+    Search _ "tnth".
+    rewrite tnthP.
+    Search _ tnth.
+    rewrite /tnth/set_tnth//=.
+
+    Search _ false.
+    rewrite eqb_negb1 .
 
 Admitted.
 

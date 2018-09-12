@@ -52,7 +52,55 @@ Proof.
         (* m'.+1, n'.+1 *)
         exact [tuple of ntuple_head list ::  set_tnth A m' (ntuple_tail list) a n0].
 Defined.
+Lemma ltn_Snn a b : a.+1 < b.+1 -> a < b.
+Proof.
+  by rewrite -{1}(addn1 a) -{1}(addn1 b) ltn_add2r.
+Qed.
 
+Lemma tnth_cons A n (ls : n.-tuple A) x i :  forall (prf : i.+1 < n.+1) (prf': i < n),  tnth [tuple of x :: ls] (Ordinal prf) = tnth ls (Ordinal prf').
+Proof.
+  move: ls => [ls Hls].
+  move=> prf prf' //=.
+  by rewrite (@tnth_nth _ _ x _) (@tnth_nth _ _ x _) //=.
+Qed.
+
+Lemma tnth_set_nth_eq  A (n : nat) (ls: n.-tuple A) x (addr addr' : 'I_n) : (nat_of_ord addr) == (nat_of_ord addr') -> tnth (set_tnth ls x addr') addr = x.
+Proof.
+  move: addr addr' => [addr' Haddr'] [addr Haddr] //= /eqP Heq.
+  move: ls => [ls ].
+  move: addr addr' Heq n Haddr Haddr'.
+  elim: ls => //= .
+    by move=> addr addr' Heq [//=|n] Haddr Haddr' => /eqP //=.
+  move=> y ys Hys addr addr' Heq [//=|n] Haddr Haddr' Hlen. move: (Hlen) => Hlen' //=.
+  case Haddreqn: (addr) => [ | addr_].
+      move: Haddr'.
+      by rewrite Heq Haddreqn //=.
+  rewrite/ntuple_head/ntuple_tail //=.
+  move: (behead_tupleP _) => //=; move: Haddr'.
+  rewrite Heq Haddreqn /thead //= => Haddr' Hbhd.
+  rewrite tnth_cons //= Hys //=.
+Qed.
+
+
+Lemma tnth_set_nth_neq  A (n : nat) (ls: n.-tuple A) x (addr addr' : 'I_n) : (nat_of_ord addr) != (nat_of_ord addr') -> tnth (set_tnth ls x addr') addr = tnth ls addr.
+Proof.
+  move: ls addr addr' => [ls Hls] [addr Haddr] [addr' Haddr'] //=.
+  move: n Hls addr addr'  Haddr Haddr'.
+  elim: ls => //=.
+    move=> n Hls. move:  Hls (Hls) => /eqP Hls Hls'.
+    move=> addr addr' Haddr; move: Haddr (Haddr).
+    by rewrite -{1}Hls.
+  move=> y ys IHs //= [//=|n] Hls addr addr' .
+  case Haddreqn: addr => [ | addr_].
+     move=> Haddr //=.
+     by case addr' => //=.
+  case addr' => //= addr'_ Haddr'_.
+    by rewrite tnth_cons //= (@tnth_nth _ _  x _) (@tnth_nth _ _  x _) => //=.
+  rewrite !tnth_cons /ntuple_tail => //=.
+  move: (behead_tupleP _ ) => //= Hbhd Hltnaddr_ Hneq.
+  rewrite IHs => //=.
+  by rewrite (@tnth_nth _ _  x _) (@tnth_nth _ _  x _) => //=.
+Qed.
 
 
 
