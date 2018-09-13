@@ -902,4 +902,14 @@ Definition fixlist n := n.-tuple (option A).
 End fixlist.
 
 
+Notation "[ ls <- x ]" := (@fixlist_insert _ _ ls x).
+Notation "[ x -> ls ]" := (@fixlist_enqueue _ _ x ls).
+Notation "[length  ls ]" := (@fixlist_length _ _ ls).
+Notation "[unwrap  ls ]" := (@fixlist_unwrap _ _ ls).
+Notation "[unwrap  ls <- x ]" := (@fixlist_unwrap _ _ (@fixlist_insert _ _ ls x)).
+Notation "[unwrap  x -> ls ]" := (@fixlist_unwrap _ _ (@fixlist_enqueue _ _ x ls)).
+Notation " ls <::< x " := (rcons ls x) (at level 50).
+
+
+
 

@@ -2130,31 +2130,43 @@ Lemma chain_growth_weak_internal
 Proof.
 
     (* honest mint case  *)
-    move=> IHw' Hprw' Hacthaschain Hhon  s.
+    move=> IHw' Hprw' .
     apply /(honest_mint_stepP (fun w =>
-            forall r : 'I_N_rounds,
-            (r' <= r)%nat ->
-            (r + delta - 1)%nat = s ->
-            world_executed_to_round w s ->
-            actor_n_has_chain_length_ge_at_round
-              w l o_addr s)) => //=.
-
-    move: Hacthaschain Hhon.
-    rewrite /actor_n_has_chain_length_ge_at_round/honest_mint_step //=.
-    case: ((result < T_Hashing_Difficulty)%nat) => //=; last first.
-    case: (eq_op _).
-    move: (elimTF _ ).
-    move: (introN _ ).
-    move: (erefl _).
-    move: (round_in_range _).
-    case: (eq_op (nat_of_ord (global_currently_active (world_global_state w'))) n_max_actors.+1) =>   //=.
-    move=> _ _ Hngcr _.
+              actor_n_has_chain_length_at_round w l addr r' ->
+              actor_n_is_honest w  o_addr ->
+              forall s r : 'I_N_rounds,
+                (r' <= r)%nat ->
+                (r + delta - 1)%nat = s ->
+                world_executed_to_round w s ->
+                actor_n_has_chain_length_ge_at_round w l o_addr s)) => //=.
+    move=> iscrpt' addr' lclst' os' Hmaxvld Hcurrentactive.
     move: IHw'.
-    rewrite /actor_n_has_chain_length_ge_at_round/actor_n_has_chain_length_at_round //= => IHw'.
-    move=> Hhaslength Hhonest.
-    rewrite /world_executed_to_round//= => r Hrltr' Hwexec.
-    rewrite /actor_n_is_honest//=.
+
+    rewrite /actor_n_has_chain_length_ge_at_round/world_executed_to_round/actor_n_has_chain_length_at_round.
+    rewrite /actor_n_is_honest/actor_n_is_corrupt => IHw'.
+    rewrite /honest_mint_failed_no_update//= => /orP [|/andP [/eqP Hreq Hleq]]; last first.
+      by move=>  _ s r _ _ _; apply/orP; right.
+    move=> H_haschainlength_l_at_r'.
+    case Hoaddr_ltn : (o_addr >= n_max_actors)%nat.
+      move: Hoaddr_ltn erefl.
+      by rewrite leqNgt => /negP/eqP/eqP/not_true_is_false Hwrong; rewrite { 2 3 } Hwrong => _ .
+    move/negP/negP: Hoaddr_ltn erefl; rewrite -ltnNge => Hltn; rewrite {2 3} Hltn => prf' Hiscrpt.
+    move: H_haschainlength_l_at_r'.
+    rewrite fixlist_insert_rewrite.
+    rewrite !has_rcons => /orP []; last first.
+    move=> /or_introl/orP/IHw' IH' s r Hrltr' Hreq.
+    rewrite !has_rcons => /orP [ | Hwexec ]; last first.
+    rewrite -orb_assoc.
+    apply/orP; right.
+    apply IH' with (r:= r) => //=.
+    clear IH' IHw'.
+    Search _ ((_ || _) || _).
+    move=> /IHw'.
+    rewrite fixlist_insert.
+    move=> s r Hrltr' Hrdeltaeq HworldExec.
+    apply/orP; left.
     (* stopped here *)
+
 
 
 

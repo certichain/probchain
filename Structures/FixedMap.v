@@ -99,10 +99,10 @@ Section fin_fixmap.
     Canonical finmap_finType :=
     Eval hnf in FinType (finmap) finmap_finMixin.
 
-    Canonical finmap_of_eqType := Eval hnf in [eqType of (finmap)].
-    Canonical finmap_of_choiceType := Eval hnf in [choiceType of (finmap)].
-    Canonical finmap_of_countType := Eval hnf in [countType of (finmap)].
-    Canonical finmap_of_finType := Eval hnf in [finType of (finmap)].
+    Canonical finmap_of_eqType := Eval hnf in [eqType of finmap].
+    Canonical finmap_of_choiceType := Eval hnf in [choiceType of finmap].
+    Canonical finmap_of_countType := Eval hnf in [countType of finmap].
+    Canonical finmap_of_finType := Eval hnf in [finType of finmap].
 
 
 

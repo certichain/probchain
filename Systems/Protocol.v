@@ -247,6 +247,13 @@ Record GlobalState := mkGlobalState {
   global_current_round: (ordinal N_rounds);
 }.
 
+
+
+Notation "[ g '.actors]'" := (global_local_states g).
+Notation "[ g '.adv]'" := (global_adversary g).
+Notation "[ g '.#active]'" := (global_currently_active g).
+Notation "[ g '.#round]'" := (global_current_round g).
+
 Definition initLocalStates := 
         Tuple 
           (size_ncons_nil (initLocalState, false) n_max_actors ).
@@ -335,6 +342,19 @@ Record World := mkWorld {
   (* Contains a listing of the held chain at each round for each actor *)
   world_adoption_history: fixlist [eqType of (BlockChain * ordinal N_rounds * 'I_n_max_actors)] (n_max_actors * N_rounds);
 }.
+
+
+Notation "[ w '.state]'" := (world_global_state w).
+Notation "[ w '.tx_pool]'" := (world_transaction_pool w).
+Notation "[ w '.inflight]'" := (world_inflight_pool w).
+Notation "[ w '.messages]'" := (world_message_pool w).
+Notation "[ w '.oracle]'" := (world_hash w).
+Notation "[ w '.blocks]'" := (world_block_history w).
+Notation "[ w '.chains]'" := (world_chain_history w).
+Notation "[ w '.#adv_msgs]'" := (world_adversary_message_quota w).
+Notation "[ w '.#adv_tx]'" := (world_adversary_transaction_quota w).
+Notation "[ w '.#hon_tx]'" := (world_honest_transaction_quota w).
+Notation "[ w '.adopt_history]'" := (world_adoption_history w).
 
 
 
