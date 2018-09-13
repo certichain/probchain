@@ -1956,3 +1956,14 @@ Definition prediction_occurred (w : World) (from to : nat)  : bool :=
         (BlockMap_pairs (world_block_history w))
     )
     (BlockMap_pairs (world_block_history w)).
+
+(* TODO: Move this into protocol *)
+Lemma honest_activation_simplify w' addr : honest_activation [w'.state] = Some addr -> nat_of_ord [[w'.state].#active] = nat_of_ord addr.
+Proof.
+  rewrite /honest_activation.
+  case: w'=> [ wgs wtp wif wmp whsh wblh wch wadvm wadvtx whontx wadopt ]//=.
+  case: wgs => [gls ga gca gcr].
+  move: (erefl _).
+  case: {2 3 }(gca < n_max_actors)%nat => //= prf'.
+  by case: ((tnth _ _).2) => //= [] [] <- //=.
+Qed.

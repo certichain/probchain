@@ -1586,8 +1586,32 @@ Qed.
 
 
 
-Lemma honest_mint_stepP (P : World -> Prop) w iscrpt os nonce hashed blc_rcd addr lclstt round : 
-          (forall iscrpt addr lclstt os,
+Lemma honest_mint_stepP (P : World -> Prop) w iscrpt os hash_value hash_vl blc_rcd addr lclstt result ltp : 
+
+          (honest_activation [w.state] = Some addr) ->
+          (tnth [[w.state].actors] addr = (lclstt, iscrpt)) ->
+          (retrieve_head_link
+             (honest_max_valid
+                (update_transaction_pool addr lclstt [w.tx_pool]) [w.oracle]) [w.oracle] = Some hash_vl) ->
+          (find_maximal_valid_subset
+                              (honest_local_transaction_pool (update_transaction_pool addr lclstt [w.tx_pool]))
+                              (honest_max_valid (update_transaction_pool addr lclstt [w.tx_pool]) [w.oracle]) =
+                              (blc_rcd, ltp)) ->
+          (0 < P[ hash (hash_value, hash_vl, blc_rcd) [w.oracle] === (os, result)]) ->
+
+
+          (forall iscrpt addr lclstt os blc_rcd result hash_value hash_vl ,
+
+              (nat_of_ord [[w.state].#active] = nat_of_ord addr) ->
+              (tnth [[w.state].actors] addr = (lclstt, iscrpt)) ->
+              (retrieve_head_link (honest_max_valid (update_transaction_pool addr lclstt [w.tx_pool]) [w.oracle])
+                                  [w.oracle] = Some hash_vl) ->
+              (find_maximal_valid_subset
+                          (honest_local_transaction_pool (update_transaction_pool addr lclstt [w.tx_pool]))
+                          (honest_max_valid (update_transaction_pool addr lclstt [w.tx_pool]) [w.oracle]) = 
+                        (blc_rcd, ltp)) ->
+              (0 < P[ hash (hash_value, hash_vl, blc_rcd) [w.oracle] === (os, result)]) ->
+
               (eq_op
                   (honest_max_valid
                     (update_transaction_pool addr lclstt (world_transaction_pool w)) (world_hash w))
@@ -1598,9 +1622,20 @@ Lemma honest_mint_stepP (P : World -> Prop) w iscrpt os nonce hashed blc_rcd add
               P (honest_mint_failed_no_update iscrpt addr lclstt os w
                                               (global_currently_active (world_global_state w)) )) ->
           (forall
-              iscrpt addr
-              lclstt os
+              iscrpt addr lclstt os blc_rcd result hash_value hash_vl
               (Hlt : ((nat_of_ord (global_currently_active (world_global_state w))).+1 < n_max_actors + 2)%nat),
+
+              nat_of_ord [[w.state].#active] = nat_of_ord addr ->
+              tnth [[w.state].actors] addr = (lclstt, iscrpt) ->
+              retrieve_head_link
+                (honest_max_valid
+                   (update_transaction_pool addr lclstt [w.tx_pool]) [w.oracle]) [w.oracle] = Some hash_vl ->
+              find_maximal_valid_subset
+                (honest_local_transaction_pool
+                   (update_transaction_pool addr lclstt [w.tx_pool]))
+                (honest_max_valid
+                   (update_transaction_pool addr lclstt [w.tx_pool]) [w.oracle]) = (blc_rcd, ltp) ->
+              0 < P[ hash (hash_value, hash_vl, blc_rcd) [w.oracle] === (os, result)] ->
               (eq_op
                  (honest_max_valid (update_transaction_pool addr lclstt (world_transaction_pool w)) (world_hash w))
                   (honest_current_chain (update_transaction_pool addr lclstt (world_transaction_pool w)))) ->
@@ -1608,7 +1643,19 @@ Lemma honest_mint_stepP (P : World -> Prop) w iscrpt os nonce hashed blc_rcd add
               (honest_mint_failed_no_update iscrpt addr lclstt os w
         (Ordinal (n:=n_max_actors + 2) (m:=(global_currently_active (world_global_state w)).+1) Hlt))) ->
 
-          (forall iscrpt  addr  lclstt  os,
+          (forall iscrpt  addr  lclstt  os blc_rcd result hash_value hash_vl,
+              nat_of_ord [[w.state].#active] = nat_of_ord addr ->
+              tnth [[w.state].actors] addr = (lclstt, iscrpt) ->
+              retrieve_head_link
+                (honest_max_valid
+                   (update_transaction_pool addr lclstt [w.tx_pool]) [w.oracle]) [w.oracle] = Some hash_vl ->
+              find_maximal_valid_subset
+                (honest_local_transaction_pool
+                   (update_transaction_pool addr lclstt [w.tx_pool]))
+                (honest_max_valid
+                   (update_transaction_pool addr lclstt [w.tx_pool]) [w.oracle]) = (blc_rcd, ltp) ->
+              0 < P[ hash (hash_value, hash_vl, blc_rcd) [w.oracle] === (os, result)] ->
+
               (eq_op
                  (honest_max_valid (update_transaction_pool addr lclstt (world_transaction_pool w)) (world_hash w))
                  (honest_current_chain (update_transaction_pool addr lclstt (world_transaction_pool w)))) = false ->
@@ -1618,10 +1665,19 @@ Lemma honest_mint_stepP (P : World -> Prop) w iscrpt os nonce hashed blc_rcd add
                    iscrpt addr lclstt os w
                    (global_currently_active (world_global_state w)))) ->
 
-          (forall
-              iscrpt addr
-              lclstt os
+          (forall iscrpt addr lclstt os blc_rcd result hash_value hash_vl
               (Hlt : ((nat_of_ord (global_currently_active (world_global_state w))).+1 < n_max_actors + 2)%nat),
+              nat_of_ord [[w.state].#active] = nat_of_ord addr ->
+              tnth [[w.state].actors] addr = (lclstt, iscrpt) ->
+              retrieve_head_link
+                (honest_max_valid
+                   (update_transaction_pool addr lclstt [w.tx_pool]) [w.oracle]) [w.oracle] = Some hash_vl ->
+              find_maximal_valid_subset
+                (honest_local_transaction_pool
+                   (update_transaction_pool addr lclstt [w.tx_pool]))
+                (honest_max_valid
+                   (update_transaction_pool addr lclstt [w.tx_pool]) [w.oracle]) = (blc_rcd, ltp) ->
+              0 < P[ hash (hash_value, hash_vl, blc_rcd) [w.oracle] === (os, result)] ->
               (eq_op
                  (honest_max_valid (update_transaction_pool addr lclstt (world_transaction_pool w)) (world_hash w))
                  (honest_current_chain (update_transaction_pool addr lclstt (world_transaction_pool w)))) = false ->
@@ -1630,25 +1686,51 @@ Lemma honest_mint_stepP (P : World -> Prop) w iscrpt os nonce hashed blc_rcd add
                   (Ordinal (n:=n_max_actors + 2) (m:=(global_currently_active (world_global_state w)).+1) Hlt))) ->
 
 
-          (forall iscrpt  addr  lclstt  os nonce  hashed  blc_rcd  round ,
-            (round < T_Hashing_Difficulty)%nat = true ->
+          (forall iscrpt  addr  lclstt  os hash_value  hash_vl  blc_rcd  result ,
+            nat_of_ord [[w.state].#active] = nat_of_ord addr ->
+            tnth [[w.state].actors] addr = (lclstt, iscrpt) ->
+            retrieve_head_link
+              (honest_max_valid
+                 (update_transaction_pool addr lclstt [w.tx_pool]) [w.oracle]) [w.oracle] = Some hash_vl ->
+            find_maximal_valid_subset
+              (honest_local_transaction_pool
+                 (update_transaction_pool addr lclstt [w.tx_pool]))
+              (honest_max_valid (update_transaction_pool addr lclstt [w.tx_pool]) [w.oracle]) = (blc_rcd, ltp) ->
+            0 < P[ hash (hash_value, hash_vl, blc_rcd) [w.oracle] === (os, result)] ->
+            (result < T_Hashing_Difficulty)%nat = true ->
             (eq_op (nat_of_ord (global_currently_active (world_global_state w))) n_max_actors.+1) = true ->
             P
-              (honest_mint_succeed_update iscrpt addr lclstt os blc_rcd hashed nonce
+              (honest_mint_succeed_update iscrpt addr lclstt os blc_rcd hash_vl hash_value
               (global_currently_active (world_global_state w)) w)) ->
 
-          (forall iscrpt addr  lclstt  os nonce  hashed  blc_rcd  round
+          (forall iscrpt addr  lclstt  os hash_value  hash_vl  blc_rcd  result
              (Hlt : ((nat_of_ord (global_currently_active (world_global_state w))).+1 < n_max_actors + 2)%nat),
-              (round < T_Hashing_Difficulty)%nat ->
+          nat_of_ord [[w.state].#active] = nat_of_ord addr ->
+          tnth [[w.state].actors] addr = (lclstt, iscrpt) ->
+          retrieve_head_link
+            (honest_max_valid
+               (update_transaction_pool addr lclstt [w.tx_pool]) [w.oracle]) [w.oracle] = Some hash_vl ->
+          find_maximal_valid_subset
+            (honest_local_transaction_pool
+               (update_transaction_pool addr lclstt [w.tx_pool]))
+            (honest_max_valid
+               (update_transaction_pool addr lclstt [w.tx_pool]) [w.oracle]) = (blc_rcd, ltp) ->
+          0 < P[ hash (hash_value, hash_vl, blc_rcd) [w.oracle] === (os, result)] ->
+
+              (result < T_Hashing_Difficulty)%nat ->
               (eq_op (nat_of_ord (global_currently_active (world_global_state w))) n_max_actors.+1) = false ->
             P
-              (honest_mint_succeed_update iscrpt addr lclstt os blc_rcd hashed nonce
+              (honest_mint_succeed_update iscrpt addr lclstt os blc_rcd hash_vl hash_value
               (Ordinal (n:=n_max_actors + 2) (m:=(global_currently_active (world_global_state w)).+1) Hlt) w)) ->
 
-          P (honest_mint_step iscrpt os nonce hashed blc_rcd addr lclstt round w).
+          P (honest_mint_step iscrpt os hash_value  hash_vl blc_rcd addr lclstt result w).
+                              (*hash_value*)(*hash_vl*)
+
 Proof.
+  move=> Hhon; move: (Hhon) => /honest_activation_simplify Hactive Htnth Hhlnk Hmxsubs Hprhash.
   move=> H_fail_no_update_last H_fail_no_update H_fail_update_last
                               H_fail_update Hsuccess_update_last Hsuccess_update.
+
   rewrite /honest_mint_step.
   case Hltn: (_ < _ )%nat; last first.
   case Hmxvld: (eq_op _). move: (elimTF _ ).
@@ -1658,7 +1740,9 @@ Proof.
   case Heqlstact: (eq_op (nat_of_ord (global_currently_active (world_global_state w))) n_max_actors.+1) =>   //=.
   move=> _ _ _ _.
   rewrite -/(honest_mint_failed_no_update iscrpt addr lclstt os w _).
-  by apply H_fail_no_update_last => //=.
+    by apply H_fail_no_update_last with
+       (result := result) (blc_rcd := blc_rcd)
+                          (hash_value:=hash_value) (hash_vl:=hash_vl) => //=.
 
   move=> Hror.
   move: (Hror isT) => Hlt.
@@ -1673,8 +1757,10 @@ Proof.
                w
                _).
 
-  move: iscrpt addr lclstt os Hlt Hmxvld .
-  by apply H_fail_no_update => //=.
+  clear Hhon.
+  clear Hltn.
+  move: iscrpt addr lclstt os blc_rcd result hash_value hash_vl Hlt  Hactive Htnth Hhlnk  Hmxsubs Hprhash Hmxvld .
+  by apply H_fail_no_update   => //=.
 
   move: (elimTF _ ).
   move: (introN _ ).
@@ -1682,7 +1768,9 @@ Proof.
   move: (round_in_range _).
   case Heqlstact: (eq_op (nat_of_ord (global_currently_active (world_global_state w))) n_max_actors.+1) =>   //=.
   rewrite -/(honest_mint_failed_update iscrpt addr lclstt os w _) => _ _ _ _.
-  move: iscrpt addr lclstt os Hmxvld Heqlstact.
+  clear Hhon.
+  clear Hltn.
+  move: iscrpt addr lclstt os blc_rcd result hash_value hash_vl Hactive Htnth Hhlnk  Hmxsubs Hprhash Hmxvld Heqlstact.
   by apply H_fail_update_last => //=.
 
   move=> Hror.
@@ -1698,7 +1786,10 @@ Proof.
                w
                _).
 
-  move: iscrpt addr lclstt os Hlt Hmxvld .
+  clear Hhon.
+  clear Hltn.
+  move: iscrpt addr lclstt os blc_rcd result hash_value hash_vl Hlt Hactive Htnth Hhlnk  Hmxsubs Hprhash Hmxvld .
+
   by apply H_fail_update => //=.
   move: (elimTF _ ).
   move: (introN _ ).
@@ -1709,7 +1800,8 @@ Proof.
   rewrite -/(honest_mint_succeed_update iscrpt addr lclstt os  _ _ _ _ _).
 
   move: Hltn Heqlstact.
-  move:   iscrpt addr lclstt os nonce hashed blc_rcd round.
+  clear Hhon.
+  move:   iscrpt addr lclstt os hash_value hash_vl blc_rcd result Hactive Htnth Hhlnk  Hmxsubs Hprhash .
   by apply Hsuccess_update_last => //=.
   move=> Hror.
   move: (Hror isT) => Hlt.
@@ -1718,7 +1810,8 @@ Proof.
   rewrite -/(honest_mint_succeed_update iscrpt addr lclstt os  _ _ _ _ _).
 
   move: Hltn Heqlstact.
-  move:   iscrpt addr lclstt os nonce hashed blc_rcd round Hlt .
+  clear Hhon.
+  move:   iscrpt addr lclstt os hash_value hash_vl blc_rcd result Hlt Hactive Htnth Hhlnk  Hmxsubs Hprhash .
   by apply Hsuccess_update => //=.
 Qed.
 
@@ -2114,21 +2207,10 @@ Proof.
   by move=> /no_bounded_successful_rounds_excl. (* Not so hard now, eh??? *)
 Qed.
 
-(* TODO: Move this into protocol *)
-Lemma honest_activation_simplify w' addr : honest_activation [w'.state] = Some addr -> nat_of_ord [[w'.state].#active] = nat_of_ord addr.
-Proof.
-  rewrite /honest_activation.
-  destruct w'=> //=.
-  destruct world_global_state.
-  move: (erefl _).
-  case: {2 3 }(global_currently_active < n_max_actors)%nat => //= prf'.
-  by case: ((tnth _ _).2) => //= [] [] <- //=.
-Qed.
 
 (* contains the main meat of the chain growth weak lemma *)
 Lemma chain_growth_weak_internal 
-  (sc : seq.seq RndGen) (w : world_finType) (l : nat_eqType)
-  (Hpr : P[ world_step initWorld sc === Some w] <> 0)
+    (l : nat_eqType)
   (addr0 : 'I_n_max_actors) (r' : 'I_N_rounds) (o_addr : 'I_n_max_actors)
   (iscrpt : bool) (os : OracleState) (hash_value  hash_vl : 'I_Hash_value.+1)
   (blc_rcd : BlockRecord) (addr : 'I_n_max_actors) (lclstt : LocalState)
@@ -2161,19 +2243,21 @@ Proof.
     (* honest mint case  *)
     move=> IHw' Hprw' .
 
-    move=> Hhon Htnth (*Hretr*)_ (*Hfind*) _  (*Hhash_pr*) _.
-    move: (Hhon).
-    move=> /honest_activation_simplify Heqn.
-    apply /(honest_mint_stepP (fun w =>
+    move=> Hhon Htnth Hretr Hfind  Hhash_pr.
+    apply/(@honest_mint_stepP (fun w =>
               actor_n_has_chain_length_at_round w l addr r' ->
               actor_n_is_honest w  o_addr ->
               forall s r : 'I_N_rounds,
                 (r' <= r)%nat ->
                 (r + delta - 1)%nat = s ->
                 world_executed_to_round w s ->
-                actor_n_has_chain_length_ge_at_round w l o_addr s)) => //=.
+                actor_n_has_chain_length_ge_at_round w l o_addr s)
+                      w' iscrpt os  hash_value hash_vl blc_rcd addr0 lclstt result ltp 
+                   Hhon Htnth Hretr Hfind Hhash_pr
+          ) => //=.
+    
     (* when the attempt fails and is last - trivially true *)
-      move=> iscrpt' addr' lclst' os' Hmaxvld Hcurrentactive.
+      move=> iscrpt' addr' lclst' os' blc_rcd' hash_result Hactive_eq Htnth_eq Hretr_head  Hmaxvld Hcurrentactive.
       move: IHw'.
       rewrite /actor_n_has_chain_length_ge_at_round/world_executed_to_round/actor_n_has_chain_length_at_round.
       rewrite /actor_n_is_honest/actor_n_is_corrupt .
@@ -2313,7 +2397,7 @@ Proof.
 
   (* honest mint case *)
   (* this one ends up being the longest and contains the real "logic" steps, so it has been refactored out *)
-  apply chain_growth_weak_internal with (sc := sc) (w := w) (ltp := ltp) => //=.
+  apply chain_growth_weak_internal with  (ltp := ltp) => //=.
 
   (* adversary mint case *)
     move=> IHw' Hprw' Hacthaschain Hhon  s.
