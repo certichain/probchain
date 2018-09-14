@@ -1379,6 +1379,9 @@ Definition no_bounded_successful_rounds (w: World) (from to : nat) : 'I_N_rounds
       else fun _ => Ordinal (valid_Sn _ valid_N_rounds)) (erefl b).
 
 
+
+
+
 Lemma count_bounded_successful_rounds'_rangeP_weak w from to : from >= N_rounds -> count [eta bounded_successful_round w] (iota from to) = 0.
   move=> Hrlt.
   apply has_countPn.
@@ -1837,6 +1840,33 @@ Proof.
   move/ltn_weaken: (Hbound) => Hbound'.
   by rewrite {2 4}Hbound' => prf prf' H1 H2; rewrite /nat_of_ord //=.
 Qed.
+
+Lemma bounded_successful_round_init round : ~~  bounded_successful_round initWorld round .
+Proof.
+  rewrite /bounded_successful_round//=.
+  rewrite negb_and; apply/orP; right.
+  rewrite /successful_round/initWorld//=.
+  rewrite /BlockMap_records/BlockMap_new//=.
+  by move: (fixlist_empty_is_empty BlockMap_valuetype BlockHistory_size);
+    rewrite /fixlist_is_empty => /eqP -> //=.
+Qed.
+
+Lemma no_bounded_successful_rounds'_init r s : no_bounded_successful_rounds' initWorld r s = 0.
+Proof.
+  rewrite/no_bounded_successful_rounds'//=/initWorldAdoptionHistory //=.
+  rewrite /itoj -length_sizeP size_filter;
+  apply has_countPn; apply /hasPn => round Hvldround.
+  by apply bounded_successful_round_init.
+Qed.
+
+
+
+
+Lemma no_bounded_successful_rounds_init r s : nat_of_ord (no_bounded_successful_rounds initWorld r s) = 0.
+Proof.
+  by rewrite/no_bounded_successful_rounds no_bounded_successful_rounds'_init //=.
+Qed.
+
 
 
 

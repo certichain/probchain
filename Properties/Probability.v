@@ -2702,7 +2702,26 @@ Lemma chain_growth_implicit_weaken sc w l (r : 'I_N_rounds) s : forall Hsvalid H
   actor_n_has_chain_length_ge_at_round w (l + no_bounded_successful_rounds w r (s.+1 - 2 * delta )) o_addr
     (Ordinal (n:=N_rounds) (m:=s - delta) Hsvddelta)).
 Proof.
-  (* TODO: Complete this proof *)
+  move=> Hsvalid Hsvddelta Hpr.
+  apply/(world_stepP (fun w _ =>
+            bounded_successful_round w (s - delta) ->
+            (forall o_addr : 'I_n_max_actors,
+            actor_n_is_honest w o_addr ->
+            actor_n_has_chain_length_ge_at_round w (l + no_bounded_successful_rounds w r (s - delta)) o_addr
+              (Ordinal (n:=N_rounds) (m:=s) Hsvalid)) ->
+            forall o_addr : 'I_n_max_actors,
+            actor_n_is_honest w o_addr ->
+            actor_n_has_chain_length_ge_at_round w (l + no_bounded_successful_rounds w r (s.+1 - 2 * delta)) o_addr
+              (Ordinal (n:=N_rounds) (m:=s - delta) Hsvddelta)
+                        ) sc w ) => //=.
+  (* base case *)
+    by rewrite !no_bounded_successful_rounds_init addn0;
+    rewrite /actor_n_has_chain_length_ge_at_round//=/initWorldAdoptionHistory//=;
+    move: (fixlist_empty_is_empty [eqType of BlockChain * 'I_N_rounds * 'I_n_max_actors] (n_max_actors * N_rounds));
+    rewrite /fixlist_is_empty =>/eqP -> //=.
+
+
+  (*  *)
 Admitted.
 
 
