@@ -2205,7 +2205,11 @@ Admitted.
 
 
 
-
+Lemma addn_eq0 a b : (eq_op (a + b)%nat a) -> (eq_op b 0%nat).
+Proof.
+  move: b.
+  by elim: a => //=.
+Qed.
 
 
 (* ==================================================
@@ -2352,62 +2356,46 @@ Proof.
                   /actor_n_has_chain_length_at_round => //= /eqP/orP [Ho_addr_has_chain | /andP [_ Hleq]]; last first.
             by apply/orP; right.
             clear Hltn.
-     (* we've got to consider the cases where the last inserted record
-        was the one recording the *)
      move: Ho_addr_has_chain.
-     (* rewrite fixlist_insert_rewrite; rewrite  has_rcons => *)
-     (*  /orP [/andP [Hlen_eq /andP [/eqP Hcurrent_round_eq /eqP Ho_addr_eq_active ]] | Ho_addr_has_chain]. *)
-     (* move: Hw_round_eq. *)
-     (* rewrite Hcurrent_round_eq => Heq. *)
-     (* move: Hr_is_valid. *)
-     (* rewrite Heq => //=. *)
-     (* move: (Hexecuted_to_s). *)
-     (* have Hrlts: (r <= s)%nat. *)
-     (*  rewrite -Hs_eq_rdelta. *)
-     (*  rewrite -addnBA. *)
-     (*  rewrite -{1}(addn0 r). *)
-     (*  by apply (@leq_add  r 0%nat r (delta - 1)%nat ) => //=. *)
-     (*  by exact delta_valid. *)
+     rewrite fixlist_insert_rewrite.
+     rewrite  has_rcons =>
+      /orP [/andP [Hlen_eq /andP [/eqP Hcurrent_round_eq /eqP Ho_addr_eq_active ]] | Ho_addr_has_chain].
+        move: Hw_round_eq.
+        rewrite Hcurrent_round_eq => Heq.
+        move: Hr_is_valid.
+        rewrite Heq => //=.
+        move: (Hexecuted_to_s).
+        have Hrlts: (r <= s)%nat.
+          rewrite -Hs_eq_rdelta.
+          by apply leq_addr.
+        by move=> /leq_trans H /H; clear H;
+        move: (Hrlts); move=> /ltnSn_eq H /H; clear H => /eqP Hseqr;
+        move: Hs_eq_rdelta; rewrite Hseqr => /eqP/addn_eq0/eqP Hdlta //=;
+        move: delta_valid;
+        rewrite Hdlta ltnn.
 
-     (* move: (Hrlts). *)
-     (* move=> /leq_trans H /H. clear H. *)
-     (* move=> /ltnSn_eq H /H; clear H => /eqP Hseqr. *)
-     (* move: Hexecuted_to_s. *)
-     (* rewrite -{1}Hseqr. *)
-     (* move: Hrlts. *)
-     (* move=> /ltnSn_eq H /H; clear H =>/eqP Hreqs; move: Hs_eq_rdelta. *)
-     (* rewrite -Hreqs. *)
-     (* (0%nat <= (delta - 1))%nat). *)
-     (* rewrite leqn_addr. *)
-     (* Search _ (_ - _ <= _)%nat. *)
-      (* if the current round of the world = r', and r' < s, this case is invalid (for have executed to s) *)
-      (* if the current round of the world = r', and r' == s, then delta = 1, solve manually *)
-      admit.
-     (* if the tail contains a record of k_addr with chain length l at round r' *)
-     (* move: Hexecuted_to_s.    *)
-     (* rewrite fixlist_insert_rewrite . *)
-     (* rewrite has_rcons => /orP [/eqP Heqstate_round | Hexecuted_to_s]; last first. *)
-     (* move: (Heqstate_round) => [] Heqstate_round'. *)
- 
-     (* rewrite fixlist_insert_rewrite . *)
-     (* rewrite has_rcons => /orP //= [/eqP //= Hround | Hexecuted_to_s ]. *)
-     (* move: (Hround) => [] Hwstate_eq. *)
-     (* move: Ho_addr_has_chain. *)
-     (* rewrite fixlist_insert_rewrite . *)
-     (* rewrite has_rcons => /orP []. *)
-     (* move=> /andP [/eqP Hleneq /andP []]. *)
-     (* rewrite Hround => /eqP Heqn. *)
-     (* rewrite -Hs_eq_rdelta in Heqn. *)
-     (* apply IHw'. *)
+     rewrite fixlist_insert_rewrite.
+     rewrite has_rcons.
+     rewrite -orb_assoc; apply/orP; right.
+     apply IHw' with (s := (Ordinal Hsvld)) (r := (Ordinal Hrvld)) => //=.
+     by apply/orP; left.
+     have Hwtoord: (eq_op w_state_active (Ordinal Hwstt_prf)).  by[].
+     case Heq_active : (eq_op w_state_active  o_addr);
+      move: Hwtoord Ho_addr_honest;
+      move=>/eqP {2}->.
+      rewrite tnth_set_nth_eq //=. move =>Hanot_corrupt;
+      move: (prf');
+      move/eqP: Heq_active => <- Vprf.
+      by rewrite (proof_irrelevance _ Vprf Hwstt_prf) Htnthactive_eq.
+      by move/eqP: Heq_active => ->.
+     rewrite tnth_set_nth_neq //=. 
+     by move/eqP: Heq_active =>/nesym/eqP.
 
-     (*    move=> /orP [ Ho];. *)
-      (* with that done, there are 2 main cases we want to cover *)
-
-
-        (* when the active node is o_addr *)
-
-        (* when the active node is not o_addr *)
-
+     by rewrite Hw_round_eq //=.
+     by move/Rlt_not_eq/nesym/world_step_adoption_history_top_heavy:Hprw'. 
+     by move/Rlt_not_eq/nesym/world_step_adoption_history_overflow_safe: Hprw'.
+     by move/Rlt_not_eq/nesym/world_step_adoption_history_top_heavy:Hprw'. 
+     by move/Rlt_not_eq/nesym/world_step_adoption_history_overflow_safe: Hprw'.
       admit.
     (* failed attempt with non-last entry with update *)
       admit.
@@ -2646,7 +2634,7 @@ Qed.
 
 
 
-
+(* TODO: Move this to somewhere more appropriate *)
 Lemma leq_addr_weaken x y z : (x + y <= z)%nat -> (x <= z)%nat.
 Proof.
   move: x y.
@@ -2802,59 +2790,6 @@ Proof.
   exists (Ordinal Hrvalid).
   apply/andP;split => //=.
   by right.
-  (* simple base case - r - delta + 1 < 0*)
-  (* have Hltn_1_eqn0 a b : (a + b < 1)%nat -> (a == 0%nat) && (b == 0%nat). by induction a ; induction b => //=. *)
-  (* move=>/Hltn_1_eqn0/andP;case => /eqP Hr0 /eqP Hd0. *)
-  (* destruct r => //=. *)
-  (* rewrite no_bounded_successful_rounds'_eq0. rewrite addn0 => //=. *)
-  (* suff Hexist: (exists (addr0 : 'I_n_max_actors) (k : 'I_N_rounds), *)
-  (*                  (k <= (Ordinal Hrvalid))%nat && actor_n_has_chain_length_at_round w l addr0 k). *)
-  (* apply: (chain_growth_weak (x::xs) w l (Ordinal Hrvalid) Hpr_valid Hexist (Ordinal Hsvalid)) => //=. *)
-  (* by rewrite Hd0 => //=. *)
-  (* exists addr. *)
-  (* exists (Ordinal Hrvalid). *)
-  (* by apply/andP;split . *)
-  (* by rewrite Hd0; right. *)
-
-  (* Basic Induction case - r - delta + 1 == s'.+1*)
-
-  (* move:Hsvalid =>Hs'valid. *)
-  (* move:(Hs'valid) =>Hsvalid. *)
-  (* rewrite -subn_eq0 subSS subn_eq0. *)
-  (* Search _ (_ + _ <= _)%nat. *)
-  (* move=>/eqP Hrseq H_world_exec o_addr H_is_honest //=. *)
-  (* move: IHs . *)
-  (* rewrite -{ 2  }Hrseq. *)
-  (* rewrite no_bounded_successful_rounds_eq0. rewrite addn0. *)
-  (* move=> IHs. *)
-  (* rewrite subnAC -addnBA => //=. rewrite subnn; rewrite addn0. *)
-  (* rewrite no_bounded_successful_rounds_eq0. rewrite addn0. *)
-  (* move: Hs'valid; rewrite -{1}(addn1 s); move=>/(addr_ltn s 1%nat N_rounds); move=> Hs'valid. *)
-  (* move: o_addr H_is_honest. *)
-  (* apply: (chain_growth_weak (x::xs) w (l) (Ordinal Hrvalid) ) => //= . *)
-  (* by exists addr; exists (Ordinal Hrvalid) ; apply /andP; split => //=. *)
-  (* by rewrite Hrseq. *)
-  (* by case r ; [right | left; rewrite subn1 prednK ]. *)
-  (* move/f_equal_pred: Hrseq. *)
-  (* have: s.+1.-1 = s. *)
-  (*   by []. *)
-  (* move=> ->. *)
-  (* move=> <-. *)
-  (* rewrite -(subn1 (r + delta -1)). *)
-  (* rewrite -subnAC. *)
-  (* have H: (subn (subn (subn (r + delta) 1%nat) delta) 1)%nat = (subn r  2%nat). *)
-  (* rewrite (subnAC (r + delta)). *)
-  (* have H a b:(subn (addn a b) b) = a. *)
-  (*   induction a => //=. *)
-  (*   induction b => //=. *)
-  (*   have: addn a.+1  b = (addn a b).+1. by []. move=> ->. *)
-  (*   suff: subn (addn a  b).+1 b = (subn (addn a b) b).+1. *)
-  (*   move=> ->. *)
-  (*   by rewrite IHa. *)
-  (*   by rewrite -addn1 -addnA (addnC b) addnA -!addnBA; [rewrite subnn !addn0 addn1| | ]. *)
-  (*   by rewrite -addnBA; [rewrite subnn addn0 -subnDA | ]. *)
-  (* by rewrite H; exact (addr2n r). *)
-
   (* true inductive case *)
   move: (Hsvalid)=>Hsvd.
   move: Hsvalid. rewrite -{1}(addn1 s); move=>/(addr_ltn s 1%nat N_rounds); move=> Hs'valid.
