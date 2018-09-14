@@ -2335,71 +2335,132 @@ Proof.
       move/eqP: Heqn; move: Hwactive Hprf_ltn  H_has_chain_length_l_at_r'.
 
       (* now - let's eradicate a_addr, and replace all instaces with w_addr *)
-        case Hcurr_round_value: ([[w'.state].#active])
-        => [w_state_active Hw_state_prf] //= Haddr_eq.
-        move: Hactive_state_eq Hactive_hlink Hnew_blockcontents Hmaxvld 
-              Hexecuted_to_s .
-        move: Haddr_eq.
-        case: a_addr => [a_addr Ha_addr] //= Hweq .
-        move: Ha_addr.
-        rewrite -Hweq => //=.
-        clear Hweq a_addr.
-        case Hw_round_eq: ([[w'.state].#round]) => [w_state_round Hwstatrnd] //=.
-        move: Hs_eq_rdelta Hr_is_valid.
-        case: s => [s Hsvld]; case: r => [r Hrvld] //=.
-        move=> Hs_eq_rdelta Hr_is_valid Hwstt_prf Htnthactive_eq Hactive_hlink Hnew_blockcontents Hmxvld Hexecuted_to_s.
-        move=> Hnxt_active_ltn Ho_addr_honest Ho_addr_has_chain.
+      case Hcurr_round_value: ([[w'.state].#active])
+      => [w_state_active Hw_state_prf] //= Haddr_eq.
+      move: Hactive_state_eq Hactive_hlink Hnew_blockcontents Hmaxvld 
+                            Hexecuted_to_s .
+      move: Haddr_eq.
+      case: a_addr => [a_addr Ha_addr] //= Hweq .
+      move: Ha_addr.
+      rewrite -Hweq => //=.
+      clear Hweq a_addr.
+      case Hw_round_eq: ([[w'.state].#round]) => [w_state_round Hwstatrnd] //=.
+      move: Hs_eq_rdelta Hr_is_valid.
+      case: s => [s Hsvld]; case: r => [r Hrvld] //=.
+      move=> Hs_eq_rdelta Hr_is_valid Hwstt_prf Htnthactive_eq
+                         Hactive_hlink Hnew_blockcontents Hmxvld Hexecuted_to_s.
+      move=> Hnxt_active_ltn Ho_addr_honest Ho_addr_has_chain.
       (* we also need to clean up the context and drop some of the lemmas we don't care for *)
-        clear Hcurr_round_value.
-        move: Ho_addr_has_chain;
-          rewrite /honest_mint_failed_no_update
-                  /actor_n_has_chain_length_at_round => //= /eqP/orP [Ho_addr_has_chain | /andP [_ Hleq]]; last first.
-            by apply/orP; right.
-            clear Hltn.
-     move: Ho_addr_has_chain.
-     rewrite fixlist_insert_rewrite.
-     rewrite  has_rcons =>
+      clear Hcurr_round_value.
+      move: Ho_addr_has_chain;
+      rewrite /honest_mint_failed_no_update
+              /actor_n_has_chain_length_at_round => //= /eqP/orP [Ho_addr_has_chain | /andP [_ Hleq]]; last first.
+        by apply/orP; right.
+      clear Hltn.
+      move: Ho_addr_has_chain.
+      rewrite fixlist_insert_rewrite.
+      rewrite  has_rcons =>
       /orP [/andP [Hlen_eq /andP [/eqP Hcurrent_round_eq /eqP Ho_addr_eq_active ]] | Ho_addr_has_chain].
-        move: Hw_round_eq.
-        rewrite Hcurrent_round_eq => Heq.
-        move: Hr_is_valid.
-        rewrite Heq => //=.
-        move: (Hexecuted_to_s).
-        have Hrlts: (r <= s)%nat.
-          rewrite -Hs_eq_rdelta.
-          by apply leq_addr.
-        by move=> /leq_trans H /H; clear H;
-        move: (Hrlts); move=> /ltnSn_eq H /H; clear H => /eqP Hseqr;
-        move: Hs_eq_rdelta; rewrite Hseqr => /eqP/addn_eq0/eqP Hdlta //=;
-        move: delta_valid;
-        rewrite Hdlta ltnn.
+      move: Hw_round_eq.
+      rewrite Hcurrent_round_eq => Heq.
+      move: Hr_is_valid.
+      rewrite Heq => //=.
+      move: (Hexecuted_to_s).
+      have Hrlts: (r <= s)%nat.
+      rewrite -Hs_eq_rdelta.
+      by apply leq_addr.
+          by move=> /leq_trans H /H; clear H;
+              move: (Hrlts); move=> /ltnSn_eq H /H; clear H => /eqP Hseqr;
+              move: Hs_eq_rdelta; rewrite Hseqr => /eqP/addn_eq0/eqP Hdlta //=; move: delta_valid;
+              rewrite Hdlta ltnn.
 
-     rewrite fixlist_insert_rewrite.
-     rewrite has_rcons.
-     rewrite -orb_assoc; apply/orP; right.
-     apply IHw' with (s := (Ordinal Hsvld)) (r := (Ordinal Hrvld)) => //=.
-     by apply/orP; left.
-     have Hwtoord: (eq_op w_state_active (Ordinal Hwstt_prf)).  by[].
-     case Heq_active : (eq_op w_state_active  o_addr);
-      move: Hwtoord Ho_addr_honest;
-      move=>/eqP {2}->.
-      rewrite tnth_set_nth_eq //=. move =>Hanot_corrupt;
-      move: (prf');
-      move/eqP: Heq_active => <- Vprf.
-      by rewrite (proof_irrelevance _ Vprf Hwstt_prf) Htnthactive_eq.
-      by move/eqP: Heq_active => ->.
-     rewrite tnth_set_nth_neq //=. 
-     by move/eqP: Heq_active =>/nesym/eqP.
+      rewrite fixlist_insert_rewrite.
+      rewrite has_rcons.
+      rewrite -orb_assoc; apply/orP; right.
+      apply IHw' with (s := (Ordinal Hsvld)) (r := (Ordinal Hrvld)) => //=.
+        by apply/orP; left.
+      have Hwtoord: (eq_op w_state_active (Ordinal Hwstt_prf)).  by[].
+      case Heq_active : (eq_op w_state_active  o_addr);
+        move: Hwtoord Ho_addr_honest;
+        move=>/eqP {2}->.
+        rewrite tnth_set_nth_eq //=. move =>Hanot_corrupt; move: (prf'); move/eqP: Heq_active => <- Vprf.
+        by rewrite (proof_irrelevance _ Vprf Hwstt_prf) Htnthactive_eq.
+        by move/eqP: Heq_active => ->.
+      rewrite tnth_set_nth_neq //=. 
+        by move/eqP: Heq_active =>/nesym/eqP.
 
-     by rewrite Hw_round_eq //=.
-     by move/Rlt_not_eq/nesym/world_step_adoption_history_top_heavy:Hprw'. 
-     by move/Rlt_not_eq/nesym/world_step_adoption_history_overflow_safe: Hprw'.
-     by move/Rlt_not_eq/nesym/world_step_adoption_history_top_heavy:Hprw'. 
-     by move/Rlt_not_eq/nesym/world_step_adoption_history_overflow_safe: Hprw'.
-      admit.
+      by rewrite Hw_round_eq //=.
+      by move/Rlt_not_eq/nesym/world_step_adoption_history_top_heavy:Hprw'. 
+      by move/Rlt_not_eq/nesym/world_step_adoption_history_overflow_safe: Hprw'.
+      by move/Rlt_not_eq/nesym/world_step_adoption_history_top_heavy:Hprw'. 
+      by move/Rlt_not_eq/nesym/world_step_adoption_history_overflow_safe: Hprw'.
+
     (* failed attempt with non-last entry with update *)
-      admit.
-    (* successful attempt with non-last entry *)
+      move=> H_has_chain_length_l_at_r' .
+      move=> s r Hr_is_valid Hs_eq_rdelta Hexecuted_to_s.
+      move/eqP: Heqn; move: Hwactive Hprf_ltn  H_has_chain_length_l_at_r'.
+
+      (* now - let's eradicate a_addr, and replace all instaces with w_addr *)
+      case Hcurr_round_value: ([[w'.state].#active])
+      => [w_state_active Hw_state_prf] //= Haddr_eq.
+      move: Hactive_state_eq Hactive_hlink Hnew_blockcontents Hmaxvld 
+                            Hexecuted_to_s .
+      move: Haddr_eq.
+      case: a_addr => [a_addr Ha_addr] //= Hweq .
+      move: Ha_addr.
+      rewrite -Hweq => //=.
+      clear Hweq a_addr.
+      case Hw_round_eq: ([[w'.state].#round]) => [w_state_round Hwstatrnd] //=.
+      move: Hs_eq_rdelta Hr_is_valid.
+      case: s => [s Hsvld]; case: r => [r Hrvld] //=.
+      move=> Hs_eq_rdelta Hr_is_valid Hwstt_prf Htnthactive_eq Hactive_hlink Hnew_blockcontents Hmxvld Hexecuted_to_s.
+      move=> Hnxt_active_ltn Ho_addr_honest Ho_addr_has_chain.
+      (* we also need to clean up the context and drop some of the lemmas we don't care for *)
+      clear Hcurr_round_value.
+      move: Ho_addr_has_chain;
+      rewrite /honest_mint_failed_no_update
+              /actor_n_has_chain_length_at_round => //= /eqP/orP [Ho_addr_has_chain | /andP [_ Hleq]]; last first.
+        by apply/orP; right.
+      clear Hltn.
+      move: Ho_addr_has_chain.
+      rewrite fixlist_insert_rewrite.
+      rewrite  has_rcons =>
+      /orP [/andP [Hlen_eq /andP [/eqP Hcurrent_round_eq /eqP Ho_addr_eq_active ]] | Ho_addr_has_chain].
+      move: Hw_round_eq.
+      rewrite Hcurrent_round_eq => Heq.
+      move: Hr_is_valid.
+      rewrite Heq => //=.
+      move: (Hexecuted_to_s).
+      have Hrlts: (r <= s)%nat.
+      rewrite -Hs_eq_rdelta.
+      by apply leq_addr.
+          by move=> /leq_trans H /H; clear H;
+              move: (Hrlts); move=> /ltnSn_eq H /H; clear H => /eqP Hseqr;
+              move: Hs_eq_rdelta; rewrite Hseqr => /eqP/addn_eq0/eqP Hdlta //=; move: delta_valid;
+              rewrite Hdlta ltnn.
+
+      rewrite fixlist_insert_rewrite.
+      rewrite has_rcons.
+      rewrite -orb_assoc; apply/orP; right.
+      apply IHw' with (s := (Ordinal Hsvld)) (r := (Ordinal Hrvld)) => //=.
+        by apply/orP; left.
+      have Hwtoord: (eq_op w_state_active (Ordinal Hwstt_prf)).  by[].
+      case Heq_active : (eq_op w_state_active  o_addr);
+        move: Hwtoord Ho_addr_honest;
+        move=>/eqP {2}->.
+        rewrite tnth_set_nth_eq //=. move =>Hanot_corrupt; move: (prf'); move/eqP: Heq_active => <- Vprf.
+        by rewrite (proof_irrelevance _ Vprf Hwstt_prf) Htnthactive_eq.
+        by move/eqP: Heq_active => ->.
+      rewrite tnth_set_nth_neq //=. 
+        by move/eqP: Heq_active =>/nesym/eqP.
+
+      by rewrite Hw_round_eq //=.
+      by move/Rlt_not_eq/nesym/world_step_adoption_history_top_heavy:Hprw'. 
+      by move/Rlt_not_eq/nesym/world_step_adoption_history_overflow_safe: Hprw'.
+      by move/Rlt_not_eq/nesym/world_step_adoption_history_top_heavy:Hprw'. 
+      by move/Rlt_not_eq/nesym/world_step_adoption_history_overflow_safe: Hprw'.
+
+   (* successful attempt with non-last entry *)
 
 Admitted.
 
