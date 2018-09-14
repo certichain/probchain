@@ -2276,57 +2276,44 @@ Proof.
       case Hoaddr_ltn : (o_addr >= n_max_actors)%nat; (do ?
         by move: Hoaddr_ltn ;
         rewrite leqNgt => /negP/eqP/eqP/not_true_is_false Hwrong; rewrite { 2 3 7 } Hwrong //=);
-      move/negP/negP: Hoaddr_ltn; rewrite -ltnNge => Hltn; rewrite {2 3 7} Hltn //=  => prf' IHw'.
+      move/negP/negP: Hoaddr_ltn; rewrite -ltnNge => Hltn; rewrite {2 3 7} Hltn //=  => prf' IHw';
 
-
-
-    
-    (* failed attempt with last entry and no update - trivially true*)
-      move=> H_has_chain_length_l_at_r' H_o_addr_is_not_corrupt.
+    do ? by move=> H_has_chain_length_l_at_r' H_o_addr_is_not_corrupt;
       (* all dependent typing done *)
-      move=> s r Hr_is_valid Hs_eq_rdelta Hexecuted_to_s.
+      move=> s r Hr_is_valid Hs_eq_rdelta Hexecuted_to_s;
       (* it's a little bit of a pain to work around these ordinal types
          - we'll deconstruct them here to allow us to reason about them easier*)
-      move/eqP: Heqn; move: H_o_addr_is_not_corrupt Hwactive.
+      move/eqP: Heqn; move: H_o_addr_is_not_corrupt Hwactive;
       case Hcurr_round_value: ([[w'.state].#active])
-      => [w_state_active Hw_state_prf] //= Ht H0 H1.
-      (* now - let's eradicate a_addr, and replace all instances with n_max_actors.+1 *)
-      move: Ht.
+      => [w_state_active Hw_state_prf] //= Ht H0 H1;
+      move: Ht;
       move: Hactive_state_eq Hactive_hlink Hnew_blockcontents Hmaxvld 
-            H_has_chain_length_l_at_r' Hexecuted_to_s .
-      move: H0 H1; case: a_addr => [a_addr Ha_addr] //= Hweq Hw_state.
-      move: Ha_addr; rewrite  -Hweq Hw_state => Ha_addr.
-      move: Ha_addr (Ha_addr).
+            H_has_chain_length_l_at_r' Hexecuted_to_s ;
+      move: H0 H1; case: a_addr => [a_addr Ha_addr] //= Hweq Hw_state;
+      move: Hw_state_prf Hcurr_round_value;
+      move: Ha_addr; rewrite  -Hweq Hw_state => Ha_addr;
+      move: Ha_addr (Ha_addr);
       (* ...aaand this leads to a contradition - so we're done*)
-      by rewrite -{1}(addn1 n_max_actors) => /ltn_weaken; rewrite ltnn.
+      rewrite -{1}(addn1 n_max_actors) => /ltn_weaken; rewrite ltnn.
+
 
     (* failed attempt with non-last entry and no update *)
       move=> H_has_chain_length_l_at_r' .
       move=> s r Hr_is_valid Hs_eq_rdelta Hexecuted_to_s.
-      move/eqP: Heqn; move: Hwactive.
-      admit.
-      (* case Hcurr_round_value: ([[w'.state].#active]) *)
-      (* => [w_state_active Hw_state_prf] //= H0 H1. *)
-      (* (* now - let's eradicate a_addr, and replace all instances with n_max_actors.+1 *) *)
-      (* move: Ht. *)
-      (* move: Hactive_state_eq Hactive_hlink Hnew_blockcontents Hmaxvld  *)
-      (*       H_has_chain_length_l_at_r' Hexecuted_to_s . *)
-      (* move: H0 H1; case: a_addr => [a_addr Ha_addr] //= Hweq Hw_state. *)
-      (* move: Ha_addr; rewrite  -Hweq Hw_state => Ha_addr. *)
-      (* move: Ha_addr (Ha_addr). *)
-      (* (* ...aaand this leads to a contradition - so we're done*) *)
-      (* by rewrite -{1}(addn1 n_max_actors) => /ltn_weaken; rewrite ltnn. *)
+      move/eqP: Heqn; move: Hwactive Hprf_ltn  H_has_chain_length_l_at_r'.
 
+      (* now - let's eradicate a_addr, and replace all instances*)
+      case Hcurr_round_value: ([[w'.state].#active])
+      => [w_state_active Hw_state_prf] //= Haddr_eq.
+      move: Hactive_state_eq Hactive_hlink Hnew_blockcontents Hmaxvld 
+            Hexecuted_to_s .
+      move: Haddr_eq.
+      case: a_addr => [a_addr Ha_addr] //= Hweq .
+      move: Ha_addr.
+      rewrite -Hweq => //=.
 
-
-
-
-      admit.
-    (* failed attempt with last entry with update *)
       admit.
     (* failed attempt with non-last entry with update *)
-      admit.
-    (* successful attempt with last entry *)
       admit.
     (* successful attempt with non-last entry *)
       admit.
