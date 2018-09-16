@@ -2747,7 +2747,8 @@ Proof.
     case: (hash_res < T_Hashing_Difficulty)%nat => //=.
     case: (isSome _) => //= .
     rewrite /bounded_successful_round /unsuccessful_round /successful_round //=.
-    move=> IHw' /andP [].
+    move=> IHw' .
+    rewrite /fixmap_put //=.
     move=> /IHw'.
 
     move=> o_addr.

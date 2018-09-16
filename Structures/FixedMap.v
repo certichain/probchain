@@ -45,6 +45,35 @@ Section fixmap.
                                             FixMap  keys values
             end.
 
+
+    Definition fixmap_is_top_heavy n (fm : fixmap n) :=
+      (fixlist_is_top_heavy (fixmap_key fm)) && (fixlist_is_top_heavy (fixmap_value fm)).
+
+
+
+    Lemma fixmap__put_top_heavy n (fm : fixmap n) k v : fixmap_is_top_heavy fm ->
+                                                    fixmap_is_top_heavy (fixmap_put k v fm).
+      Proof.
+        rewrite /fixmap_put.
+        case Hfind: (fixlist_index_of _) => [ ind] //= .
+        rewrite /fixmap_is_top_heavy//= => /andP [Hfm_top_heavy Hfv_top_heavy].
+    .
+
+    Lemma fixmap_keys_top_heavy n (fm : fixmap n) : fixlist_is_top_heavy (fixmap_key fm).
+    Proof.
+      move: fm => [[ls Hls] fm_val].
+      rewrite /fixmap_key//=.
+      clear fm_val; move: Hls.
+      move: n.
+      elim: ls => //= [ n | x xs IHx n] Hxs.
+        by move: (Hxs); move/eqP: Hxs <-  => //=.
+      move: Hxs; case: n => [//=| n Hxs].
+      move: (Hxs); move: Hxs => /eqP [] /eqP Heq.
+      move: (IHx n Heq) => Histopheavy.
+      move=> Hxs.
+      rewrite /fixlist_is_top_heavy //=.
+      move: (erefl _).
+
     Lemma fixmap_ident (n : nat) (map : fixmap n) : n > 0 -> forall k v, fixmap_find k  (fixmap_put k v  map) = Some v.
     Proof.
         move=> H.
