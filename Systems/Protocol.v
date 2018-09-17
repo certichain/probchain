@@ -1029,6 +1029,13 @@ Definition block_is_adversarial (b : Block) (w : World) :=
     end.
 
 
+Definition successful_round_internal (bh : BlockMap) (r : nat) : bool :=
+  length
+    (filter
+      (fun block_pair =>
+        let: (is_corrupt, hash_round) := block_pair in  
+      (hash_round  == r) && (~~ is_corrupt))
+      (BlockMap_records bh)) > 0.
 
 Definition successful_round (w : World) (r : nat) : bool :=
   length
@@ -1037,6 +1044,10 @@ Definition successful_round (w : World) (r : nat) : bool :=
         let: (is_corrupt, hash_round) := block_pair in  
       (hash_round  == r) && (~~ is_corrupt))
       (BlockMap_records (world_block_history w))) > 0.
+
+Lemma successful_round_internalP (w : World) r : successful_round w r = successful_round_internal [w.blocks] r.
+  by rewrite /successful_round/successful_round_internal.
+Qed.
 
 
 Lemma successful_round_rangeP w r : (r >= N_rounds) -> ~~ successful_round w r.
@@ -1052,6 +1063,16 @@ Lemma successful_round_rangeP w r : (r >= N_rounds) -> ~~ successful_round w r.
 Qed.
 
 
+Definition unsuccessful_round_internal (bh : BlockMap) (r : nat) :=
+  length
+    (filter
+      (fun block_pair =>
+        let: (is_corrupt, hash_round) := block_pair in  
+      (hash_round  == r) && (~~ is_corrupt))
+      (BlockMap_records bh)) == 0.
+
+
+
 Definition unsuccessful_round (w : World) (r : nat) :=
   length
     (filter
@@ -1060,9 +1081,17 @@ Definition unsuccessful_round (w : World) (r : nat) :=
       (hash_round  == r) && (~~ is_corrupt))
       (BlockMap_records (world_block_history w))) == 0.
 
+Lemma unsuccessful_round_internalP (w : World) r : unsuccessful_round w r = unsuccessful_round_internal [w.blocks] r.
+  by rewrite /unsuccessful_round/unsuccessful_round_internal.
+Qed.
+
+
+
+
+
 Lemma successful_roundP w r : successful_round w r = ~~ unsuccessful_round w r.
 Proof.
-  by rewrite /successful_round/unsuccessful_round lt0n.
+  by rewrite /successful_round/unsuccessful_round lt0n//=.
 Qed.
 
 Lemma unsuccessful_roundP w r : unsuccessful_round w r = ~~ successful_round w r.
@@ -1084,14 +1113,26 @@ Definition uniquely_successful_round (w : World) (r : nat) :=
 
 Lemma uniquely_successful_roundP w r : uniquely_successful_round w r -> successful_round w r.
 Proof.
-  by rewrite /successful_round/uniquely_successful_round => /eqP ->.
+  by rewrite /successful_round/successful_round_internal/uniquely_successful_round => /eqP ->.
 Qed.
+
+
+Definition bounded_successful_round_internal (bh : BlockMap) (r : nat) :=
+  (* (forallb (r' : nat), (r' < r) && (r' >= r - delta) -> unsuccessful_round w r') &&   *)
+  (all (fun r' => unsuccessful_round_internal bh r') (itoj (r + 1 - delta ) (r))) &&  
+    successful_round_internal bh r.
 
 
 Definition bounded_successful_round (w : World) (r : nat) :=
   (* (forallb (r' : nat), (r' < r) && (r' >= r - delta) -> unsuccessful_round w r') &&   *)
   (all (fun r' => unsuccessful_round w r') (itoj (r + 1 - delta ) (r))) &&  
     successful_round w r.
+
+Lemma bounded_successful_round_internalP (w : World) (r : nat) :
+  bounded_successful_round w r = bounded_successful_round_internal [w.blocks] r.
+Proof.
+  by rewrite/bounded_successful_round/bounded_successful_round_internal//=.
+Qed.
 
 Lemma bounded_successful_round_forall w r :
   bounded_successful_round w r -> forall r', ((r - delta).+1 <= r' < r) -> unsuccessful_round w r'.
