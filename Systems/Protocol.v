@@ -1847,7 +1847,7 @@ Proof.
   rewrite negb_and; apply/orP; right.
   rewrite /successful_round/initWorld//=.
   rewrite /BlockMap_records/BlockMap_new//=.
-  by move: (fixlist_empty_is_empty BlockMap_valuetype BlockHistory_size);
+  by move: (fixlist_empty_is_empty [finType of BlockMap_keytype * BlockMap_valuetype] BlockHistory_size);
     rewrite /fixlist_is_empty => /eqP -> //=.
 Qed.
 

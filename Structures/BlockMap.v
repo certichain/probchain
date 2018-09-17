@@ -23,22 +23,23 @@ Definition BlockMap_find (bl : Block) (map : BlockMap) : option BlockMap_valuety
     fixmap_find bl map.
 
 Definition BlockMap_records (bmap : BlockMap) : seq (bool * nat) :=
-    map (fun pair => let: (b, or) := pair in (b, nat_of_ord or)) (fixlist_unwrap (fixmap_value bmap)).
+    map (fun pair => let: (_,(b, or)) := pair in (b, nat_of_ord or)) (fixlist_unwrap  bmap).
 
 Lemma BlockMap_records_roundP bmap : all (fun pair => let: (_, or) := pair in  or < N_rounds) (BlockMap_records (bmap)).
 Proof.
   rewrite /BlockMap_records.
-  elim: (fixlist_unwrap (fixmap_value bmap)) => //= pair' xs IHb.
+  elim: (fixlist_unwrap bmap) => //= pair' xs IHb.
   apply/andP; split.
   by move: pair' => [is_crpt [vl Hvl]] //=.
   by apply IHb.
 Qed.
 
 Definition BlockMap_blocks (bmap : BlockMap) : seq Block :=
-    (fixlist_unwrap (fixmap_key bmap)).
+    map (fun pair => let: (b,_) := pair in b) (fixlist_unwrap  bmap).
 
 Definition BlockMap_pairs (bmap: BlockMap) : seq (Block * (bool * nat)) :=
-    zip (BlockMap_blocks bmap) (BlockMap_records bmap).
+    map (fun pair => let: (b',(b, or)) := pair in (b', (b, nat_of_ord or))) (fixlist_unwrap  bmap).
+
 
 Definition BlockMap_put_honest (bl : Block) (round: (ordinal N_rounds)) (map: BlockMap) :=
     fixmap_put (bl) (false, round) map.
@@ -61,32 +62,3 @@ Definition BlockMap_put_adversarial_on_success (o_bl : option Block) (round: (or
 
 
 
-  Definition BlockMap_prod (m : BlockMap) := finmap_prod m.
-  Definition prod_BlockMap pair : BlockMap := prod_finmap pair.
-
-  Lemma BlockMap_cancel : cancel BlockMap_prod prod_BlockMap.
-  Proof.
-    by case.
-  Qed.
-
-
-  Definition BlockMap_eqMixin  :=
-  CanEqMixin BlockMap_cancel.
-  Canonical BlockMap_eqType :=
-  Eval hnf in EqType BlockMap BlockMap_eqMixin.
-
-
-  Definition BlockMap_choiceMixin  :=
-  CanChoiceMixin BlockMap_cancel.
-  Canonical BlockMap_choiceType :=
-  Eval hnf in ChoiceType BlockMap BlockMap_choiceMixin.
-
-  Definition BlockMap_countMixin :=
-  CanCountMixin BlockMap_cancel.
-  Canonical BlockMap_countType :=
-  Eval hnf in CountType BlockMap BlockMap_countMixin.
-  
-  Definition BlockMap_finMixin :=
-  CanFinMixin BlockMap_cancel.
-  Canonical BlockMap_finType :=
-  Eval hnf in FinType BlockMap BlockMap_finMixin.

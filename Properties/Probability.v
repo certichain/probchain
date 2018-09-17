@@ -999,7 +999,7 @@ Definition update_adversary_state w':=
                           (world_transaction_pool w')))) (world_inflight_pool w').
 
 Definition adversary_mint_player_step
-                 (oracle_state : oraclestate_finType) (old_adv_state : adversary_internal_state)
+                 (oracle_state : OracleState) (old_adv_state : adversary_internal_state)
                  (blc_rcd : BlockRecord) (nonce hash:  'I_Hash_value.+1) (hash_res: Hashed) w' :=
     (let
      '(new_adversary, new_oracle, new_block) :=
@@ -2749,28 +2749,28 @@ Proof.
     rewrite /bounded_successful_round /unsuccessful_round /successful_round //=.
     move=> IHw' .
     rewrite /fixmap_put //=.
-    move=> /IHw'.
+    (* move=> /IHw'. *)
 
-    move=> o_addr.
-    rewrite actor_n_is_honestP /actor_n_is_corrupt => //= Hoaddr_is_corrupt.
-    apply/orP; left.
-    apply no_bounded_successful_roundsP.
-    Search _ no_bounded_successful_rounds.
-    rewrite /no_bounded_successful_rounds//=.
-    rewrite /actor_n_is_honest //=.
-    move: {1}(erefl _ ).
-    case: {2 3 7 }(o_addr < n_max_actors)%nat => //= prf.
-    rewrite /actor_n_is_corrupt //=.
-    rewrite /no_bounded_successful_rounds//=.
-    move: (erefl _).
-    case: (no_bounded_successful_rounds' _) => //=.
-    case: (no_bounded_successful_rounds' _) => //=.
-    move=> _ IHw Hncorrupted.
+    (* move=> o_addr. *)
+    (* rewrite actor_n_is_honestP /actor_n_is_corrupt => //= Hoaddr_is_corrupt. *)
+    (* apply/orP; left. *)
+    (* apply no_bounded_successful_roundsP. *)
+    (* Search _ no_bounded_successful_rounds. *)
+    (* rewrite /no_bounded_successful_rounds//=. *)
+    (* rewrite /actor_n_is_honest //=. *)
+    (* move: {1}(erefl _ ). *)
+    (* case: {2 3 7 }(o_addr < n_max_actors)%nat => //= prf. *)
+    (* rewrite /actor_n_is_corrupt //=. *)
+    (* rewrite /no_bounded_successful_rounds//=. *)
+    (* move: (erefl _). *)
+    (* case: (no_bounded_successful_rounds' _) => //=. *)
+    (* case: (no_bounded_successful_rounds' _) => //=. *)
+    (* move=> _ IHw Hncorrupted. *)
     admit.
 
 
   (* adversary global mint case *)
-    move=> IHw' Hprw' Hacthaschain Hlast_hashed_round Haddr_to_index.
+    (* move=> IHw' Hprw' Hacthaschain Hlast_hashed_round Haddr_to_index. *)
     admit.
   (* adversary corrupt case *)
     move=> IHw' Hprw' Hacthaschain Hlast_hashed_round Haddr_to_index.
