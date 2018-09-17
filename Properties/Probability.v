@@ -2723,7 +2723,7 @@ Proof.
                           adv_state  w' xs |
                           addr0  actr  w'  xs |
                           msgs new_pool w' xs |
-                          w'  xs ] .
+                          w'  xs ] //=.
  
   (* base case *)
     by rewrite !no_bounded_successful_rounds_init addn0;
@@ -2731,8 +2731,23 @@ Proof.
     move: (fixlist_empty_is_empty [eqType of BlockChain * 'I_N_rounds * 'I_n_max_actors] (n_max_actors * N_rounds));
     rewrite /fixlist_is_empty =>/eqP -> //=.
   (* honest mint case *)
-    move=> Hbase Hth_pr Hhonest_activation Hactive_state Ha_head_link Ha_txpool Hhash_pr Hbounded_success.
+    move=> Hbase Hth_pr Hhonest_activation Hactive_state Ha_head_link Ha_txpool Hhash_pr Hbounded_success .
+    move=> [o_addr Ho_addr] Hhon.
+    apply /(@honest_mint_stepP (fun w =>
+          actor_n_has_chain_length_ge_at_round w
+            (l + no_bounded_successful_rounds w r (s - delta))
+            (Ordinal (n:=n_max_actors) (m:=o_addr) Ho_addr) (Ordinal (n:=N_rounds) (m:=s) Hsvalid) ->
+          actor_n_has_chain_length_ge_at_round w
+                                               (l + no_bounded_successful_rounds w r (s.+1 - 2 * delta))
+                                              (Ordinal (n:=n_max_actors) (m:=o_addr) Ho_addr)
+                                                (Ordinal (n:=N_rounds) (m:=s - delta) Hsvddelta) 
+
+          ) w' iscrpt os hash_value active_hash_link
+                               blc_rcd active_addr active_state
+                               result active_transaction_pool) => //=.
     admit.
+
+
   (* adversary player mint case *)
     move=> IHw' Hprw' Hacthaschain Hhon  Hhash_pr .
     admit.
