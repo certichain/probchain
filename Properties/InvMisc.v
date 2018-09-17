@@ -309,6 +309,19 @@ Proof.
   by apply ltn_subl1.
 Qed.
 
+(* TODO: Move this to somewhere more appropriate *)
+Lemma leq_addr_weaken x y z : (x + y <= z)%nat -> (x <= z)%nat.
+Proof.
+  move: x y.
+  elim: z => [ | z IHz x y] //=.
+    by move=> [|] //=.
+  rewrite {1}leq_eqVlt => /orP [ /eqP <- | ].
+  by apply (leq_addr ).
+  move=> /IHz Hltxz.
+  rewrite -(addn1 z) -(addn0 x).
+  by apply leq_add.
+Qed.
+
 
 
 

@@ -2688,6 +2688,27 @@ Qed.
 
 
 
+
+Lemma chain_growth_implicit_weaken_alt sc w l (r : 'I_N_rounds) s : forall Hsvalid Hsvddelta,
+    (* if the world is valid *) 
+  (P[ world_step initWorld sc === Some w] <> 0) ->
+    (* and round s was a bounded successful round*) 
+  bounded_successful_round w (s - delta) ->
+  (* and at round s,
+            every actor has a chain longer than l + sum_{s - delta} *) 
+  (forall o_addr : 'I_n_max_actors,
+  actor_n_is_honest w o_addr ->
+  actor_n_has_chain_length_ge_at_round w (l + no_bounded_successful_rounds w r (s - delta)) o_addr
+    (Ordinal (n:=N_rounds) (m:=s) Hsvalid) ->
+  (*  this means that at round s - delta,
+            every actor must have had a chain longer than l + sum{s - 2 * delta + 1)*)
+  actor_n_has_chain_length_ge_at_round w (l + no_bounded_successful_rounds w r (s.+1 - 2 * delta )) o_addr
+    (Ordinal (n:=N_rounds) (m:=s - delta) Hsvddelta)).
+Proof.
+Admitted.
+ 
+
+
 (* the following is a lemma that is implicitly used in the chain growth proof.
     if at round s,
       all honest parties have a chain length greater than (l + no_bounded_successful_rounds r k),
@@ -2741,14 +2762,15 @@ Proof.
     admit.
   (* adversary player mint case *)
     move=> IHw' Hprw' Hacthaschain Hhon  Hhash_pr .
+    admit.
     (* move: (Htemp o_addr); clear Htemp. *)
-    move: IHw'.
-    rewrite /adversary_mint_player_step/actor_n_has_chain_length_ge_at_round/actor_n_has_chain_length_at_round//= .
-    case: (hash_res < T_Hashing_Difficulty)%nat => //=.
-    case: (isSome _) => //= .
-    rewrite /bounded_successful_round /unsuccessful_round /successful_round //=.
-    move=> IHw' .
-    rewrite /fixmap_put //=.
+    (* move: IHw'. *)
+    (* rewrite /adversary_mint_player_step/actor_n_has_chain_length_ge_at_round/actor_n_has_chain_length_at_round//= . *)
+    (* case: (hash_res < T_Hashing_Difficulty)%nat => //=. *)
+    (* case: (isSome _) => //= . *)
+    (* rewrite /bounded_successful_round /unsuccessful_round /successful_round //=. *)
+    (* move=> IHw' . *)
+    (* rewrite /fixmap_put //=. *)
     (* move=> /IHw'. *)
 
     (* move=> o_addr. *)
@@ -2766,7 +2788,7 @@ Proof.
     (* case: (no_bounded_successful_rounds' _) => //=. *)
     (* case: (no_bounded_successful_rounds' _) => //=. *)
     (* move=> _ IHw Hncorrupted. *)
-    admit.
+    (* admit. *)
 
 
   (* adversary global mint case *)
@@ -2774,8 +2796,33 @@ Proof.
     admit.
   (* adversary corrupt case *)
     move=> IHw' Hprw' Hacthaschain Hlast_hashed_round Haddr_to_index.
-    rewrite /adversary_mint_player_step/actor_n_has_chain_length_ge_at_round/actor_n_has_chain_length_at_round//=.
-    rewrite /adversary_corrupt_step//=.
+    move=> Hbound Hall o_addr Hhon .
+    move: o_addr Hhon => [o_addr Ho_addr].
+    rewrite /actor_n_is_honest.
+    move: (erefl _).
+    rewrite {2 3}Ho_addr => //= Htemp. rewrite (proof_irrelevance _ Htemp Ho_addr); clear Htemp.
+    rewrite {1}/adversary_corrupt_step/actor_n_is_corrupt//=.
+    case Hcorrupt_addr: (eq_op ( Ordinal (n:=n_max_actors) (m:=o_addr) Ho_addr) addr0).
+      by rewrite tnth_set_nth_eq //=.
+    move/negP/negP: Hcorrupt_addr => Hcorrupt_addr.
+    rewrite tnth_set_nth_neq //= => Hnotcorrupt.
+
+    apply:(@IHw' _ _ (Ordinal Ho_addr)) => //=; last first.
+    move: Hnotcorrupt; rewrite /actor_n_is_honest/actor_n_is_corrupt//=; move: (erefl _).
+    by rewrite {2 3}Ho_addr => prf; rewrite (proof_irrelevance _ prf Ho_addr).
+    move=> [o_addr' Ho_addr']; move: (Hall (Ordinal Ho_addr')).
+    rewrite/adversary_corrupt_step/actor_n_is_honest/actor_n_is_corrupt//=.
+    move: (erefl _) => //=.
+    rewrite {2 3 7}Ho_addr' //= => Htemp. rewrite (proof_irrelevance _ Htemp Ho_addr'); clear Htemp.
+    case Hneq_addr: (o_addr' != addr0).
+    rewrite tnth_set_nth_neq //=.
+    move/negP/negP: Hneq_addr => /eqP Hneq_addr _.
+    move: Hlast_hashed_round.
+    move: addr0 Hbound Hall Hcorrupt_addr Hneq_addr => [addr0 Haddr0] Hbound Hall Hcorrupt_addr Hneq_addr .
+    move: Hneq_addr (Haddr0) => //= Hneq_addr; rewrite -Hneq_addr => Htemp .
+    rewrite (proof_irrelevance _ Htemp Ho_addr'); clear Htemp => Htntheq.
+    rewrite Htntheq //= => _.
+    move: Hnotcorrupt.
     admit.
   (* round end case *)
     admit.
@@ -2853,19 +2900,6 @@ Lemma prob_chain_ext : forall xs x,
 Qed.
 
 
-
-(* TODO: Move this to somewhere more appropriate *)
-Lemma leq_addr_weaken x y z : (x + y <= z)%nat -> (x <= z)%nat.
-Proof.
-  move: x y.
-  elim: z => [ | z IHz x y] //=.
-    by move=> [|] //=.
-  rewrite {1}leq_eqVlt => /orP [ /eqP <- | ].
-  by apply (leq_addr ).
-  move=> /IHz Hltxz.
-  rewrite -(addn1 z) -(addn0 x).
-  by apply leq_add.
-Qed.
 
 (* ==================================================
 
@@ -3046,6 +3080,7 @@ Proof.
   by [].
   by [].
   move=> Hdelta.
+  
   apply: (chain_growth_implicit_weaken (x::xs) w l (Ordinal Hrvalid) s Hs'valid Hdelta).
   by [].
   by [].
