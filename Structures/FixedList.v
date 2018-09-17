@@ -899,7 +899,6 @@ Definition fixlist n := n.-tuple (option A).
     Qed.
      
 
-    About fixlist_index_of'.
 
     Lemma fixlist_empty_find_index' (n acc: nat) k (ls : fixlist n) : 
       fixlist_is_empty ls  ->
@@ -926,127 +925,77 @@ Definition fixlist n := n.-tuple (option A).
     Qed. 
 
 
-    Lemma fixlist_index_of'_eq (n ind acc : nat) (ls : fixlist n) k : fixlist_index_of' acc k ls = Some ind -> fixlist_get_nth  ls ind = Some k.
-    Proof.
+    Lemma fixlist_index_pred (n acc ind : nat) (ls : fixlist n) k :
+        acc > 0 ->
+        fixlist_index_of' acc k ls = Some ind ->
+        fixlist_index_of' acc.-1 k ls = Some ind.-1.
+      move: ls acc k => [ ] .
+      elim: n .
+           by move=> [ ] //=.
+      move=> n IHn [ //= | x xs] .
+      move=>  Hls acc k ; move: (Hls); move: Hls => //= /eqP [] /eqP Heqn Hls.
+      rewrite/ntuple_head/thead //= (tnth_nth x) //=.
+      case: x => //= [x | ].
+        move: (erefl _).
+        case: (_  == _) => //=.
+          by move=> _ _ [] ->.
+        move=> _.
+        rewrite/ntuple_tail//=.
+        move: (behead_tupleP _) => //= Htemp Hacc; rewrite (proof_irrelevance _ Htemp Heqn); clear Htemp.
+        have HSacc : 0 < acc.+1. by [].
+        move=>/(IHn xs Heqn acc.+1 k HSacc) .
+        by rewrite prednK //=.
 
-      move: ls acc k ind => [].
-      elim: n => //= n IHn [//=| x xs] prf acc k ind.
-      rewrite /fixlist_get_nth /ntuple_head/thead/tnth//=.
-      move: prf (erefl _) (erefl _).
-      case: x => //=; last first.
-      move=> prf prf' _.
-      rewrite /ntuple_tail; move: (behead_tupleP _) => //= prf'' Hfind.
-      move: prf'.
-      rewrite  -(@IHn xs prf'' acc.+1 k ind) => //= .
-      rewrite /fixlist_get_nth.
-      move: (erefl (ind < n)).
-      case Hindltn: {2 3}(ind < n) => //=; last first.
-        by case: {2 3}(ind < n.+1) => //=.
-      move=> eprf; move: (eprf); move: eprf => /(ltn_addr 1); rewrite addn1 => -> //= eprf _. clear prf.
-      move: (erefl _).
-      move: prf'' Hfind.
-      move: (ltn_addr _ _).
-      case Hneqn: { 1 2 3 4 6 7 11 }(n) => [|n' //=].
-        by rewrite add0n => Hltn prf; move: (prf); move: prf  => //=.
-      case: xs => //= x xs.
-      move=> Hltnn Hprf Hflind _; move: Hflind.
-      rewrite /ntuple_head/thead (tnth_nth x)//=.
-      move: (erefl _).
-      case: {2 3 6}(x) => //=.
-      move=> a Hxeq.
-      rewrite Hxeq.
-      move: (erefl _).
-      case: (eq_op _) => //=.
-      move: (ltn0Sn n') => //=.
+      rewrite/ntuple_tail//=.
+      move: (behead_tupleP _) => //= Htemp Hacc; rewrite (proof_irrelevance _ Htemp Heqn); clear Htemp.
+      have HSacc : 0 < acc.+1. by [].
+      move=>/(IHn xs Heqn acc.+1 k HSacc) .
+      by rewrite prednK //=.
+   Qed.
 
 
 
-    Lemma fixlist_index_of'_lt' (n ind acc : nat) (ls: fixlist  n ) k : acc > 0 -> fixlist_is_top_heavy ls ->
-                                    fixlist_index_of' acc k ls = Some ind -> ind < fixlist_length ls.
-    Proof.
-      move: ls acc k => [].
-      elim: n => //= n IHn [| [x|prf] xs //=]; [ move=>//=   | | ]; last first .
-        by move=> acc k Hisempty Hisempty'; rewrite fixlist_empty_find_index' //=.
-      move=> prf acc k Hprfacc .
-      rewrite /tuple/ntuple_tail/behead_tuple.
-      move: (behead_tupleP _) => //= prf' Hflth.
-      move: (erefl _).
-      case: {2 3}(x == k) => //= Hxkeq .
-      move=> [] <-.
-      move: (IHn xs).
-      rewrite /fixlist_length/fixlist_unwrap //= => IHn.
-      rewrite  -(addn1 (length _)).
-      apply ltn_addr.
-      eapply IHn.
-
-      rewrite /fixlist_index_of//=.
-      move: IHn; rewrite/fixlist_length/fixlist_unwrap//= => IHn.
-      move: (erefl _).
-      case: {2 3}(x == k) => //= Hxkeq Hth .
-        by move=> [] <- //=.
-
-
-
-
-
-    Lemma fixlist_index_of'_lt (n ind : nat) (ls: fixlist  n ) k : fixlist_is_top_heavy ls ->
+    Lemma fixlist_index_of_lt (n ind : nat) (ls: fixlist  n ) k :  fixlist_is_top_heavy ls ->
                                     fixlist_index_of k ls = Some ind -> ind < fixlist_length ls.
     Proof.
-      move: ls k => [].
-      elim: n => //= n IHn [| [x|prf] xs //=]; [ move=>//=   | | ]; last first .
-        by move=> k Hisempty; rewrite /fixlist_index_of fixlist_empty_find_index' //=.
-      move=> prf k.
-      rewrite /fixlist_index_of//=.
-      move: IHn; rewrite/fixlist_length/fixlist_unwrap//= => IHn.
+      move: ls k ind => [ ] .
+      elim: n .
+           by move=> [ ] //=.
+      move=> n IHn [ //= | x xs] .
+      move=>  Hls k ind; move: (Hls); move: Hls => /eqP [] /eqP Heqn Hls Hith Hfind .
+      move: IHn (Hith) (Hfind) .
+      rewrite /fixlist_index_of //= /ntuple_head/thead/tnth//= /ntuple_tail => IHn.
       move: (erefl _).
-      case: {2 3}(x == k) => //= Hxkeq Hth .
-        by move=> [] <- //=.
-      rewrite /tuple/behead_tuple/fixlist_length/fixlist_unwrap; move: (behead_tupleP _) => //= prf'.
-      move => Hxkeq IHx Histh  Heq.
-      rewrite  -(addn1 (length _)).
-      apply ltn_addr.
-      apply IHx with (i:=prf') (acc:= acc) (k:=k) => //=.
-      move: IHn; rewrite/fixlist_length/fixlist_unwrap//= => IHn.
-      move: (prf) => /eqP [] /eqP prf'.
-      apply IHn with (i:= prf') (acc:= acc).
-     
-                  move=> prf acc k
-
-      rewrite/thead//=.
-
- 
-
-
-    Lemma fixlist_index_of_lt n A (fls: fixlist A n ) k ind : fixlist_is_top_heavy fls ->
-                                    fixlist_index_of k fls = Some ind -> ind < fixlist_length fls.
-    Proof.
-      move: fls => [ls].
-      move: n; elim: ls => [ | x xs IHx] n Hls//=.
-        by rewrite /fixlist_index_of//=/fixlist_index_of';
-        move: (Hls); move/eqP: Hls => //= <- //=.
-      move: Hls.
-      case: n => [ //= |n].
-      case: x => [ x | ] Hls; last first.
-      move: (erefl _) => //= _ .
-      rewrite /fixlist_is_empty/tuple.
-      rewrite /fixlist_index_of//=.
-      rewrite /ntuple_tail //=.
-      move: (behead_tupleP _) => //= .
-      move: Hls.
-      elim: xs.
-      rewrite /fixlist_unwrap/fixlist_index_of'//=.
-      r
-      move: Hls => //=.
-      rewrite /fixlist_is_top_heavy //=.
-      move=> Hls.
-      move=> Histh.
-      move: Hls.
-      move: (erefl _).
+      move: (behead_tupleP _) => //=.
+      move=> Htemp; rewrite (proof_irrelevance _ Htemp Heqn); clear Htemp.
+      move: Hls Hith Hfind .
+      case: x => [ x| ] Hith' Hfind'; last first.
+        by move=>  Hempty; rewrite fixlist_empty_find_index' //=.
+      move=> Hfindt; move: (Hfindt).
+      rewrite/tuple; rewrite/behead_tuple; move: (behead_tupleP _) => //= Htemp;
+      rewrite (proof_irrelevance _ Htemp Heqn); clear Htemp.
+      move=>   Hith .
+      move: (erefl _) Hith; case Heqk: (_ == _) =>  _; last first.
+        move=> Hflind _ Hith /(fixlist_index_pred ) Hind.
+        have Hosn: (0 < 1). by [].
+        apply Hind in Hosn. clear Hind; move: Hosn => //= Hind.
+        move: (IHn xs Heqn k ind.-1 Hith Hind).
+        rewrite /fixlist_length/fixlist_unwrap //= -subn1.
+        case: (length _) => [|len].
+          by rewrite ltn0.
+          by rewrite !ltnS leq_subLR addnC addn1.
+     by move=> Hlen _ Hith [] <-; rewrite /fixlist_length/fixlist_unwrap//=.
+  Qed.
 
 
-    Lemma fixlist_index_set_is_top_heavy n A (fls: fixlist n A) k v v': fixlist_is_top_heavy fls ->
+
+
+
+
+  Lemma fixlist_index_set_is_top_heavy n (fls: fixlist n) k v v': fixlist_is_top_heavy fls ->
                                     fixlist_index_of k fls = Some v' ->
-                          fixlist_is_top_heavy (fixlist_set_nth fls v k).
+                          fixlist_is_top_heavy (fixlist_set_nth fls k v ).
+  Proof.
 
 
 
