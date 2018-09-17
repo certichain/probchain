@@ -992,10 +992,51 @@ Definition fixlist n := n.-tuple (option A).
 
 
 
-  Lemma fixlist_index_set_is_top_heavy n (fls: fixlist n) k v v': fixlist_is_top_heavy fls ->
-                                    fixlist_index_of k fls = Some v' ->
-                          fixlist_is_top_heavy (fixlist_set_nth fls k v ).
+  Lemma fixlist_index_set_is_top_heavy n (fls: fixlist n) k ind: fixlist_is_top_heavy fls ->
+                                    fixlist_index_of k fls = Some ind ->
+                          fixlist_is_top_heavy (fixlist_set_nth fls k ind ).
   Proof.
+      move: fls k ind => [ ] .
+      elim: n .
+        by move=> [ ] //=.
+      move=> n IHn [ //= | x xs] Heqn k ind Hith_base Hind_of .
+      move: (Hith_base) (Hind_of); move: IHn.
+      rewrite /fixlist_set_nth//=/thead (tnth_nth x) //= => IHn.
+      move: (erefl _) => //=.
+      move: (erefl _) => //=.
+      move: Heqn Hith_base Hind_of .
+      case: x => [x | ] Heqn Hith_base Hind_of //=; last first.
+        move=> prf _ Hisempty.
+        by rewrite fixlist_empty_find_index //=.
+      move: Heqn Hith_base Hind_of .
+      case: ind => [ | ind]  Heqn Hith_base Hind_of Hlen //=.
+        move=>    _ Hith Hind.
+        move: Hith.
+        rewrite /tuple/behead_tuple/ntuple_tail;
+        move:  (behead_tupleP _) => //= prf' ;
+        move: (behead_tupleP _) => //= prf''.
+        by rewrite (proof_irrelevance _ prf' prf'').
+      move=> _ .
+      rewrite /tuple/ntuple_tail//=.
+      move: (behead_tupleP _) => //= Heqn'.
+      move: (behead_tupleP _) => //= Hsz.
+      have: ((Tuple (n:=n) (tval:=set_tnth (Tuple (n:=n) (tval:=xs) Heqn') (Some k) ind) Hsz) =
+        set_tnth (Tuple (n:=n) (tval:=xs) Heqn') (Some k) ind).
+        move: Hsz.
+        by case: (set_tnth _) => //= ls prf0 prf1; rewrite (proof_irrelevance _ prf0 prf1) //=.
+      move=> -> Hith .
+
+      move: IHn Hind_of; rewrite /fixlist_index_of => IHn Hind_of //=.
+      move: (erefl _); case Hxkeqn: (_ == _) => _ //=.
+      move=> /fixlist_index_pred Hsn.
+      have Hfindof: (0 < 1). by []. apply Hsn in Hfindof; clear Hsn; move: Hfindof => //=.
+      rewrite /ntuple_tail; move: (behead_tupleP _) => //= Htemp.
+      rewrite (proof_irrelevance _ Htemp Heqn); clear Htemp => Hindof.
+      apply IHn => //=.
+      by rewrite (proof_irrelevance _ Heqn' Heqn).
+
+    Qed.
+
 
 
 
