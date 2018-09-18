@@ -1405,19 +1405,52 @@ Definition no_successful_rounds (w: World) (from to : nat) : 'I_N_rounds :=
       then fun H => Ordinal H
       else fun _ => Ordinal valid_N_rounds) (erefl b).
 
+About bounded_successful_round_internal.
+
+
+Definition no_bounded_successful_rounds'_internal (bm : BlockMap) (from to : nat) : nat :=
+  length(filter
+    (fun round => bounded_successful_round_internal bm round)
+    (itoj from to)).
+
 
 Definition no_bounded_successful_rounds' (w : World) (from : nat) (to : nat) : nat :=
   length(filter
     (fun round => bounded_successful_round w round)
     (itoj from to)).
 
+Lemma no_bounded_successful_rounds'_internalP (w : World) from to :
+  no_bounded_successful_rounds' w from to = no_bounded_successful_rounds'_internal [w.blocks] from to.
+Proof.
+  by rewrite/no_bounded_successful_rounds'//=.
+Qed.
+
 Lemma valid_Sn n : n > 0 -> n.+1 > 0. by []. Qed.
+
+
+Definition no_bounded_successful_rounds_internal (bm: BlockMap) (from to : nat) : 'I_N_rounds.+1 :=
+  let b := ((no_bounded_successful_rounds'_internal bm from to) < N_rounds.+1 ) in
+   (if b as b0 return (((no_bounded_successful_rounds'_internal bm from to) < N_rounds.+1 ) = b0 -> 'I_N_rounds.+1)
+      then fun H => Ordinal H
+      else fun _ => Ordinal (valid_Sn _ valid_N_rounds)) (erefl b).
+
+
 
 Definition no_bounded_successful_rounds (w: World) (from to : nat) : 'I_N_rounds.+1 :=
   let b := ((no_bounded_successful_rounds' w from to) < N_rounds.+1 ) in
    (if b as b0 return (((no_bounded_successful_rounds' w from to) < N_rounds.+1 ) = b0 -> 'I_N_rounds.+1)
       then fun H => Ordinal H
       else fun _ => Ordinal (valid_Sn _ valid_N_rounds)) (erefl b).
+
+
+Lemma no_bounded_successful_rounds_internalP (w : World) from to :
+  no_bounded_successful_rounds w from to = no_bounded_successful_rounds_internal [w.blocks] from to.
+Proof.
+  by rewrite/no_bounded_successful_rounds'//=.
+Qed.
+
+
+
 
 
 

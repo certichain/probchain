@@ -315,6 +315,29 @@ Definition honest_actor_has_chain_at_round w addr c r : bool :=
    )
 .
 
+Definition actor_n_has_chain_length_at_round_internal
+           (ah: fixlist [eqType of BlockChain * 'I_N_rounds * 'I_n_max_actors] (n_max_actors * N_rounds))
+           l addr r : bool :=
+   (has
+      (* there is a record *)
+      (fun pr => 
+         let: (rec_chain, rec_round, rec_actr)  := pr in 
+         [&&
+          (* of the block adopting/broadcasting the chain *)
+          (fixlist_length rec_chain  == l),
+          (* at round r *)
+          (eq_op ( rec_round) ( r)) &
+          (* by the actor *) 
+          (nat_of_ord rec_actr == addr) ])
+      (fixlist_unwrap ah)
+   )
+   ||
+   (* or - implicit in the starting conditions, every actor has a chain length of 0 at round 0 *)
+   ((eq_op (nat_of_ord r) 0%nat)%nat && (eq_op l 0)%nat).
+
+
+
+
 Definition actor_n_has_chain_length_at_round w l addr r : bool :=
    (has
       (* there is a record *)
@@ -332,6 +355,34 @@ Definition actor_n_has_chain_length_at_round w l addr r : bool :=
    ||
    (* or - implicit in the starting conditions, every actor has a chain length of 0 at round 0 *)
    ((eq_op (nat_of_ord r) 0%nat)%nat && (eq_op l 0)%nat).
+
+Lemma actor_n_has_chain_length_at_round_internalP w l addr r :
+  actor_n_has_chain_length_at_round w l addr r =
+  actor_n_has_chain_length_at_round_internal [w.adopt_history] l addr r.
+Proof.
+  by rewrite /actor_n_has_chain_length_at_round//=.
+Qed.
+
+Definition actor_n_has_chain_length_ge_at_round_internal
+           (ah: fixlist [eqType of BlockChain * 'I_N_rounds * 'I_n_max_actors] (n_max_actors * N_rounds))
+           l addr (r : 'I_N_rounds) : bool :=
+   (has
+      (* then there is a record *)
+      (fun pr => 
+         let: (rec_chain, rec_round, rec_actr)  := pr in 
+         [&&
+          (* of the block adopting/broadcasting a chain of at least length l *)
+          (fixlist_length rec_chain >= l)%nat,
+          (* at round r or earlier *)
+          (nat_of_ord rec_round <= nat_of_ord r)%nat &
+          (* by the actor *) 
+          (nat_of_ord rec_actr == addr) ])
+      (fixlist_unwrap ah)
+   )
+   ||
+   (* or - implicit in the starting conditions, every actor has a chain length of 0 at round 0 *)
+   ((eq_op l 0)%nat).
+
 
 
 
@@ -352,6 +403,15 @@ Definition actor_n_has_chain_length_ge_at_round w l addr (r : 'I_N_rounds) : boo
    ||
    (* or - implicit in the starting conditions, every actor has a chain length of 0 at round 0 *)
    ((eq_op l 0)%nat).
+
+
+Lemma actor_n_has_chain_length_ge_at_round_internalP w l addr r :
+  actor_n_has_chain_length_ge_at_round w l addr r =
+  actor_n_has_chain_length_ge_at_round_internal [w.adopt_history] l addr r.
+Proof.
+  by rewrite /actor_n_has_chain_length_ge_at_round//=.
+Qed.
+
 
 
 
@@ -2744,16 +2804,45 @@ Proof.
 
           ) w' iscrpt os hash_value active_hash_link
                                blc_rcd active_addr active_state
-                               result active_transaction_pool) => //=.
+                               result active_transaction_pool) => //=;
     admit.
 
 
   (* adversary player mint case *)
     move=> IHw' Hprw' Hacthaschain Hhon  Hhash_pr .
-    admit.
+    move=> Hbound o_addr Hhon' .
+    move: o_addr Hbound Hhon' => [o_addr Ho_addr].
+    move: IHw'.
+    rewrite /actor_n_is_honest.
+    move: (erefl _).
+    rewrite {2 3}Ho_addr => //= Htemp. rewrite (proof_irrelevance _ Htemp Ho_addr); clear Htemp.
+    rewrite {1}/adversary_mint_player_step/actor_n_is_corrupt//=.
+    case: (_ < _)%nat => //=.
+    case: (isSome _) => //=.
+    rewrite bounded_successful_round_internalP //= .
+    admit. (* WIP *)
+    rewrite bounded_successful_round_internalP //= .
+    admit. (* WIP *)
+    rewrite bounded_successful_round_internalP //= -bounded_successful_round_internalP => Ht /Ht IH; clear Ht.
+    move: (IH (Ordinal Ho_addr)); move: (erefl _);
+      rewrite {2 3}Ho_addr => //= Htemp; rewrite (proof_irrelevance _ Htemp Ho_addr)=> Ht; clear Htemp.
+    rewrite /adversary_mint_player_step//=.
+    case: (_ < _)%nat => //=.
+    case: (isSome _ ) => /Ht.
+    rewrite !no_bounded_successful_rounds_internalP //=.
+    rewrite -!no_bounded_successful_rounds_internalP //=.
+    rewrite !actor_n_has_chain_length_ge_at_round_internalP //=.
+    rewrite -!actor_n_has_chain_length_ge_at_round_internalP //=.
+    admit. (* WIP *)
+
+    rewrite !no_bounded_successful_rounds_internalP //=.
+    rewrite -!no_bounded_successful_rounds_internalP //=.
+    rewrite !actor_n_has_chain_length_ge_at_round_internalP //=.
+    rewrite -!actor_n_has_chain_length_ge_at_round_internalP //=.
+    admit. (* WIP *)
   (* adversary global case *)
     move=> IHw' Hprw' Hacthaschain Hhon  Hhash_pr .
-    admit.
+    admit. (* WIP *)
   (* adversary corrupt case *)
     move=> IHw' Hprw' Hacthaschain Hlast_hashed_round Haddr_to_index.
     move=> Hbound o_addr Hhon .
@@ -2766,7 +2855,6 @@ Proof.
       by rewrite tnth_set_nth_eq //=.
     move/negP/negP: Hcorrupt_addr => Hcorrupt_addr.
     rewrite tnth_set_nth_neq //= => Hnotcorrupt.
-
     apply:(@IHw' _  (Ordinal Ho_addr)) => //=; last first.
     move: Hnotcorrupt; rewrite /actor_n_is_honest/actor_n_is_corrupt//=; move: (erefl _).
     by rewrite {2 3}Ho_addr => prf; rewrite (proof_irrelevance _ prf Ho_addr).
