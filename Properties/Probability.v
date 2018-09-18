@@ -2841,7 +2841,18 @@ Proof.
     rewrite -!actor_n_has_chain_length_ge_at_round_internalP //=.
     admit. (* WIP *)
   (* adversary global case *)
-    move=> IHw' Hprw' Hacthaschain Hhon  Hhash_pr .
+    move: adv_state => [[adv_state os] block].
+    move=> IHw' Hprw' Hacthaschain Hhashed Hactive Hhash_pr .
+    move=> Hbound [o_addr Ho_addr] Hhon' .
+    move: Hbound Hhon'.
+    rewrite /adversary_mint_global_step//=.
+    rewrite !bounded_successful_round_internalP //=.
+    rewrite !actor_n_has_chain_length_ge_at_round_internalP //=.
+    rewrite !actor_n_is_honest_internalP//=.
+    rewrite !actor_n_is_honest_unwrapP//=.
+    rewrite -!actor_n_is_honest_unwrapP//=.
+    rewrite -!actor_n_is_honest_internalP//=.
+    rewrite !no_bounded_successful_rounds_internalP //=.
     admit. (* WIP *)
   (* adversary corrupt case *)
     move=> IHw' Hprw' Hacthaschain Hlast_hashed_round Haddr_to_index.

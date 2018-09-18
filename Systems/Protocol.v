@@ -1320,14 +1320,77 @@ Definition world_round (w : World) : nat :=
   let: state := world_global_state w in
   global_current_round state.
 
+
+Definition actor_n_is_corrupt_internal_unwrap
+           (actors : n_max_actors.-tuple [eqType of ([eqType of LocalState] * [eqType of bool])])
+           (n: 'I_n_max_actors) : bool :=
+  let: (actor, is_corrupted) := tnth  actors n in
+  is_corrupted.
+
+Definition actor_n_is_corrupt_internal
+           (gs : GlobalState) (n: 'I_n_max_actors) : bool :=
+  let: (actor, is_corrupted) := tnth  (global_local_states gs) n in
+  is_corrupted.
+
+
+Lemma actor_n_is_corrupt_unwrapP (gs:GlobalState) (n:'I_n_max_actors) :
+    actor_n_is_corrupt_internal gs n = actor_n_is_corrupt_internal_unwrap [gs.actors] n.
+Proof.
+  by rewrite/actor_n_is_corrupt_internal//=.
+Qed.
+
+
 Definition actor_n_is_corrupt (w:World) (n:'I_n_max_actors) : bool :=
   let: (actor, is_corrupted) := tnth  (global_local_states (world_global_state w)) n in
   is_corrupted.
-Definition actor_n_is_honest (w: World) (n: nat) : bool.
-  case (n < n_max_actors) eqn:H.
-  exact (~~(actor_n_is_corrupt w (Ordinal H))).
-  exact false.
-Defined.
+
+Lemma actor_n_is_corrupt_internalP (w:World) (n:'I_n_max_actors) :
+    actor_n_is_corrupt w n = actor_n_is_corrupt_internal [w.state] n.
+Proof.
+  by rewrite/actor_n_is_corrupt//=.
+Qed.
+
+
+Definition actor_n_is_honest_internal_unwrap
+           (actors : n_max_actors.-tuple [eqType of ([eqType of LocalState] * [eqType of bool])])
+           (n: nat) : bool :=
+  let b := n < n_max_actors in
+  let H : (n < n_max_actors) = b := erefl b in
+    (if b as b0 return ((n < n_max_actors) = b0 -> bool)
+     then fun H0 : (n < n_max_actors) = true =>
+            ~~ actor_n_is_corrupt_internal_unwrap actors (Ordinal (n:=n_max_actors) (m:=n) H0)
+    else xpred0) H.
+
+
+Definition actor_n_is_honest_internal (gs: GlobalState) (n: nat) : bool :=
+  let b := n < n_max_actors in
+  let H : (n < n_max_actors) = b := erefl b in
+    (if b as b0 return ((n < n_max_actors) = b0 -> bool)
+    then fun H0 : (n < n_max_actors) = true => ~~ actor_n_is_corrupt_internal gs (Ordinal (n:=n_max_actors) (m:=n) H0)
+    else xpred0) H.
+
+Lemma actor_n_is_honest_unwrapP (gs: GlobalState) (n: nat) :
+  actor_n_is_honest_internal gs n = actor_n_is_honest_internal_unwrap [gs.actors] n.
+Proof.
+  by rewrite /actor_n_is_honest_internal//=.
+Qed.
+
+Definition actor_n_is_honest (w: World) (n: nat) : bool :=
+  let b := n < n_max_actors in
+  let H : (n < n_max_actors) = b := erefl b in
+    (if b as b0 return ((n < n_max_actors) = b0 -> bool)
+    then fun H0 : (n < n_max_actors) = true => ~~ actor_n_is_corrupt w (Ordinal (n:=n_max_actors) (m:=n) H0)
+    else xpred0) H.
+
+
+
+Lemma actor_n_is_honest_internalP w n :
+  actor_n_is_honest w n = actor_n_is_honest_internal [w.state] n.
+Proof.
+  by rewrite/actor_n_is_honest//=.
+Qed.
+
+
 
 Definition is_uncorrputed_actor (actors: n_max_actors.-tuple [eqType of ([eqType of LocalState] * [eqType of bool])]) (addr: Addr) : option ('I_n_max_actors* LocalState).
   case addr eqn:Haddr.
