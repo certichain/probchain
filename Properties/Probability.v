@@ -2902,7 +2902,7 @@ Proof.
     move: Hnotcorrupt; rewrite /actor_n_is_honest/actor_n_is_corrupt//=; move: (erefl _).
     by rewrite {2 3}Ho_addr => prf; rewrite (proof_irrelevance _ prf Ho_addr).
   (* round end case *)
-    move=> IHw' Hprw Hacthaschain Hlast_hashed_round [o_addr Ho_addr] ; move: Hlast_hashed_round.
+    move=> IHw' Hprw Hrndended Hupd Hbounded [o_addr Ho_addr]; move: Hbounded.
     rewrite /round_end_step//=.
     rewrite bounded_successful_round_internalP//= -bounded_successful_round_internalP //= => /IHw' IHw.
     clear IHw'; move: (IHw (Ordinal Ho_addr)) ; clear IHw.
@@ -3140,7 +3140,7 @@ Proof.
     move: Hnotcorrupt; rewrite /actor_n_is_honest/actor_n_is_corrupt//=; move: (erefl _).
     by rewrite {2 3}Ho_addr => prf; rewrite (proof_irrelevance _ prf Ho_addr).
   (* round end case *)
-    move=> IHw' Hprw Hacthaschain Hlast_hashed_round [o_addr Ho_addr] ; move: Hlast_hashed_round.
+    move=> IHw' Hprw Hacthaschain Hupd Hbounded [o_addr Ho_addr]; move: Hbounded.
     rewrite /round_end_step//=.
     rewrite bounded_successful_round_internalP//= -bounded_successful_round_internalP //= => /IHw' IHw.
     clear IHw'; move: (IHw (Ordinal Ho_addr)) ; clear IHw.
