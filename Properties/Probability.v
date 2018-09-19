@@ -2759,7 +2759,7 @@ Proof.
     move: (erefl _); rewrite {2 3 7}Ho_addr /actor_n_is_corrupt_internal //= => Htmp.
     rewrite (proof_irrelevance _ Htmp Ho_addr) => //=.
     by move=> /deliver_messages_preserves_honest.
-    admit.
+    admit. (* note: r should be r.-1, and then rearrange to show *)
     rewrite /world_executed_to_round Hw_state//=.
   (* adversary end case *)
     move=> IHw' Hprw' Hacthaschain Hhon  s Hpradv.
@@ -2824,8 +2824,11 @@ Proof.
     rewrite /fixlist_is_empty =>/eqP -> //=.
   (* honest mint case *)
     move=> Hbase Hth_pr Hhonest_activation Hactive_state Ha_head_link Ha_txpool Hhash_pr Hbounded_success .
-    move=> [o_addr Ho_addr] Hhon.
+    move=> [o_addr Ho_addr] Hhon .
+    move: Hhon Hbounded_success.
     apply /(@honest_mint_stepP (fun w =>
+          actor_n_is_honest w (Ordinal (n:=n_max_actors) (m:=o_addr) Ho_addr) ->
+          bounded_successful_round w (s - delta) ->
           actor_n_has_chain_length_ge_at_round w
             (l + no_bounded_successful_rounds w r (s - delta))
             (Ordinal (n:=n_max_actors) (m:=o_addr) Ho_addr) (Ordinal (n:=N_rounds) (m:=s) Hsvalid) ->
@@ -2837,7 +2840,39 @@ Proof.
           ) w' iscrpt os hash_value active_hash_link
                                blc_rcd active_addr active_state
                                result active_transaction_pool) => //=;
+    clear  Hhonest_activation Hactive_state Ha_head_link Ha_txpool iscrpt ;
+    clear result os hash_value active_hash_link blc_rcd active_addr active_state Hhash_pr active_transaction_pool;
+    move=> a_crpt a_addr  a_stt new_os a_block a_result a_hash_res a_hl a_tp;
+    [ | move=> Hlt |  |  move=> Hlt |  | move=>Hlt ] => Ha_addr Ha_stt Ha_hl Htp Hhash_pr Hmaxvld;
+    [  move=> Hlast | |    move=> Hlast |   | | move=>Hlast  ]; 
+
+    rewrite !actor_n_has_chain_length_ge_at_round_internalP //=;
+    rewrite !actor_n_is_honest_internalP //=;
+    rewrite !actor_n_is_honest_unwrapP //=;
+    rewrite !bounded_successful_round_internalP//=;
+    rewrite !no_bounded_successful_rounds_internalP //=;
+    rewrite /actor_n_has_chain_length_ge_at_round_internal //=;
+    try (rewrite ?fixlist_insert_rewrite; [ |
+          by move/Rlt_not_eq/nesym/world_step_adoption_history_top_heavy:Hth_pr |
+          by move/Rlt_not_eq/nesym/world_step_adoption_history_overflow_safe: Hth_pr]; rewrite has_rcons).
+    (* honest mint failed last step *)
+    rewrite -!bounded_successful_round_internalP//= => Hhon Hbsucc.
     admit.
+    (* honest mint failed step *)
+    admit.
+
+    (* honest mint failed update last step *)
+    admit.
+
+    (* honest mint failed update step *)
+    admit.
+
+    (* honest mint failed success step *)
+    admit.
+
+    (* honest mint failed succees update step *)
+    admit.
+
 
 
   (* adversary player mint case *)
