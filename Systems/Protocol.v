@@ -2134,3 +2134,14 @@ Proof.
   case: {2 3 }(gca < n_max_actors)%nat => //= prf'.
   by case: ((tnth _ _).2) => //= [] [] <- //=.
 Qed.
+
+Lemma actor_n_is_honestP w r : forall prf, actor_n_is_honest w r = ~~ actor_n_is_corrupt w (Ordinal (n:=n_max_actors) (m:=r) prf).
+Proof.
+  move=> prf.
+  rewrite /actor_n_is_honest; move: (erefl _).
+  case Hltn: {2 3}(r < n_max_actors)%nat => //= prf' .
+  by rewrite (proof_irrelevance _ prf' prf).
+  move: Hltn.
+  by rewrite {1}prf.
+Qed.
+

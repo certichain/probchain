@@ -193,6 +193,7 @@ Definition Addr_to_index (a : Addr) : option ('I_n_max_actors).
   exact None.
 Defined.
 
+
 Definition world_step_internal (w: World) (h: RndGen) : Comp [finType of (option World)] :=
           match h with
             | RoundEnd => 
