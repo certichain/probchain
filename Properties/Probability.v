@@ -2854,10 +2854,28 @@ Proof.
     rewrite /actor_n_has_chain_length_ge_at_round_internal //=;
     try (rewrite ?fixlist_insert_rewrite; [ |
           by move/Rlt_not_eq/nesym/world_step_adoption_history_top_heavy:Hth_pr |
-          by move/Rlt_not_eq/nesym/world_step_adoption_history_overflow_safe: Hth_pr]; rewrite has_rcons).
+          by move/Rlt_not_eq/nesym/world_step_adoption_history_overflow_safe: Hth_pr]; rewrite !has_rcons).
     (* honest mint failed last step *)
     rewrite -!bounded_successful_round_internalP//= => Hhon Hbsucc.
+    move=> /orP [/orP [/andP [Hllen /andP [ Hrnds  Haddr ]] | ] | ].
+    apply/orP; left; apply/orP; left; apply/andP; split => //=; [ | apply/andP; split => //=].
     admit.
+    admit.
+    admit.
+    rewrite ssrnat.addn_eq0 => /andP [Hl0 Hbseq0].
+    apply/orP; right.
+    move/eqP: (Hl0) => -> //=; rewrite add0n.
+    move: Hbseq0.
+    rewrite -!no_bounded_successful_rounds_internalP .
+    apply no_bounded_successful_roundsP => //=.
+    (* stopped here - convince me this will work *)
+    apply no_bounded_successful_roundsP => //=.
+    move=> Hnbsr _; move: Hnbsr.
+    rewrite /no_bounded_successful_rounds'//= /itoj //=.
+    Search _ no_bounded_successful_rounds.
+    rewrite /no_bounded_successful_rounds//=.
+    apply/eqP; apply/no_bounded_successful_rounds_eq0.
+    Search _ (eq_op (_ + _)%nat 0%nat).
     (* honest mint failed step *)
     admit.
 
@@ -3158,6 +3176,10 @@ Proof.
     rewrite -!actor_n_is_honest_unwrapP//=.
     rewrite -!actor_n_is_honest_internalP//=.
     rewrite !no_bounded_successful_rounds_internalP //=.
+    move=> Hbound Hhon .
+    rewrite /no_bounded_successful_rounds_internal /no_bounded_successful_rounds'_internal //=.
+    rewrite /bounded_successful_round_internal.
+    rewrite /unsuccessful_round_internal/successful_round_internal //=.
     admit. (* WIP *)
   (* adversary corrupt case *)
     move=> IHw' Hprw' Hacthaschain Hlast_hashed_round Haddr_to_index.
@@ -3246,6 +3268,7 @@ Proof.
   rewrite no_bounded_successful_rounds_lim //= .
   by rewrite mulnC addnA.
   exact delta_valid.
+  rewrite /no_bounded_successful_rounds'/bounded_successful_round/unsuccessful_round.
   (* TODO(Kiran): Complete this proof *)
 Admitted.
 
