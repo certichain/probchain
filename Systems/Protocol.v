@@ -1314,7 +1314,7 @@ Definition nth_block (w : World) (chain : BlockChain) (n : nat) :=
 
 Definition actor_n_chain_length (w : World) (n : 'I_n_max_actors) : nat :=
   let: (actor, is_corrupted) := tnth (global_local_states (world_global_state w)) n in
-  length (honest_current_chain actor) .
+  fixlist_length (honest_current_chain actor) .
 
 Definition world_round (w : World) : nat := 
   let: state := world_global_state w in

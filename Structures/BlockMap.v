@@ -41,22 +41,23 @@ Definition BlockMap_pairs (bmap: BlockMap) : seq (Block * (bool * nat)) :=
     map (fun pair => let: (b',(b, or)) := pair in (b', (b, nat_of_ord or))) (fixlist_unwrap  bmap).
 
 
+
 Definition BlockMap_put_honest (bl : Block) (round: (ordinal N_rounds)) (map: BlockMap) :=
-    fixmap_put (bl) (false, round) map.
+    fixlist_insert map ((bl), (false, round)) .
         
 Definition BlockMap_put_adversarial (bl : Block) (round : (ordinal N_rounds)) (map: BlockMap):=
-    fixmap_put (bl) (true, round) map.
+    fixlist_insert map ((bl), (true, round)) .
 
 
 Definition BlockMap_put_honest_on_success (o_bl : option Block) (round: (ordinal N_rounds)) (map: BlockMap) :=
     match o_bl with
-        | Some (bl) => fixmap_put (bl) (false, round) map
+        | Some (bl) => fixlist_insert map ((bl), (false, round)) 
         | None => map
     end.        
 
 Definition BlockMap_put_adversarial_on_success (o_bl : option Block) (round: (ordinal N_rounds)) (map: BlockMap) :=
     match o_bl with
-        | Some (bl) => fixmap_put (bl) (true, round) map
+        | Some (bl) => fixlist_insert map ((bl), (true, round)) 
         | None => map
     end.        
 
