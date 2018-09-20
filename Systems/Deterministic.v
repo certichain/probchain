@@ -567,3 +567,11 @@ Fixpoint world_step (w_s : World) (s : seq RndGen) : Comp [finType of (option Wo
         end.
 
 
+
+Notation "'P[' a '===' b ']'" := (evalDist a b).
+Notation "'P[' a ']'" := (evalDist a true).
+Notation "'E[' a ']'" := (expected_value a).
+Notation " a '|>' b " := (w_a <-$ a; b w_a) (at level 50).
+Notation " w '>>=' a '<&&>' b " := (fun w => ret (a  && b )) (at level 49).
+Notation " w '>>=' a '<||>' b " := (fun w => ret (a  || b )) (at level 49).
+

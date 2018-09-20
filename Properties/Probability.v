@@ -3,8 +3,7 @@ Require Import ssreflect ssrbool ssrnat seq ssrfun eqtype bigop fintype choice .
 From mathcomp.ssreflect
 Require Import tuple.
 
-Require Import Reals Fourier FunctionalExtensionality.
-From infotheo
+Require Import Reals Fourier FunctionalExtensionality. From infotheo
 Require Import proba ssrR Reals_ext logb ssr_ext ssralg_ext bigop_ext Rbigop .
 
 Require Import Nsatz.
@@ -12,8 +11,9 @@ Require Import Nsatz.
 Require Import Bvector.
 
 
-From Probchain
-Require Import ValidSchedule Deterministic Comp Notationv1 BlockChain Protocol OracleState BlockMap InvMisc Parameters FixedList FixedMap.
+From Probchain Require Import
+     ValidSchedule Deterministic Comp Notationv1 BlockChain Protocol
+     OracleState BlockMap InvMisc Parameters FixedList FixedMap SubSteps.
 
 Require Import Coq.Logic.FunctionalExtensionality.
 Require Import Coq.Logic.ProofIrrelevance.
@@ -21,69 +21,7 @@ Require Import Coq.Program.Equality.
 
 Set Implicit Arguments.
 
-Variable probability_constant : R.
 
-
-
-Lemma Rleq_eqVlt : forall m n : R, (m <= n) <-> (m = n) \/ (m < n).
-Proof.
-  split.
-  move=>/Rle_lt_or_eq_dec.
-  by case=> H; [right|left].
-  by case=> [/Req_le | /Rlt_le].
-Qed.
-
-  (* Probably not the best way to do this *)
-  Lemma R_w_distr (A : finType) (f g : A -> R) : (forall w : A, (f w * g w) = 0) -> (forall w : A, (f w) = 0) \/ (exists w : A, (g w) = 0).
-    move=> H.
-    case ([forall w, f w == 0]) eqn: Hall0.
-    by move/eqfunP: Hall0 => Hall; left.
-    right.
-    apply/exists_eqP.
-    move/negP/negP: Hall0.
-    rewrite negb_forall=>/existsP [w /eqP Hw].
-    by move: (H w) => /Rmult_integral [Hf0 | Hg0]; [move: (Hw Hf0) => [] | apply /exists_eqP; exists w].
-  Qed.
-
-
-
-
-Lemma addr2n r : (r - 2 < r)%nat \/ (r == (r - 2%nat)%nat)%bool /\ (r == 0%nat)%bool.
-Proof.
-  elim r=> //.
-  by right; rewrite sub0n.
-  move=> n [IHn|IHn].
-  case (n > 1)%nat eqn: H.
-  by left; rewrite subSn; [rewrite -(addn1 (n - 2%nat)) -(addn1 n) ltn_add2r| ].
-  move/negP/negP: H.
-  rewrite -leqNgt leq_eqVlt.
-  by move=>/orP[/eqP -> | ]; [left; rewrite subnn | rewrite ltn1; move=>/eqP ->; left].
-  by destruct IHn as [_ Heq0]; move/eqP:Heq0 -> ; left.
-Qed.  
-
-(* Subtracts a value from an ordinal value returning another value in the ordinal range *)
-Definition ordinal_sub {max : nat} (value : 'I_max) (suband : nat) : 'I_max :=
-  ssr_have (value - suband < max)%nat
-  match value as o return (o - suband < max)%nat with
-  | @Ordinal _ m i =>
-      (Hpft <- is_true_true;
-       (fun Hpf : (Ordinal (n:=max) (m:=m) i < max)%nat =>
-        eq_ind_r [eta is_true] Hpft (subn_ltn_pr (Ordinal (n:=max) (m:=m) i) suband max Hpf))) i
-  end [eta Ordinal (n:=max) (m:=value - suband)]
-.
-
-
-
-Lemma Rle_big_eqP (A : finType) (f g : A -> R) (P : pred A) :
-   (forall i : A, P i -> f i <= g i) ->
-   \rsum_(i | P i) g i = \rsum_(i | P i) f i <->
-   (forall i : A, P i -> g i = f i).
-Proof.
-  move=> hf; split => [/Rle_big_eq H//=|].
-    by  exact (H hf).
-    move=> H.
-      by  exact (@eq_bigr _ _ _ A _ P  g f H).
-Qed.
 
 Definition schedule_produces_none (s: seq.seq RndGen) :=
     o_w' <-$ world_step initWorld s;
@@ -108,41 +46,7 @@ Proof.
 Qed.
 
 
-
-Notation "'P[' a '===' b ']'" := (evalDist a b).
-Notation "'P[' a ']'" := (evalDist a true).
-Notation "'E[' a ']'" := (expected_value a).
-Notation " a '|>' b " := (w_a <-$ a; b w_a) (at level 50).
-Notation " w '>>=' a '<&&>' b " := (fun w => ret (a  && b )) (at level 49).
-Notation " w '>>=' a '<||>' b " := (fun w => ret (a  || b )) (at level 49).
-
-
-Lemma add_lt0 x y: (0 < x + y)%nat = ((0 <x)%nat && (0 <= y)%nat) || ((0 <=x)%nat && (0 < y)%nat).
-Proof.
-    by induction x => //=.
-Qed.
-
-
-Lemma addn_lt1 x y :  ((x + y)%nat <= 1)%nat -> (((x == 0)) || ((y == 0)))%nat.
-Proof.
-  by case: x => //= x; case: x => //=; case: y => //=.
-Qed.
-
-Lemma addRA_rsum  (A : finType) f g : 
-  \rsum_(i in A) (f i + g i)%R = (\rsum_(i in A) f i + \rsum_(i in A) g i)%R .
-Proof.
-  rewrite unlock.
-  elim index_enum => //=.
-  have H : R0 = 0. (* there's some issues with the types 0 doesn't want to auto-coerce  to R0 *)
-    by [].
-  move: (addR0   ).
-  rewrite /right_id => H'.
-  move: (H' R0).
-  by rewrite H. 
-  move=> x xs IHn.
-  by rewrite IHn addRA (addRC (f x) (g x)) -(addRA (g x)) (addRC (g x)) -(addRA (f x + _)).
-Qed.
-  
+ 
 
 Lemma prob_disjunctive_distr (f g : option World -> bool) : forall sc,
    P[ world_step initWorld sc |> w >>= f w <||> g w ] =
@@ -229,9 +133,6 @@ Proof.
   by rewrite addR0 addRC; move=>/eqP; rewrite eq_sym -subR_eq; move=>/eqP.
 Qed.
 
-Lemma gtRP (a b : R) : reflect (a > b) (a >b b).
-Proof. by rewrite /gtRb /ltRb; apply: (iffP idP); [case Hrlta: (Rlt_dec b a) | case (Rlt_dec b a) ]. Qed.
-
 Lemma prsum_nge0p {A: finType}  f : 
   (forall a : A, 0 <= f a) -> (forall a : A, ~ (f a  > 0)) -> (forall a, f a = 0).
 Proof.
@@ -279,144 +180,12 @@ Proof.
   (* trivial *)
   by rewrite prsumr_negP.
 Qed.
-
-Definition world_executed_to_max_round w :=
-  foldl (fun acc x =>
-           let: (rec_chain, rec_round, rec_actr) := x in
-           max (nat_of_ord rec_round) acc) 0%nat (fixlist_unwrap (world_adoption_history w)).
-
-
-Definition world_executed_to_round w r : bool :=
-  (r <= (global_current_round (world_global_state w)) )%nat.
-
-
-Lemma foldl_rcons (T R : Type) (f : R -> T -> R) (b : R) (x : T) (xs : seq.seq T) : foldl f b (rcons xs x ) = f (foldl f b xs ) x. 
-Proof.
-  by rewrite -cats1 foldl_cat => //=.
-Qed.
-
  
 
 
-Definition honest_actor_has_chain_at_round w addr c r : bool := 
-   (has
-      (* there is a record *)
-      (fun pr => 
-         let: (rec_chain, rec_round, rec_actr)  := pr in 
-         [&&
-            (* of the block adopting/broadcasting the chain *)
-            (rec_chain  == c),
-          (* at round r or earlier *)
-          (nat_of_ord rec_round <= r)%nat &
-          (* by the actor *) 
-          (nat_of_ord rec_actr == addr) ])
-      (fixlist_unwrap (world_adoption_history w))
-   )
-.
-
-Definition actor_n_has_chain_length_at_round_internal
-           (ah: fixlist [eqType of BlockChain * 'I_N_rounds * 'I_n_max_actors] (n_max_actors * N_rounds))
-           l addr r : bool :=
-   (has
-      (* there is a record *)
-      (fun pr => 
-         let: (rec_chain, rec_round, rec_actr)  := pr in 
-         [&&
-          (* of the block adopting/broadcasting the chain *)
-          (fixlist_length rec_chain  == l),
-          (* at round r *)
-          (eq_op ( rec_round) ( r)) &
-          (* by the actor *) 
-          (nat_of_ord rec_actr == addr) ])
-      (fixlist_unwrap ah)
-   )
-   ||
-   (* or - implicit in the starting conditions, every actor has a chain length of 0 at round 0 *)
-   ((eq_op (nat_of_ord r) 0%nat)%nat && (eq_op l 0)%nat).
 
 
 
-
-Definition actor_n_has_chain_length_at_round w l addr r : bool :=
-   (has
-      (* there is a record *)
-      (fun pr => 
-         let: (rec_chain, rec_round, rec_actr)  := pr in 
-         [&&
-          (* of the block adopting/broadcasting the chain *)
-          (fixlist_length rec_chain  == l),
-          (* at round r *)
-          (eq_op ( rec_round) ( r)) &
-          (* by the actor *) 
-          (nat_of_ord rec_actr == addr) ])
-      (fixlist_unwrap (world_adoption_history w))
-   )
-   ||
-   (* or - implicit in the starting conditions, every actor has a chain length of 0 at round 0 *)
-   ((eq_op (nat_of_ord r) 0%nat)%nat && (eq_op l 0)%nat).
-
-Lemma actor_n_has_chain_length_at_round_internalP w l addr r :
-  actor_n_has_chain_length_at_round w l addr r =
-  actor_n_has_chain_length_at_round_internal [w.adopt_history] l addr r.
-Proof.
-  by rewrite /actor_n_has_chain_length_at_round//=.
-Qed.
-
-Definition actor_n_has_chain_length_ge_at_round_internal
-           (ah: fixlist [eqType of BlockChain * 'I_N_rounds * 'I_n_max_actors] (n_max_actors * N_rounds))
-           l addr (r : 'I_N_rounds) : bool :=
-   (has
-      (* then there is a record *)
-      (fun pr => 
-         let: (rec_chain, rec_round, rec_actr)  := pr in 
-         [&&
-          (* of the block adopting/broadcasting a chain of at least length l *)
-          (fixlist_length rec_chain >= l)%nat,
-          (* at round r or earlier *)
-          (nat_of_ord rec_round <= nat_of_ord r)%nat &
-          (* by the actor *) 
-          (nat_of_ord rec_actr == addr) ])
-      (fixlist_unwrap ah)
-   )
-   ||
-   (* or - implicit in the starting conditions, every actor has a chain length of 0 at round 0 *)
-   ((eq_op l 0)%nat).
-
-
-
-
-Definition actor_n_has_chain_length_ge_at_round w l addr (r : 'I_N_rounds) : bool :=
-   (has
-      (* then there is a record *)
-      (fun pr => 
-         let: (rec_chain, rec_round, rec_actr)  := pr in 
-         [&&
-          (* of the block adopting/broadcasting a chain of at least length l *)
-          (fixlist_length rec_chain >= l)%nat,
-          (* at round r or earlier *)
-          (nat_of_ord rec_round <= nat_of_ord r)%nat &
-          (* by the actor *) 
-          (nat_of_ord rec_actr == addr) ])
-      (fixlist_unwrap (world_adoption_history w))
-   )
-   ||
-   (* or - implicit in the starting conditions, every actor has a chain length of 0 at round 0 *)
-   ((eq_op l 0)%nat).
-
-
-Lemma actor_n_has_chain_length_ge_at_round_internalP w l addr r :
-  actor_n_has_chain_length_ge_at_round w l addr r =
-  actor_n_has_chain_length_ge_at_round_internal [w.adopt_history] l addr r.
-Proof.
-  by rewrite /actor_n_has_chain_length_ge_at_round//=.
-Qed.
-
-
-
-
-
-(* note: rewrite this to use a weaker statement - rather than reasoning about the list
- directly, use the length instead  - done *)
 Definition chain_growth_pred w :=
   [forall r : 'I_N_rounds,
       forall l : 'I_Maximum_blockchain_length,
@@ -510,283 +279,6 @@ Lemma prob_some_wP : forall xs,
     by apply Rmult_le_pos; [case (evalDist _); move=> pos_f Hdist; case pos_f => f Hposf; exact (Hposf _) | case (Dist1.d _); move => [f Hposf] Hdist; exact (Hposf _) ].
 Qed.
 
-   
- Lemma itoj_eq_0 s r : (s < r)%nat -> itoj r s = [::].
-  Proof.
-    rewrite /itoj; move=> Hsltr.
-    have H: ((s - r)%nat = 0%nat). by apply /eqP; rewrite subn_eq0 leq_eqVlt; apply /orP; right.
-    rewrite H => //=.
-  Qed.
-
-
-Lemma no_bounded_successful_rounds'_eq0 : forall w r s, (s < r \/ (eq_op r s /\ eq_op r 0))%nat -> (no_bounded_successful_rounds' w r s) = 0%nat.
-Proof.
-  move=> w r s Hrs; rewrite /no_bounded_successful_rounds/no_bounded_successful_rounds'; apply/eqP => //=.
-  destruct Hrs .
-  by rewrite itoj_eq_0 => //=.
-  by move: H => [/eqP -> /eqP ->] //=.
-Qed.
-
-
-
-
-Lemma no_bounded_successful_rounds_eq0 : forall w r s, (s < r \/ (eq_op r s ))%nat -> nat_of_ord (no_bounded_successful_rounds w r s) = 0%nat.
-Proof.
-  move=> w r s Hrs; rewrite /no_bounded_successful_rounds/no_bounded_successful_rounds'; apply/eqP => //=.
-  destruct Hrs .
-  by rewrite itoj_eq_0 => //=.
-  rewrite /itoj.
-  by move/eqP: (H) ->; rewrite subnn //=.
-Qed.
-
-Lemma actor_has_chain_length_generalize  w l o_addr s :
-  actor_n_has_chain_length_at_round w l o_addr s ->
-  actor_n_has_chain_length_ge_at_round w l o_addr s.
-Proof.
-  have blt0 (x:bool) : (x > 0)%nat = x. by case x.
-  rewrite /actor_n_has_chain_length_ge_at_round/actor_n_has_chain_length_at_round !has_count.
-  move=> /orP [ | /andP [/eqP Hseq  Hleq]]; last first.
-  by apply/orP; right.
-  move=> H; apply/orP; left; move: H.
-  elim (fixlist_unwrap _) => //= [[[c r] addr] xs] IHn.
-  rewrite add_lt0; move=>/orP; case => //=.
-  by rewrite blt0; move=>/andP; case; [move=>/andP [/eqP -> /andP [/eqP -> /eqP ->]]] => _; rewrite !leqnn eq_refl.
-  move=>/IHn Hbase.
-  by rewrite add_lt0; apply/orP; right.
-Qed.  
-
-
-
-Lemma  actor_has_chain_length_weaken w l o_addr s l':
-  (l' <= l)%nat ->
-  actor_n_has_chain_length_ge_at_round w l o_addr s ->  
-  actor_n_has_chain_length_ge_at_round w l' o_addr s.
-Proof.
-  rewrite /actor_n_has_chain_length_ge_at_round !has_count.
-  rewrite leq_eqVlt; move=>/orP[/eqP -> |] //=.
-  move=>  Hvalid.  
-  induction (fixlist_unwrap _) => //=.
-    by move=>/eqP Heq; move: Hvalid; rewrite Heq ltn0.
-  move=> /orP [ | /eqP  Heq]; last first.
-    by move: Hvalid; rewrite Heq ltn0.
-  rewrite !add_lt0; move=>/orP; case => //= ;last first.
-  move=> /(@or_introl _ (is_true (eq_op l 0)%nat))/orP/IHl0 => /orP [ Hlt |  Hleq0]; last first.
-    by apply/orP; right.
-    by apply/orP; left; apply/orP; right.
-  move=>/andP [ Hgt0  Hlt0] //=.
-  apply/orP.
-  left .
-  apply/orP; left.
-  apply/andP;split.
-  move: Hgt0.
-  have bool_gt0 (b : bool) : (0 < b)%nat = b. by case b.
-  move: a => [[b r] a].
-  rewrite !bool_gt0 //=.
-  move=>/andP [l_leq /andP [rs eq_addr]].
-  apply/andP; split; [|apply/andP] => //=.
-  have Hlt_trans x y z : (x <= y)%nat -> (y <= z)%nat  -> (x <= z)%nat.
-    by move=>/leq_trans Himpl; move=> /Himpl.
-  by apply (Hlt_trans l' l); [apply ltnW | ] .
-  move: Hlt0.
-  rewrite leq_eqVlt ; move=>/orP[/eqP |] //=.
-Qed.
-
-
-Lemma  Rmult_integralP   r1 r2 :  (r1 * r2)%R <> 0%R -> r1 <> 0%R /\ r2 <> 0%R .
-Proof.
-  case Hr1eq0: (eq_op r1 0).
-    by move/eqP: Hr1eq0 => ->; rewrite (Rmult_0_l r2) .
-  case Hr2eq0: (eq_op r2 0).
-    by move/eqP: Hr2eq0 => ->; rewrite (Rmult_0_r r1) .
-  by move/eqP: Hr1eq0 => Hr1neq; move/eqP: Hr2eq0 => Hr2neq.
-Qed.
-
-(* Notation "A '-::>' '(' B ')' '{' C '}'" := (fixlist_insert (Tuple (n:=B) (tval:=C) _) A) (at level 50). *)
-(* Notation "'`I_{' A '}' '=' B '(' C ')'" := (@Ordinal A B C). *)
-
-
-
-Definition hash_step (w w' : World) lclstt addr result blk_rcd hash_val hash_value (os : OracleState) :=
-if (result < T_Hashing_Difficulty)%nat
-   then
-    let
-    '(new_chain, _) :=
-     fixlist_enqueue (Some {| block_nonce := hash_value; block_link := hash_val; block_records := blk_rcd |})
-       (honest_max_valid (update_transaction_pool addr lclstt (world_transaction_pool w')) (world_hash w')) in
-     ({|
-      honest_current_chain := new_chain;
-      honest_local_transaction_pool := fixlist_empty Transaction Honest_TransactionPool_size;
-      honest_local_message_pool := fixlist_empty [eqType of BlockChain] Honest_MessagePool_size |},
-     Some (BroadcastMsg new_chain), os,
-     Some {| block_nonce := hash_value; block_link := hash_val; block_records := blk_rcd |}, 
-     Some new_chain)
-   else
-    if
-     honest_max_valid (update_transaction_pool addr lclstt (world_transaction_pool w')) (world_hash w') ==
-     honest_current_chain (update_transaction_pool addr lclstt (world_transaction_pool w'))
-    then
-     ({|
-      honest_current_chain := honest_current_chain
-                                (update_transaction_pool addr lclstt (world_transaction_pool w'));
-      honest_local_transaction_pool := fixlist_empty Transaction Honest_TransactionPool_size;
-      honest_local_message_pool := fixlist_empty [eqType of BlockChain] Honest_MessagePool_size |}, None, os, None,
-     None)
-    else
-     ({|
-      honest_current_chain := honest_max_valid (update_transaction_pool addr lclstt (world_transaction_pool w'))
-                                (world_hash w');
-      honest_local_transaction_pool := fixlist_empty Transaction Honest_TransactionPool_size;
-      honest_local_message_pool := fixlist_empty [eqType of BlockChain] Honest_MessagePool_size |},
-     Some
-       (BroadcastMsg
-          (honest_max_valid (update_transaction_pool addr lclstt (world_transaction_pool w')) (world_hash w'))),
-     os, None, None).
-
-
-
-Definition honest_step_world  (w w' : World) lclstt iscrpt addr result blk_rcd hash_val hash_value (os : OracleState) :=
-(let
-   '(updated_actor, new_message, new_oracle, new_block, new_chain) :=
-    hash_step w w' lclstt addr result blk_rcd hash_val hash_value os in
-    {|
-    world_global_state := (if (eq_op (nat_of_ord (global_currently_active (world_global_state w'))) n_max_actors.+1)%nat as b0
-                            return
-                              ((eq_op (nat_of_ord (global_currently_active (world_global_state w'))) n_max_actors.+1) = b0 ->
-                               GlobalState)
-                           then
-                            fun _ : (eq_op (nat_of_ord (global_currently_active (world_global_state w'))) n_max_actors.+1) = true =>
-                            {|
-                            global_local_states := set_tnth (global_local_states (world_global_state w'))
-                                                     (updated_actor, iscrpt)
-                                                     (global_currently_active (world_global_state w'));
-                            global_adversary := global_adversary (world_global_state w');
-                            global_currently_active := global_currently_active (world_global_state w');
-                            global_current_round := global_current_round (world_global_state w') |}
-                           else
-                            fun prf : (eq_op (nat_of_ord (global_currently_active (world_global_state w'))) n_max_actors.+1) = false
-                            =>
-                            ssr_suff ((nat_of_ord (global_currently_active (world_global_state w'))).+1 < n_max_actors + 2)%nat
-                              (fun H' : ((global_currently_active (world_global_state w')).+1 < n_max_actors + 2)%nat
-                               =>
-                               {|
-                               global_local_states := set_tnth (global_local_states (world_global_state w'))
-                                                        (updated_actor, iscrpt)
-                                                        (global_currently_active (world_global_state w'));
-                               global_adversary := global_adversary (world_global_state w');
-                               global_currently_active := Ordinal (n:=n_max_actors + 2)
-                                                            (m:=(global_currently_active (world_global_state w')).+1)
-                                                            H';
-                               global_current_round := global_current_round (world_global_state w') |})
-                              (round_in_range (global_currently_active (world_global_state w'))
-                                 (introN eqP (elimTF eqP prf))))
-                            (erefl (eq_op (nat_of_ord (global_currently_active (world_global_state w'))) n_max_actors.+1));
-    world_transaction_pool := world_transaction_pool w';
-    world_inflight_pool := option_insert (world_inflight_pool w') new_message;
-    world_message_pool := world_message_pool w';
-    world_hash := new_oracle;
-    world_block_history := BlockMap_put_honest_on_success new_block (global_current_round (world_global_state w'))
-                             (world_block_history w');
-    world_chain_history := option_insert (world_chain_history w') new_chain;
-    world_adversary_message_quota := world_adversary_message_quota w';
-    world_adversary_transaction_quota := world_adversary_transaction_quota w';
-    world_honest_transaction_quota := world_honest_transaction_quota w';
-    world_adoption_history := record_actor_current_chain (honest_current_chain lclstt) new_chain
-                                (global_current_round (world_global_state w')) addr (world_adoption_history w') |}).
-
-Definition honest_mint_failed_no_update iscrpt addr lclstt os w gca := {|
-    world_global_state := {|
-                          global_local_states := set_tnth (global_local_states (world_global_state w))
-                                                   ({|
-                                                    honest_current_chain := honest_current_chain
-                                                                              (update_transaction_pool addr lclstt
-                                                                                 (world_transaction_pool w));
-                                                    honest_local_transaction_pool := fixlist_empty Transaction
-                                                                                      Honest_TransactionPool_size;
-                                                    honest_local_message_pool := fixlist_empty
-                                                                                   [eqType of BlockChain]
-                                                                                   Honest_MessagePool_size |},
-                                                   iscrpt) (global_currently_active (world_global_state w));
-                          global_adversary := global_adversary (world_global_state w);
-                          global_currently_active := gca;
-                          global_current_round := global_current_round (world_global_state w )|};
-    world_transaction_pool := world_transaction_pool w;
-    world_inflight_pool := world_inflight_pool w;
-    world_message_pool := world_message_pool w;
-    world_hash := os;
-    world_block_history := world_block_history w;
-    world_chain_history := world_chain_history w;
-    world_adversary_message_quota := world_adversary_message_quota w;
-    world_adversary_transaction_quota := world_adversary_transaction_quota w;
-    world_honest_transaction_quota := world_honest_transaction_quota w;
-    world_adoption_history := fixlist_insert (world_adoption_history w)
-                                (honest_current_chain lclstt, global_current_round (world_global_state w), addr) |}.
-
-Definition honest_mint_failed_update iscrpt addr lclstt os w gca := {|
-    world_global_state := {|
-                          global_local_states := set_tnth (global_local_states (world_global_state w))
-                                                   ({|
-                                                    honest_current_chain := honest_max_valid
-                                                                              (update_transaction_pool addr lclstt
-                                                                                 (world_transaction_pool w))
-                                                                              (world_hash w);
-                                                    honest_local_transaction_pool := fixlist_empty Transaction
-                                                                                      Honest_TransactionPool_size;
-                                                    honest_local_message_pool := fixlist_empty
-                                                                                   [eqType of BlockChain]
-                                                                                   Honest_MessagePool_size |},
-                                                   iscrpt) (global_currently_active (world_global_state w));
-                          global_adversary := global_adversary (world_global_state w);
-                          global_currently_active := gca;
-                          global_current_round := global_current_round (world_global_state w) |};
-    world_transaction_pool := world_transaction_pool w;
-    world_inflight_pool := fixlist_insert (world_inflight_pool w)
-                             (BroadcastMsg
-                                (honest_max_valid (update_transaction_pool addr lclstt (world_transaction_pool w))
-                                   (world_hash w)));
-    world_message_pool := world_message_pool w;
-    world_hash := os;
-    world_block_history := world_block_history w;
-    world_chain_history := world_chain_history w;
-    world_adversary_message_quota := world_adversary_message_quota w;
-    world_adversary_transaction_quota := world_adversary_transaction_quota w;
-    world_honest_transaction_quota := world_honest_transaction_quota w;
-    world_adoption_history := fixlist_insert (world_adoption_history w)
-                                (honest_current_chain lclstt, global_current_round (world_global_state w), addr) |}.
-
-
-Definition honest_mint_succeed_update iscrpt addr lclstt os blc_rcd hashed nonce gca w := (let
-     '(updated_actor, new_message, new_oracle, new_block, new_chain) :=
-      let
-      '(new_chain, _) :=
-       fixlist_enqueue (Some {| block_nonce := nonce; block_link := hashed; block_records := blc_rcd |})
-         (honest_max_valid (update_transaction_pool addr lclstt (world_transaction_pool w)) (world_hash w)) in
-       ({|
-        honest_current_chain := new_chain;
-        honest_local_transaction_pool := fixlist_empty Transaction Honest_TransactionPool_size;
-        honest_local_message_pool := fixlist_empty [eqType of BlockChain] Honest_MessagePool_size |},
-       Some (BroadcastMsg new_chain), os,
-       Some {| block_nonce := nonce; block_link := hashed; block_records := blc_rcd |}, 
-       Some new_chain) in
-      {|
-      world_global_state := {|
-                            global_local_states := set_tnth (global_local_states (world_global_state w))
-                                                     (updated_actor, iscrpt)
-                                                     (global_currently_active (world_global_state w));
-                            global_adversary := global_adversary (world_global_state w);
-                            global_currently_active := gca;
-                            global_current_round := global_current_round (world_global_state w) |};
-      world_transaction_pool := world_transaction_pool w;
-      world_inflight_pool := option_insert (world_inflight_pool w) new_message;
-      world_message_pool := world_message_pool w;
-      world_hash := new_oracle;
-      world_block_history := BlockMap_put_honest_on_success new_block (global_current_round (world_global_state w))
-                               (world_block_history w);
-      world_chain_history := option_insert (world_chain_history w) new_chain;
-      world_adversary_message_quota := world_adversary_message_quota w;
-      world_adversary_transaction_quota := world_adversary_transaction_quota w;
-      world_honest_transaction_quota := world_honest_transaction_quota w;
-      world_adoption_history := record_actor_current_chain (honest_current_chain lclstt) new_chain
-                                  (global_current_round (world_global_state w)) addr (world_adoption_history w) |}).
 
 
 (* contains some common simplifications used repeatedly in most proofs *)
@@ -932,406 +424,6 @@ Proof.
 Qed.
 
 
-Definition transaction_gen_step w' tx  := {|
-    world_global_state := world_global_state w';
-    world_transaction_pool := fixlist_insert (world_transaction_pool w') (BroadcastTransaction tx);
-    world_inflight_pool := world_inflight_pool w';
-    world_message_pool := world_message_pool w';
-    world_hash := world_hash w';
-    world_block_history := world_block_history w';
-    world_chain_history := world_chain_history w';
-    world_adversary_message_quota := world_adversary_message_quota w';
-    world_adversary_transaction_quota := world_adversary_transaction_quota w';
-    world_honest_transaction_quota := mod_incr Honest_max_Transaction_sends valid_Honest_max_Transaction_sends
-                                        (world_honest_transaction_quota w');
-    world_adoption_history := world_adoption_history w'
-  |}.
-
-
-Definition transaction_drop_step w' rem_ind:= {|
-    world_global_state := world_global_state w';
-    world_transaction_pool := fixlist_remove (world_transaction_pool w') rem_ind;
-    world_inflight_pool := world_inflight_pool w';
-    world_message_pool := world_message_pool w';
-    world_hash := world_hash w';
-    world_block_history := world_block_history w';
-    world_chain_history := world_chain_history w';
-    world_adversary_message_quota := world_adversary_message_quota w';
-    world_adversary_transaction_quota := world_adversary_transaction_quota w';
-    world_honest_transaction_quota := world_honest_transaction_quota w';
-    world_adoption_history := world_adoption_history w' |}.
-
-Definition honest_mint_step iscrpt os hash_value hash_vl blc_rcd addr lclstt result w' :=
-(let
-     '(updated_actor, new_message, new_oracle, new_block, new_chain) :=
-      if (result < T_Hashing_Difficulty)%nat
-      then
-       let
-       '(new_chain, _) :=
-        fixlist_enqueue (Some {| block_nonce := hash_value; block_link := hash_vl; block_records := blc_rcd |})
-          (honest_max_valid (update_transaction_pool addr lclstt (world_transaction_pool w')) (world_hash w')) in
-        ({|
-         honest_current_chain := new_chain;
-         honest_local_transaction_pool := fixlist_empty Transaction Honest_TransactionPool_size;
-         honest_local_message_pool := fixlist_empty [eqType of BlockChain] Honest_MessagePool_size |},
-        Some (BroadcastMsg new_chain), os,
-        Some {| block_nonce := hash_value; block_link := hash_vl; block_records := blc_rcd |}, 
-        Some new_chain)
-      else
-       if
-        honest_max_valid (update_transaction_pool addr lclstt (world_transaction_pool w')) (world_hash w') ==
-        honest_current_chain (update_transaction_pool addr lclstt (world_transaction_pool w'))
-       then
-        ({|
-         honest_current_chain := honest_current_chain
-                                   (update_transaction_pool addr lclstt (world_transaction_pool w'));
-         honest_local_transaction_pool := fixlist_empty Transaction Honest_TransactionPool_size;
-         honest_local_message_pool := fixlist_empty [eqType of BlockChain] Honest_MessagePool_size |}, None, os,
-        None, None)
-       else
-        ({|
-         honest_current_chain := honest_max_valid (update_transaction_pool addr lclstt (world_transaction_pool w'))
-                                   (world_hash w');
-         honest_local_transaction_pool := fixlist_empty Transaction Honest_TransactionPool_size;
-         honest_local_message_pool := fixlist_empty [eqType of BlockChain] Honest_MessagePool_size |},
-        Some
-          (BroadcastMsg
-             (honest_max_valid (update_transaction_pool addr lclstt (world_transaction_pool w')) (world_hash w'))),
-        os, None, None) in
-      {|
-      world_global_state := (if eq_op (nat_of_ord (global_currently_active (world_global_state w'))) n_max_actors.+1 as b0
-                              return
-                                ((eq_op (nat_of_ord((global_currently_active (world_global_state w')))) n_max_actors.+1) = b0 ->
-                                 GlobalState)
-                             then
-                              fun _ : (eq_op (nat_of_ord (global_currently_active (world_global_state w'))) n_max_actors.+1) = true
-                              =>
-                              {|
-                              global_local_states := set_tnth (global_local_states (world_global_state w'))
-                                                       (updated_actor, iscrpt)
-                                                       (global_currently_active (world_global_state w'));
-                              global_adversary := global_adversary (world_global_state w');
-                              global_currently_active := global_currently_active (world_global_state w');
-                              global_current_round := global_current_round (world_global_state w') |}
-                             else
-                              fun
-                                prf : (eq_op (nat_of_ord(global_currently_active (world_global_state w'))) n_max_actors.+1) = false
-                              =>
-                              ssr_suff ((global_currently_active (world_global_state w')).+1 < n_max_actors + 2)%nat
-                                (fun
-                                   H' : ((global_currently_active (world_global_state w')).+1 < n_max_actors + 2)%nat
-                                 =>
-                                 {|
-                                 global_local_states := set_tnth (global_local_states (world_global_state w'))
-                                                          (updated_actor, iscrpt)
-                                                          (global_currently_active (world_global_state w'));
-                                 global_adversary := global_adversary (world_global_state w');
-                                 global_currently_active := Ordinal (n:=n_max_actors + 2)
-                                                              (m:=(global_currently_active (world_global_state w')).+1)
-                                                              H';
-                                 global_current_round := global_current_round (world_global_state w') |})
-                                (round_in_range (global_currently_active (world_global_state w'))
-                                   (introN eqP (elimTF eqP prf))))
-                              (erefl (eq_op (nat_of_ord (global_currently_active (world_global_state w'))) n_max_actors.+1));
-      world_transaction_pool := world_transaction_pool w';
-      world_inflight_pool := option_insert (world_inflight_pool w') new_message;
-      world_message_pool := world_message_pool w';
-      world_hash := new_oracle;
-      world_block_history := BlockMap_put_honest_on_success new_block
-                               (global_current_round (world_global_state w')) (world_block_history w');
-      world_chain_history := option_insert (world_chain_history w') new_chain;
-      world_adversary_message_quota := world_adversary_message_quota w';
-      world_adversary_transaction_quota := world_adversary_transaction_quota w';
-      world_honest_transaction_quota := world_honest_transaction_quota w';
-      world_adoption_history := record_actor_current_chain (honest_current_chain lclstt) new_chain
-                                  (global_current_round (world_global_state w')) addr (world_adoption_history w') |}).
-
-
-Definition update_adversary_state w':=
-  finfun.FunFinfun.fun_of_fin
-                 (finfun.FunFinfun.fun_of_fin
-                    (adversary_generate_block
-                       (update_adversary_transaction_pool (global_adversary (world_global_state w'))
-                          (world_transaction_pool w')))
-                    (adversary_state
-                       (update_adversary_transaction_pool (global_adversary (world_global_state w'))
-                          (world_transaction_pool w')))) (world_inflight_pool w').
-
-Definition adversary_mint_player_step
-                 (oracle_state : OracleState) (old_adv_state : adversary_internal_state)
-                 (blc_rcd : BlockRecord) (nonce hash:  'I_Hash_value.+1) (hash_res: Hashed) w' :=
-    (let
-     '(new_adversary, new_oracle, new_block) :=
-      if (hash_res < T_Hashing_Difficulty)%nat
-      then
-       ({|
-        adversary_state := finfun.FunFinfun.fun_of_fin
-                             (finfun.FunFinfun.fun_of_fin
-                                (finfun.FunFinfun.fun_of_fin
-                                   (adversary_provide_block_hash_result
-                                      (update_adversary_transaction_pool (global_adversary (world_global_state w'))
-                                         (world_transaction_pool w'))) old_adv_state) (nonce, hash, blc_rcd))
-                             hash_res;
-        adversary_state_change := adversary_state_change
-                                    (update_adversary_transaction_pool (global_adversary (world_global_state w'))
-                                       (world_transaction_pool w'));
-        adversary_insert_transaction := adversary_insert_transaction
-                                          (update_adversary_transaction_pool
-                                             (global_adversary (world_global_state w'))
-                                             (world_transaction_pool w'));
-        adversary_insert_chain := adversary_insert_chain
-                                    (update_adversary_transaction_pool (global_adversary (world_global_state w'))
-                                       (world_transaction_pool w'));
-        adversary_generate_block := adversary_generate_block
-                                      (update_adversary_transaction_pool (global_adversary (world_global_state w'))
-                                         (world_transaction_pool w'));
-        adversary_provide_block_hash_result := adversary_provide_block_hash_result
-                                                 (update_adversary_transaction_pool
-                                                    (global_adversary (world_global_state w'))
-                                                    (world_transaction_pool w'));
-        adversary_send_chain := adversary_send_chain
-                                  (update_adversary_transaction_pool (global_adversary (world_global_state w'))
-                                     (world_transaction_pool w'));
-        adversary_send_transaction := adversary_send_transaction
-                                        (update_adversary_transaction_pool
-                                           (global_adversary (world_global_state w')) (world_transaction_pool w'));
-        adversary_last_hashed_round := adversary_last_hashed_round
-                                         (update_adversary_transaction_pool
-                                            (global_adversary (world_global_state w'))
-                                            (world_transaction_pool w')) |}, oracle_state,
-       Some {| block_nonce := nonce; block_link := hash; block_records := blc_rcd |})
-      else
-       ({|
-        adversary_state := finfun.FunFinfun.fun_of_fin
-                             (finfun.FunFinfun.fun_of_fin
-                                (finfun.FunFinfun.fun_of_fin
-                                   (adversary_provide_block_hash_result
-                                      (update_adversary_transaction_pool (global_adversary (world_global_state w'))
-                                         (world_transaction_pool w'))) old_adv_state) (nonce, hash, blc_rcd))
-                             hash_res;
-        adversary_state_change := adversary_state_change
-                                    (update_adversary_transaction_pool (global_adversary (world_global_state w'))
-                                       (world_transaction_pool w'));
-        adversary_insert_transaction := adversary_insert_transaction
-                                          (update_adversary_transaction_pool
-                                             (global_adversary (world_global_state w'))
-                                             (world_transaction_pool w'));
-        adversary_insert_chain := adversary_insert_chain
-                                    (update_adversary_transaction_pool (global_adversary (world_global_state w'))
-                                       (world_transaction_pool w'));
-        adversary_generate_block := adversary_generate_block
-                                      (update_adversary_transaction_pool (global_adversary (world_global_state w'))
-                                         (world_transaction_pool w'));
-        adversary_provide_block_hash_result := adversary_provide_block_hash_result
-                                                 (update_adversary_transaction_pool
-                                                    (global_adversary (world_global_state w'))
-                                                    (world_transaction_pool w'));
-        adversary_send_chain := adversary_send_chain
-                                  (update_adversary_transaction_pool (global_adversary (world_global_state w'))
-                                     (world_transaction_pool w'));
-        adversary_send_transaction := adversary_send_transaction
-                                        (update_adversary_transaction_pool
-                                           (global_adversary (world_global_state w')) (world_transaction_pool w'));
-        adversary_last_hashed_round := adversary_last_hashed_round
-                                         (update_adversary_transaction_pool
-                                            (global_adversary (world_global_state w'))
-                                            (world_transaction_pool w')) |}, oracle_state, None) in
-      {|
-      world_global_state := {|
-                            global_local_states := global_local_states (world_global_state w');
-                            global_adversary := if
-                                                 isSome
-                                                   (Addr_to_index (global_currently_active (world_global_state w')))
-                                                then new_adversary
-                                                else
-                                                 update_adversary_round new_adversary
-                                                   (global_current_round (world_global_state w'));
-                            global_currently_active := global_currently_active (world_global_state w');
-                            global_current_round := global_current_round (world_global_state w') |};
-      world_transaction_pool := world_transaction_pool w';
-      world_inflight_pool := world_inflight_pool w';
-      world_message_pool := world_message_pool w';
-      world_hash := new_oracle;
-      world_block_history := BlockMap_put_adversarial_on_success new_block
-                               (global_current_round (world_global_state w')) (world_block_history w');
-      world_chain_history := world_chain_history w';
-      world_adversary_message_quota := world_adversary_message_quota w';
-      world_adversary_transaction_quota := world_adversary_transaction_quota w';
-      world_honest_transaction_quota := world_honest_transaction_quota w';
-      world_adoption_history := world_adoption_history w' |}).
-
-
-
-Definition adversary_mint_global_step adv_state w' :=
-  (let '(new_adversary, new_oracle, new_block) := adv_state in
-      {|
-      world_global_state := {|
-                            global_local_states := global_local_states (world_global_state w');
-                            global_adversary := new_adversary;
-                            global_currently_active := global_currently_active (world_global_state w');
-                            global_current_round := global_current_round (world_global_state w') |};
-      world_transaction_pool := world_transaction_pool w';
-      world_inflight_pool := world_inflight_pool w';
-      world_message_pool := world_message_pool w';
-      world_hash := new_oracle;
-      world_block_history := BlockMap_put_adversarial_on_success new_block
-                               (global_current_round (world_global_state w')) (world_block_history w');
-      world_chain_history := world_chain_history w';
-      world_adversary_message_quota := world_adversary_message_quota w';
-      world_adversary_transaction_quota := world_adversary_transaction_quota w';
-      world_honest_transaction_quota := world_honest_transaction_quota w';
-      world_adoption_history := world_adoption_history w' |}).
-
-
-Definition retrieve_address addr w' :=
-  (if (addr < n_max_actors)%nat as b
-         return ((addr < n_max_actors)%nat = b -> option ('I_n_max_actors * LocalState))
-        then
-         fun H : (addr < n_max_actors)%nat = true =>
-         let (actor, is_corrupt) :=
-           tnth (global_local_states (world_global_state w')) (Ordinal (n:=n_max_actors) (m:=addr) H) in
-         (if is_corrupt as b return (is_corrupt = b -> option ('I_n_max_actors * LocalState))
-          then fun _ : is_corrupt = true => None
-          else fun _ : is_corrupt = false => Some (Ordinal (n:=n_max_actors) (m:=addr) H, actor))
-           (erefl is_corrupt)
-        else fun _ : (addr < n_max_actors)%nat = false => None) (erefl (addr < n_max_actors)%nat).
-
-
-Definition adversary_corrupt_step  actr addr w' :=
-{|
-    world_global_state := {|
-                          global_local_states := set_tnth (global_local_states (world_global_state w'))
-                                                   (actr, true) addr;
-                          global_adversary := global_adversary (world_global_state w');
-                          global_currently_active := global_currently_active (world_global_state w');
-                          global_current_round := global_current_round (world_global_state w') |};
-    world_transaction_pool := world_transaction_pool w';
-    world_inflight_pool := world_inflight_pool w';
-    world_message_pool := world_message_pool w';
-    world_hash := world_hash w';
-    world_block_history := world_block_history w';
-    world_chain_history := world_chain_history w';
-    world_adversary_message_quota := world_adversary_message_quota w';
-    world_adversary_transaction_quota := world_adversary_transaction_quota w';
-    world_honest_transaction_quota := world_honest_transaction_quota w';
-    world_adoption_history := world_adoption_history w' |}.
-
-
-Definition broadcast_step nwadvst chain addrlist w' := {|
-    world_global_state := {|
-              global_local_states := global_local_states (world_global_state w');
-              global_adversary := {|
-                                  adversary_state := nwadvst;
-                                  adversary_state_change := adversary_state_change
-                                                              (global_adversary (world_global_state w'));
-                                  adversary_insert_transaction := adversary_insert_transaction
-                                                                    (global_adversary
-                                                                        (world_global_state w'));
-                                  adversary_insert_chain := adversary_insert_chain
-                                                              (global_adversary (world_global_state w'));
-                                  adversary_generate_block := adversary_generate_block
-                                                                (global_adversary
-                                                                    (world_global_state w'));
-                                  adversary_provide_block_hash_result := adversary_provide_block_hash_result
-                                                                          (global_adversary
-                                                                          (world_global_state w'));
-                                  adversary_send_chain := adversary_send_chain
-                                                            (global_adversary (world_global_state w'));
-                                  adversary_send_transaction := adversary_send_transaction
-                                                                  (global_adversary
-                                                                      (world_global_state w'));
-                                  adversary_last_hashed_round := adversary_last_hashed_round
-                                                                    (global_adversary
-                                                                      (world_global_state w')) |};
-              global_currently_active := global_currently_active (world_global_state w');
-              global_current_round := global_current_round (world_global_state w') |};
-    world_transaction_pool := world_transaction_pool w';
-    world_inflight_pool := fixlist_insert (world_inflight_pool w') (MulticastMsg addrlist chain);
-    world_message_pool := world_message_pool w';
-    world_hash := world_hash w';
-    world_block_history := world_block_history w';
-    world_chain_history := world_chain_history w';
-    world_adversary_message_quota := mod_incr Adversary_max_Message_sends valid_Adversary_max_Message_sends
-                                       (world_adversary_message_quota w');
-    world_adversary_transaction_quota := world_adversary_transaction_quota w';
-    world_honest_transaction_quota := world_honest_transaction_quota w';
-    world_adoption_history := world_adoption_history w' |}.
-
-Definition adversary_transaction_step adv_state tx addrlist w' :=
-{|
-    world_global_state := {|
-                          global_local_states := global_local_states (world_global_state w');
-                          global_adversary := {|
-                                              adversary_state := adv_state;
-                                              adversary_state_change := adversary_state_change
-                                                                          (global_adversary (world_global_state w'));
-                                              adversary_insert_transaction := adversary_insert_transaction
-                                                                                (global_adversary
-                                                                                   (world_global_state w'));
-                                              adversary_insert_chain := adversary_insert_chain
-                                                                          (global_adversary (world_global_state w'));
-                                              adversary_generate_block := adversary_generate_block
-                                                                            (global_adversary
-                                                                               (world_global_state w'));
-                                              adversary_provide_block_hash_result := adversary_provide_block_hash_result
-                                                                                      (global_adversary
-                                                                                      (world_global_state w'));
-                                              adversary_send_chain := adversary_send_chain
-                                                                        (global_adversary (world_global_state w'));
-                                              adversary_send_transaction := adversary_send_transaction
-                                                                              (global_adversary
-                                                                                 (world_global_state w'));
-                                              adversary_last_hashed_round := adversary_last_hashed_round
-                                                                               (global_adversary
-                                                                                  (world_global_state w')) |};
-                          global_currently_active := global_currently_active (world_global_state w');
-                          global_current_round := global_current_round (world_global_state w') |};
-    world_transaction_pool := fixlist_insert (world_transaction_pool w') (MulticastTransaction (tx, addrlist));
-    world_inflight_pool := world_inflight_pool w';
-    world_message_pool := world_message_pool w';
-    world_hash := world_hash w';
-    world_block_history := world_block_history w';
-    world_chain_history := world_chain_history w';
-    world_adversary_message_quota := world_adversary_message_quota w';
-    world_adversary_transaction_quota := mod_incr Adversary_max_Transaction_sends
-                                           valid_Adversary_max_Transaction_sends
-                                           (world_adversary_transaction_quota w');
-    world_honest_transaction_quota := world_honest_transaction_quota w';
-    world_adoption_history := world_adoption_history w' |}.
-
-
-Definition round_end_step msgs new_pool w' :=
-{|
-    world_global_state := deliver_messages msgs (next_round (world_global_state w'));
-    world_transaction_pool := world_transaction_pool w';
-    world_inflight_pool := initMessagePool;
-    world_message_pool := new_pool;
-    world_hash := world_hash w';
-    world_block_history := world_block_history w';
-    world_chain_history := world_chain_history w';
-    world_adversary_message_quota := Ordinal (n:=Adversary_max_Message_sends) (m:=0)
-                                       valid_Adversary_max_Message_sends;
-    world_adversary_transaction_quota := Ordinal (n:=Adversary_max_Transaction_sends) (m:=0)
-                                           valid_Adversary_max_Transaction_sends;
-    world_honest_transaction_quota := Ordinal (n:=Honest_max_Transaction_sends) (m:=0)
-                                        valid_Honest_max_Transaction_sends;
-    world_adoption_history := world_adoption_history w' |}.
-
-Definition adversary_end_step w' := {|
-    world_global_state := update_round (world_global_state w');
-    world_transaction_pool := world_transaction_pool w';
-    world_inflight_pool := world_inflight_pool w';
-    world_message_pool := world_message_pool w';
-    world_hash := world_hash w';
-    world_block_history := world_block_history w';
-    world_chain_history := world_chain_history w';
-    world_adversary_message_quota := world_adversary_message_quota w';
-    world_adversary_transaction_quota := world_adversary_transaction_quota w';
-    world_honest_transaction_quota := world_honest_transaction_quota w';
-    world_adoption_history := world_adoption_history w' |}.
-
-
-Locate "_ :: _".
 Open Scope seq_scope.
 Lemma world_stepP (P : World -> seq.seq RndGen -> Prop) sc w:
   P initWorld [::] ->
@@ -2265,12 +1357,27 @@ Proof.
 Admitted.
 
 
-
-Lemma addn_eq0 a b : (eq_op (a + b)%nat a) -> (eq_op b 0%nat).
+Lemma deliver_messages_update_round_preserves_round gs msgs :
+[deliver_messages msgs gs.#round] = [gs.#round].
 Proof.
-  move: b.
-  by elim: a => //=.
-Qed.
+Admitted.
+
+
+Lemma bounded_success_impl_exec sc w s :
+  (P[ world_step initWorld sc === Some w] <> 0) ->
+  bounded_successful_round w s -> 
+  world_executed_to_round w s.
+Proof.
+Admitted.
+Print world_executed_to_round.
+
+Lemma actor_n_has_chain_refl sc w o_addr :
+  (P[ world_step initWorld sc === Some w] <> 0) ->
+  actor_n_has_chain_length_ge_at_round w (actor_n_chain_length w o_addr) o_addr [[w.state].#round] .
+Proof.
+Admitted.
+
+
 
 
 (* ==================================================
@@ -2288,6 +1395,8 @@ Proof.
   move=> _.
   by move=> /no_bounded_successful_rounds_excl. (* Not so hard now, eh??? *)
 Qed.
+
+
 
 
 (* contains the main meat of the chain growth weak lemma *)
@@ -2594,30 +1703,6 @@ Proof.
       by move/Rlt_not_eq/nesym/world_step_adoption_history_top_heavy:Hprw'. 
       by move/Rlt_not_eq/nesym/world_step_adoption_history_overflow_safe: Hprw'.
 Qed.
-
-
-Lemma actor_has_chain_length_round_end w' l new_pool msgs o_addr : forall (prf: ([[w'.state].#round].+1 < N_rounds)%nat),
-  actor_n_has_chain_length_ge_at_round w' l o_addr [[w'.state].#round] -> 
-  actor_n_has_chain_length_ge_at_round (round_end_step msgs new_pool w') l o_addr
-    (Ordinal prf).
-Proof.
-  move=> prf.
-  rewrite /round_end_step !actor_n_has_chain_length_ge_at_round_internalP //=.
-  rewrite /actor_n_has_chain_length_ge_at_round_internal//= => /orP [ | Hl0]; last first.
-    by apply/orP; right.
-    move=> /hasP [[[chain round ] addr] xin /andP [Hlen /andP [Hrnd Haddr]]];
-    apply/orP; left; apply /hasP.
-  exists (chain,round,addr) => //=.
-  apply/andP; split=> //=;apply/andP; split=> //=.
-  by move: Hrnd; rewrite -ltnS => /(ltn_addr 1); rewrite addn1 ltnS . 
-Qed. 
-
-
-
-Lemma deliver_messages_update_round_preserves_round gs msgs :
-[deliver_messages msgs gs.#round] = [gs.#round].
-Proof.
-Admitted.
 
 
 
@@ -3085,21 +2170,6 @@ Admitted.
 
 
 
-Lemma bounded_success_impl_exec sc w s :
-  (P[ world_step initWorld sc === Some w] <> 0) ->
-  bounded_successful_round w s -> 
-  world_executed_to_round w s.
-Proof.
-Admitted.
-Print world_executed_to_round.
-
-Lemma actor_n_has_chain_refl sc w o_addr :
-  (P[ world_step initWorld sc === Some w] <> 0) ->
-  actor_n_has_chain_length_ge_at_round w (actor_n_chain_length w o_addr) o_addr [[w.state].#round] .
-Proof.
-Admitted.
-
-
 
 
 
@@ -3437,6 +2507,7 @@ Proof.
   rewrite no_bounded_successful_rounds_lim //= .
   by rewrite mulnC addnA.
   exact delta_valid.
+  (* now we just need to prove that number of bounded successful rounds is always less than N_rounds.+1 *)
   rewrite /no_bounded_successful_rounds'/bounded_successful_round/unsuccessful_round.
   (* TODO(Kiran): Complete this proof *)
 Admitted.

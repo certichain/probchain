@@ -13,6 +13,7 @@ Structures/BlockChain.v
 Structures/AddressList.v
 Systems/Deterministic.v
 Systems/Protocol.v
+Systems/SubSteps.v
 Properties/InvMisc.v
 Properties/Parameters.v
 Properties/Probability.v

@@ -4,8 +4,8 @@
 
 
 
-From mathcomp.ssreflect
-Require Import ssreflect ssrbool ssrnat eqtype fintype choice ssrfun seq path finfun.
+From mathcomp.ssreflect Require Import
+     ssreflect ssrbool ssrnat eqtype fintype choice ssrfun seq path finfun.
 
 
 From mathcomp.ssreflect
@@ -17,20 +17,35 @@ Require Import Coq.Program.Equality.
 
 
 
-From Probchain
-Require Import BlockChain AddressList OracleState BlockMap InvMisc Parameters FixedList FixedMap.
+From Probchain Require Import
+     BlockChain AddressList OracleState
+     BlockMap InvMisc Parameters FixedList FixedMap.
 
 Set Implicit Arguments.
 
 Parameter adversary_internal_state : finType.
 Parameter adversary_internal_initial_state : adversary_internal_state.
-Parameter adversary_internal_state_change : {ffun adversary_internal_state -> adversary_internal_state}.
-Parameter adversary_internal_insert_transaction: {ffun adversary_internal_state -> {ffun Transaction -> adversary_internal_state}}.
-Parameter adversary_internal_insert_chain: {ffun adversary_internal_state -> {ffun BlockChain -> adversary_internal_state}}.
-Parameter adversary_internal_generate_block: {ffun adversary_internal_state -> {ffun MessagePool -> (adversary_internal_state * (Nonce * Hashed * BlockRecord))}}.
-Parameter adversary_internal_provide_block_hash_result: {ffun adversary_internal_state -> {ffun (Nonce * Hashed * BlockRecord) -> {ffun Hashed -> adversary_internal_state}}}.
-Parameter adversary_internal_send_chain: {ffun adversary_internal_state -> (adversary_internal_state * BlockChain)}.
-Parameter adversary_internal_send_transaction: {ffun adversary_internal_state -> (adversary_internal_state * Transaction * AddressList)}.
+Parameter adversary_internal_state_change :
+  {ffun adversary_internal_state -> adversary_internal_state}.
+Parameter adversary_internal_insert_transaction:
+  {ffun adversary_internal_state ->
+   {ffun Transaction -> adversary_internal_state}}.
+Parameter adversary_internal_insert_chain:
+  {ffun adversary_internal_state ->
+   {ffun BlockChain -> adversary_internal_state}}.
+Parameter adversary_internal_generate_block:
+  {ffun adversary_internal_state ->
+   {ffun MessagePool ->
+    (adversary_internal_state * (Nonce * Hashed * BlockRecord))}}.
+Parameter adversary_internal_provide_block_hash_result:
+  {ffun adversary_internal_state ->
+   {ffun (Nonce * Hashed * BlockRecord) ->
+    {ffun Hashed -> adversary_internal_state}}}.
+Parameter adversary_internal_send_chain:
+  {ffun adversary_internal_state -> (adversary_internal_state * BlockChain)}.
+Parameter adversary_internal_send_transaction:
+  {ffun adversary_internal_state ->
+   (adversary_internal_state * Transaction * AddressList)}.
 
 
 
@@ -54,20 +69,27 @@ Definition verify_hash (blk : Block) (oracle : OracleState) : option Hashed :=
 Record Adversary (T : finType) := mkAdvrs {
 
   adversary_state : T;
-  adversary_state_change: {ffun T -> T}; (* Changing the state -- an operation provided by an adversary *) 
+(* Changing the state -- an operation provided by an adversary *) 
+  adversary_state_change: {ffun T -> T}; 
+
   adversary_insert_transaction: {ffun T -> {ffun Transaction -> T}};
   adversary_insert_chain: {ffun T -> {ffun BlockChain -> T}};
 
   (* Required to allow adversary limited queries to the oracle*)
   (* the adversary can propose a block to be hashed*)
-  adversary_generate_block: {ffun T -> {ffun MessagePool -> (T * (Nonce * Hashed * BlockRecord))}};
+  adversary_generate_block:
+    {ffun T -> {ffun MessagePool -> (T * (Nonce * Hashed * BlockRecord))}};
 
-  (* the result of the hash is returned to the adversary through this method - is the block necassary? *)
-  (* it has to be structured this way, as we can not allow the adversary access to the oracle directly*)
-  adversary_provide_block_hash_result: {ffun T -> {ffun (Nonce * Hashed * BlockRecord) -> {ffun Hashed -> T}}};
+  (* the result of the hash is returned to the adversary through this method -
+     is the block necassary? *)
+  (* it has to be structured this way, as we can not allow the adversary
+     access to the oracle directly*)
+  adversary_provide_block_hash_result:
+    {ffun T -> {ffun (Nonce * Hashed * BlockRecord) -> {ffun Hashed -> T}}};
 
   (* Required to allow the adversary to broadcast chains *)
-  (* I'm not sure how assertions about the blockchain being unable to randomly guess valid blockchains will be made*)
+  (* I'm not sure how assertions about the blockchain being
+     unable to randomly guess valid blockchains will be made*)
   adversary_send_chain: {ffun T -> (T * BlockChain)};
   adversary_send_transaction: {ffun T -> (T * Transaction * AddressList)};
 
@@ -107,12 +129,19 @@ Definition Adversary_prod  (a : Adversary adversary_internal_state) :=
 Definition prod_Adversary (pair : 
   (adversary_internal_state  * 
   {ffun adversary_internal_state  -> adversary_internal_state } * 
-  {ffun adversary_internal_state  -> {ffun Transaction -> adversary_internal_state }} * 
-  {ffun adversary_internal_state  -> {ffun BlockChain -> adversary_internal_state }} * 
-  {ffun adversary_internal_state  -> {ffun MessagePool -> adversary_internal_state  * (Nonce * Hashed * BlockRecord)}} * 
-  {ffun adversary_internal_state  -> {ffun Nonce * Hashed * BlockRecord -> {ffun Hashed -> adversary_internal_state }}} * 
+  {ffun adversary_internal_state  ->
+   {ffun Transaction -> adversary_internal_state }} *
+  {ffun adversary_internal_state  ->
+   {ffun BlockChain -> adversary_internal_state }} *
+  {ffun adversary_internal_state  ->
+   {ffun MessagePool ->
+    adversary_internal_state  * (Nonce * Hashed * BlockRecord)}} *
+  {ffun adversary_internal_state  ->
+   {ffun Nonce * Hashed * BlockRecord ->
+    {ffun Hashed -> adversary_internal_state }}} *
   {ffun adversary_internal_state  -> adversary_internal_state  * BlockChain} * 
-  {ffun adversary_internal_state   -> (adversary_internal_state   * Transaction * AddressList)} * 
+  {ffun adversary_internal_state   ->
+   (adversary_internal_state   * Transaction * AddressList)} *
   ordinal N_rounds
   )) := 
   let: (adversary_state ,
@@ -150,27 +179,35 @@ Canonical adversary_eqType :=
 Definition adversary_choiceMixin :=
   CanChoiceMixin adversary_cancel.
 Canonical adversary_choiceType :=
-  Eval hnf in ChoiceType (Adversary adversary_internal_state) adversary_choiceMixin.
+  Eval hnf in
+    ChoiceType (Adversary adversary_internal_state) adversary_choiceMixin.
 
 Definition adversary_countMixin :=
   CanCountMixin adversary_cancel.
 Canonical adversary_countType :=
-  Eval hnf in CountType (Adversary adversary_internal_state) adversary_countMixin.
+  Eval hnf in
+    CountType (Adversary adversary_internal_state) adversary_countMixin.
+
 Definition adversary_finMixin :=
   CanFinMixin adversary_cancel.
 Canonical adversary_finType :=
   Eval hnf in FinType (Adversary adversary_internal_state) adversary_finMixin.
 
 
-Canonical adversary_of_eqType := Eval hnf in [eqType of (Adversary adversary_internal_state)].
-Canonical adversary_of_choiceType := Eval hnf in [choiceType of (Adversary adversary_internal_state)].
-Canonical adversary_of_countType := Eval hnf in [countType of (Adversary adversary_internal_state)].
-Canonical adversary_of_finType := Eval hnf in [finType of (Adversary adversary_internal_state)].
+Canonical adversary_of_eqType :=
+  Eval hnf in [eqType of (Adversary adversary_internal_state)].
+Canonical adversary_of_choiceType :=
+  Eval hnf in [choiceType of (Adversary adversary_internal_state)].
+Canonical adversary_of_countType :=
+  Eval hnf in [countType of (Adversary adversary_internal_state)].
+Canonical adversary_of_finType :=
+  Eval hnf in [finType of (Adversary adversary_internal_state)].
 
 
 
 
-Definition local_TransactionPool := fixlist Transaction Honest_TransactionPool_size.
+Definition local_TransactionPool :=
+  fixlist Transaction Honest_TransactionPool_size.
 
 
 
@@ -179,13 +216,21 @@ Definition local_TransactionPool := fixlist Transaction Honest_TransactionPool_s
     1. it's currently held chain
     2. all transactions it has been delivered 
     3. all chains that it has been sent since it's last activation
-    4. an extra parameter to persist proof of work calculations between rounds. *)
+    4. an extra parameter to persist proof of work calculations
+       between rounds. *)
 Record LocalState := mkLclSt {
   honest_current_chain: BlockChain;
-  honest_local_transaction_pool: local_TransactionPool; honest_local_message_pool: fixlist [eqType of BlockChain] Honest_MessagePool_size ;
+  honest_local_transaction_pool: local_TransactionPool;
+  honest_local_message_pool:
+    fixlist [eqType of BlockChain] Honest_MessagePool_size ;
 }.
 
-Definition initLocalState := mkLclSt initBlockChain (fixlist_empty Transaction Honest_TransactionPool_size) (fixlist_empty [eqType of BlockChain] Honest_MessagePool_size) .
+Definition initLocalState := mkLclSt
+                               initBlockChain
+                               (fixlist_empty
+                                  Transaction Honest_TransactionPool_size)
+                               (fixlist_empty
+                                  [eqType of BlockChain] Honest_MessagePool_size).
 
 Definition LocalState_prod (ls : LocalState) :=
   (honest_current_chain ls,
@@ -235,13 +280,20 @@ Canonical local_state_of_finType := Eval hnf in [finType of LocalState].
 
 
 (* GlobalState consists of 
-      1. A sequence of LocalStates, and a boolean representing whether the state is corrupted
-      2. An address representing the currently executing entity - when addr == length of local states + 1,
+      1. A sequence of LocalStates, and a boolean representing whether
+         the state is corrupted
+      2. An address representing the currently executing entity -
+         when addr == length of local states + 1,
          the round is complete
       3. A number representing the current round
 *)
-Record GlobalState := mkGlobalState {
-  global_local_states: n_max_actors.-tuple [eqType of ([eqType of LocalState] * [eqType of bool])]  ;
+Record GlobalState := mkGlobalState
+{
+  global_local_states: n_max_actors.-tuple
+                                   [eqType of
+                                           ([eqType of
+                                                    LocalState] *
+                                            [eqType of bool])];
   global_adversary: Adversary adversary_internal_state ;
   global_currently_active: Addr;
   global_current_round: (ordinal N_rounds);
@@ -323,7 +375,8 @@ Record World := mkWorld {
   (* the inflight pool contains all messages sent in the round *)
   world_inflight_pool: MessagePool;
   (* the world message pool is a queue of messages sent in the past round - once
-  the length exceeds delta, the last entry is removed, and all messages delivered *)
+     the length exceeds delta, the last entry is removed,
+     and all messages delivered *)
   (* thus this achieves the simulation of a delta delay *)
   world_message_pool: fixlist [eqType of MessagePool] delta;
   (* represents the shared oracle state *)
@@ -332,15 +385,20 @@ Record World := mkWorld {
   world_block_history: BlockMap;
   (* Contains every chain ever seen *)
   world_chain_history: fixlist [eqType of BlockChain ] ChainHistory_size;
-  (* Contains the number of messages sent by the adversary for the current round *)
+  (* Contains the number of messages sent by the
+     adversary for the current round *)
   world_adversary_message_quota: (ordinal Adversary_max_Message_sends);
-  (* Contains the number of transactions sent by the adversary for the current round *)
+  (* Contains the number of transactions sent by the adversary
+     for the current round *)
   world_adversary_transaction_quota: (ordinal Adversary_max_Transaction_sends);
   (* Contains the number of transactions sent by honest players *)
   world_honest_transaction_quota: (ordinal Honest_max_Transaction_sends);
 
   (* Contains a listing of the held chain at each round for each actor *)
-  world_adoption_history: fixlist [eqType of (BlockChain * ordinal N_rounds * 'I_n_max_actors)] (n_max_actors * N_rounds);
+  world_adoption_history:
+    fixlist
+      [eqType of (BlockChain * ordinal N_rounds * 'I_n_max_actors)]
+      (n_max_actors * N_rounds);
 }.
 
 
@@ -359,8 +417,12 @@ Notation "[ w '.adopt_history]'" := (world_adoption_history w).
 
 
 Definition initWorldMessagePool := (fixlist_empty [eqType of MessagePool] delta).
-Definition initWorldChainHistory := (fixlist_empty [eqType of BlockChain] ChainHistory_size).
-Definition initWorldAdoptionHistory := (fixlist_empty [eqType of (BlockChain * ordinal N_rounds * 'I_n_max_actors)] (n_max_actors * N_rounds)).
+Definition initWorldChainHistory :=
+  (fixlist_empty [eqType of BlockChain] ChainHistory_size).
+Definition initWorldAdoptionHistory :=
+  (fixlist_empty
+     [eqType of (BlockChain * ordinal N_rounds * 'I_n_max_actors)]
+     (n_max_actors * N_rounds)).
 
 Definition initWorld := 
     mkWorld   
@@ -450,7 +512,8 @@ Canonical world_of_finType := Eval hnf in [finType of World].
 
 
 
-(* A round is complete if the currently_active index is one greater than the length of the actors array *)
+(* A round is complete if the currently_active index is one greater
+  than the length of the actors array *)
 Definition round_ended (w: World) :=
  nat_of_ord (global_currently_active (world_global_state w)) == n_max_actors + 1. 
 
@@ -481,7 +544,8 @@ Definition honest_activation (state: GlobalState) : option 'I_n_max_actors :=
       global_currently_active := active
     |} =>
         (* if the index is valid *)
-        (if (active < n_max_actors)%N as b return ((active < n_max_actors)%N = b -> option 'I_n_max_actors)
+      (if (active < n_max_actors)%N as b
+          return ((active < n_max_actors)%N = b -> option 'I_n_max_actors)
           then
             fun H : (active < n_max_actors)%N = true =>
               (* if the actor is corrupted *)
@@ -492,7 +556,8 @@ Definition honest_activation (state: GlobalState) : option 'I_n_max_actors :=
               (* otherwise return an index into the list *)
               else Some (Ordinal (n:=n_max_actors) (m:=active) H)
         (* if the index is invalid, return None as well *)
-        else fun _ : (active < n_max_actors)%N = false => None) (erefl (active < n_max_actors)%N)
+       else fun _ : (active < n_max_actors)%N = false => None)
+        (erefl (active < n_max_actors)%N)
     end. 
 
 
@@ -513,7 +578,8 @@ Lemma adversary_activation (state: GlobalState): bool.
 Defined. 
 
 
-Lemma round_in_range (active: Addr) : nat_of_ord active != n_max_actors.+1 -> active.+1 < n_max_actors + 2.
+Lemma round_in_range (active: Addr) :
+  nat_of_ord active != n_max_actors.+1 -> active.+1 < n_max_actors + 2.
 Proof.
   move=> H.
   case active eqn: Haddr.
@@ -561,7 +627,9 @@ Definition update_round (state : GlobalState) : GlobalState :=
   else mkGlobalState actors adversary active.+1 round. *)
 
 match state with
-| {| global_local_states := actors; global_adversary := adversary; global_currently_active :=
+| {| global_local_states := actors;
+     global_adversary := adversary;
+     global_currently_active :=
   active; global_current_round := round |} =>
     let b := nat_of_ord active == n_max_actors.+1 in
     let H : (nat_of_ord active == n_max_actors.+1) = b := erefl b in
@@ -574,7 +642,8 @@ match state with
                 {|
                     global_local_states := actors;
                     global_adversary := adversary;
-                    global_currently_active := Ordinal (n:=n_max_actors + 2) (m:=active.+1) H';
+                    global_currently_active :=
+                      Ordinal (n:=n_max_actors + 2) (m:=active.+1) H';
                     global_current_round := round
                 |}
               ) (round_in_range active H1)
@@ -591,12 +660,16 @@ Definition next_round  (state : GlobalState) : GlobalState .
       else state. *)
       case state => actors adversary active round.
       case ((nat_of_ord active) == (n_max_actors).+1)  eqn:H.
-        (* we can only update if the current round is less than the maximum rounds*)
+      (* we can only update if the current round is less than the maximum rounds*)
         case ((global_current_round state).+1 < N_rounds) eqn: Hact.
-          exact (mkGlobalState actors adversary (Ordinal (ltn_addr _ valid_n_max_actors)) (Ordinal Hact)).
+        exact
+          (mkGlobalState actors adversary
+                         (Ordinal (ltn_addr _ valid_n_max_actors))
+                         (Ordinal Hact)).
         (* if it isn't less than the maximum rounds, just return the state *)
         exact (state).
-      (* if next round is called on a state, that has not finished execution, it does nothing*)
+      (* if next round is called on a state, that has not finished execution,
+         it does nothing*)
       exact (state).
 Defined.
 
@@ -640,8 +713,7 @@ Definition insert_message
       let: new_message_pool := fixlist_insert message_pool bc in
       let: new_actor := mkLclSt current_chain local_transaction_pool new_message_pool in
       let: new_actors := set_tnth actors (new_actor, corrupted) addr in
-      (mkGlobalState new_actors adversary active round)
-  .
+      (mkGlobalState new_actors adversary active round) .
 
 
 Definition insert_multicast_message 
@@ -654,10 +726,10 @@ Definition insert_multicast_message
         (AddressList_unwrap addresses).
  
 
-        About foldr.
 
 (* insert the corresponding message into every actor's message pool *)
-Definition broadcast_message (bc : BlockChain) (initial_state: GlobalState) : GlobalState :=
+Definition broadcast_message
+      (bc : BlockChain) (initial_state: GlobalState) : GlobalState :=
   foldr
     (fun index state => 
       let: actors := global_local_states state in
@@ -689,15 +761,23 @@ Definition deliver_messages
     messages.
 
 
-Definition update_message_pool_queue (message_list_queue: fixlist [eqType of MessagePool] delta) (new_message_list : MessagePool) : (seq Message * (fixlist [eqType of MessagePool] delta)) :=
-  let: (new_message_list, oldest_message_list) := @fixlist_enqueue _ _ (Some new_message_list) message_list_queue in
+Definition update_message_pool_queue
+           (message_list_queue:
+              fixlist
+                [eqType of MessagePool] delta)
+           (new_message_list : MessagePool)
+  : (seq Message * (fixlist [eqType of MessagePool] delta)) :=
+  let: (new_message_list, oldest_message_list) :=
+     @fixlist_enqueue _ _ (Some new_message_list) message_list_queue in
   match oldest_message_list with
     | None => ([::], new_message_list)
     | Some message_list => (fixlist_unwrap message_list, new_message_list)
   end.
 
 
-Definition update_adversary_round (adversary : Adversary adversary_internal_state) (round : 'I_N_rounds) : Adversary adversary_internal_state :=
+Definition update_adversary_round
+           (adversary : Adversary adversary_internal_state)
+           (round : 'I_N_rounds) : Adversary adversary_internal_state :=
   mkAdvrs
     (adversary_state adversary)
     (adversary_state_change adversary)
@@ -714,7 +794,8 @@ Definition update_adversary_round (adversary : Adversary adversary_internal_stat
 
     
 
-Definition validate_blockchain_links (bc : BlockChain) (oracle_state : OracleState) : bool :=
+Definition validate_blockchain_links
+           (bc : BlockChain) (oracle_state : OracleState) : bool :=
   match fixlist_unwrap bc with
     | [::] => true (* Vacuously true *)
     | h :: t =>
@@ -732,7 +813,9 @@ Definition validate_blockchain_links (bc : BlockChain) (oracle_state : OracleSta
                 match verify_hash pred_block oracle_state with
                   | None => (pred_block, true)
                   | Some(hash_value) => 
-                      if (block_link block == hash_value)  && (hash_value < T_Hashing_Difficulty) 
+                    if
+                      (block_link block == hash_value)
+                        && (hash_value < T_Hashing_Difficulty)
                         then (pred_block, false)
                         else (pred_block, true)
                 end
@@ -743,14 +826,16 @@ Definition validate_blockchain_links (bc : BlockChain) (oracle_state : OracleSta
           ~~ result
   end.
 
-Definition validate_blockchain (bc : BlockChain) (oracle_state: OracleState) : bool :=
+Definition validate_blockchain
+           (bc : BlockChain) (oracle_state: OracleState) : bool :=
   (* a blockchain is valid if the links are well formed *)
   validate_blockchain_links bc oracle_state && 
   (* and all transactions are valid *)
   validate_transactions (BlockChain_unwrap bc).
   
 (* finds the longest valid chain for a node *)
-Definition honest_max_valid (state: LocalState) (oracle_state: OracleState) : BlockChain :=
+Definition honest_max_valid
+           (state: LocalState) (oracle_state: OracleState) : BlockChain :=
   foldr 
   (fun (new_chain best_chain : BlockChain) => 
     (* First check whether the chain is valid *)
@@ -772,18 +857,22 @@ Definition honest_max_valid (state: LocalState) (oracle_state: OracleState) : Bl
 
 
 (* Bitcoin Backbone Paper - Pg.29
-  Parses v as a sequence of transactions and returns the largest subsequence that is valid
-  with respect to the chain, and whoose transactions are not included in xc
+  Parses v as a sequence of transactions and returns the largest subsequence
+  that is valid with respect to the chain, and whoose transactions are not
+  included in xc
 
   the following function, when given an honest node's transaction pool and chain, 
-  may return a blockrecord (list containing x < MAX_BLOCK_LENGTH) and the transaction pool with
-  the corresponding values removed
+  may return a blockrecord (list containing x < MAX_BLOCK_LENGTH) and the
+  transaction pool with the corresponding values removed
 *)
-Definition find_maximal_valid_subset  (transactions : local_TransactionPool) (blk: BlockChain) : (BlockRecord * local_TransactionPool) :=
-(* naive approach - iterate through transactions and only include those that are valid 
-   specifically it's naive because it assumes that all transactions are delivered in order
-    (i.e if invalid, reordering the sequence won't change whether it's valid or not)
-   but I believe this is a correct assumption as transactions are delivered immediately *)
+Definition find_maximal_valid_subset
+           (transactions : local_TransactionPool)
+           (blk: BlockChain) : (BlockRecord * local_TransactionPool) :=
+(* naive approach - iterate through transactions and only include those that
+   are valid specifically it's naive because it assumes that all transactions
+   are delivered in order (i.e if invalid, reordering the sequence won't change
+   whether it's valid or not) but I believe this is a correct assumption as
+  transactions are delivered immediately *)
    let chain_transactions := BlockChain_unwrap blk in
    foldr
       (fun index prev_pair => 
@@ -797,10 +886,16 @@ Definition find_maximal_valid_subset  (transactions : local_TransactionPool) (bl
                 | None =>  (already_included, remaining)
                 (* and the nth field is present*)
                 | Some transaction =>
-                  if Transaction_valid transaction ((fixlist_unwrap already_included) ++ chain_transactions)
+                  if Transaction_valid transaction
+                                       ((fixlist_unwrap already_included)
+                                          ++ chain_transactions)
+
                     (* and the transaction is valid*)
                     (* insert it into the blockrecord *)
-                    then (fixlist_insert already_included transaction, fixlist_remove remaining index )
+                  then
+                    (fixlist_insert
+                       already_included transaction,
+                     fixlist_remove remaining index )
                     (* otherwise don't*)
                     else (already_included, remaining)
                 end)
@@ -808,7 +903,8 @@ Definition find_maximal_valid_subset  (transactions : local_TransactionPool) (bl
       (iota 0 TransactionPool_length).
 
 
-Definition retrieve_head_link (b : BlockChain) (oracle_state : OracleState) : option Hashed :=
+Definition retrieve_head_link
+           (b : BlockChain) (oracle_state : OracleState) : option Hashed :=
   match fixlist_unwrap b with
     | [::] => Some (Ordinal (ltn0Sn _))
     | h :: t => verify_hash h oracle_state
@@ -817,7 +913,10 @@ Definition retrieve_head_link (b : BlockChain) (oracle_state : OracleState) : op
 
     
 
-Definition update_transaction_pool (addr : 'I_n_max_actors) (initial_state : LocalState) (transaction_pool: TransactionPool) : LocalState :=
+Definition update_transaction_pool
+           (addr : 'I_n_max_actors)
+           (initial_state : LocalState)
+           (transaction_pool: TransactionPool) : LocalState :=
   foldr
   (fun (txMsg : TransactionMessage) state => 
       match txMsg with
@@ -843,7 +942,10 @@ Definition update_transaction_pool (addr : 'I_n_max_actors) (initial_state : Loc
   initial_state
   (fixlist_unwrap transaction_pool).
 
-Definition update_adversary_transaction_pool  (initial_adv: Adversary adversary_internal_state) (transaction_pool: TransactionPool) : Adversary adversary_internal_state:=
+Definition update_adversary_transaction_pool
+           (initial_adv: Adversary adversary_internal_state)
+           (transaction_pool: TransactionPool)
+  : Adversary adversary_internal_state:=
     foldr 
       (fun (txMsg : TransactionMessage) adversary => 
       let: adv_state := adversary_state adversary in
@@ -898,122 +1000,6 @@ Definition adversarial_minority (w : World) :=
   no_corrupted_players (world_global_state w) <= t_max_corrupted.
  
 
-Lemma nth_set_nth_ident (A : Type) (P : pred A) (ls : seq A) (a a' : A) (n : nat) :
-  ~~ P a -> ~~ P (nth a ls n) -> ~~ P a' -> length (filter P (set_nth a ls n a')) = length (filter P ls).
-Proof.
-  elim: ls n => [n H0 H1 H2| a'' ls n n'] //=.
-  rewrite /filter.
-
-  case n => [//=|n0//=]; rewrite ifN.
-    by [].
-    by [].
-
-  by induction n0 => //=; rewrite ifN.
-    by [].
-
-  induction n' => //= H0 H1 H2.
-  by rewrite ifN; [rewrite ifN| by []] .
-  case_eq (P a'') => H //=.
-  by rewrite n.
-  by rewrite n.
-Qed.
-
-Lemma nth_set_nth_ident_general (A : Type) (P : pred A) (ls : seq A) (a a' : A) (n : nat) :
-    n < length ls ->
-    P (nth a ls n) == P a' -> 
-      length (filter P (set_nth a ls n a')) = length (filter P ls).
-Proof.
- 
-  elim: ls n => [n H0 | a'' ls n n'] //=.
-
-  move=> H0 /eqP H.
-  case_eq (P a'') =>  //=.
-  move: H H0.
-  case_eq n' => //=.
-  move=> n0 H H1 H2.
-  rewrite ifT.
-    by [].
-    by rewrite -H H2.
-    move=> n0 n0eq H H1 H2.
-    rewrite ifT.
-    rewrite -(n n0) => //=.
-      by rewrite H.
-      by [].
-  move=> H1.
-  move: H.
-  case_eq n' => //=.
-  move=> H2 H.
-  rewrite ifF.
-    by [].
-    by rewrite -H.
-  move=> n0 H2 H.
-  rewrite ifN.
-  rewrite n => //=.
-  by rewrite H2 in H0.
-  by rewrite H.
-  by rewrite H1.
-Qed.
-
-Lemma nth_set_nth_incr (A : Type) (P : pred A) (ls : seq A) (a a' : A) (n : nat) :
-    n < length ls ->
-    P a' ->
-    ~~ P (nth a ls n)  -> 
-      length (filter P (set_nth a ls n a')) = (length (filter P ls)).+1.
-Proof.
-  elim: ls n => [n H0 | a'' ls H n' ltnN Pa nPcons] //=.
-  move: nPcons.
-  case_eq n' => //= n0.
-  move=> H1.
-  rewrite ifT .
-  by rewrite ifN. 
-  by [].
-  move=> n_eq.
-  move=> H1.
-  case_eq (P a'') => //= Pa''.
-  rewrite H.
-  by [].
-  rewrite n_eq in ltnN.
-  move: ltnN => //=.
-  by [].
-  by [].
-  rewrite H.
-  by [].
-  rewrite n_eq in ltnN.
-  move: ltnN => //=.
-  by [].
-  by [].
-Qed.
-(* 
-Lemma maintain_corrupt_insert_message (state : GlobalState) (a : Addr) (bc : BlockChain) :
-  no_corrupted_players (insert_message a bc state) = no_corrupted_players state.
-Proof.
-  rewrite /insert_message /no_corrupted_players.
-  destruct state => //=.
-  destruct p.
-  destruct p.
-  
-  destruct (nth _)  as [actor corrupted]   eqn:H'. 
-  
-  case_eq  corrupted => //=.
-  destruct (_ \in _) => //=.
-  move=>H.
-  rewrite nth_set_nth_ident.
-    by [].
-    by [].
-    by rewrite H' H.
-  by [].
-Qed. *)
-
-Lemma foldr_rec (A B : Type) (P : B -> Set) (f : A -> B -> B)  (b0 : B) (ls : seq A) :
-  P b0 -> (forall a b, P b -> P (f a b)) -> P (foldr f b0 ls).
-Proof.
-  move=> P_b0 IHn.
-  induction ls => [//|//=].
-  by apply IHn.
-Qed.
-
-
-
 
 
 Definition block_hash_round (b : Block) (w : World) :=
@@ -1045,7 +1031,8 @@ Definition successful_round (w : World) (r : nat) : bool :=
       (hash_round  == r) && (~~ is_corrupt))
       (BlockMap_records (world_block_history w))) > 0.
 
-Lemma successful_round_internalP (w : World) r : successful_round w r = successful_round_internal [w.blocks] r.
+Lemma successful_round_internalP (w : World) r :
+  successful_round w r = successful_round_internal [w.blocks] r.
   by rewrite /successful_round/successful_round_internal.
 Qed.
 
@@ -1081,7 +1068,8 @@ Definition unsuccessful_round (w : World) (r : nat) :=
       (hash_round  == r) && (~~ is_corrupt))
       (BlockMap_records (world_block_history w))) == 0.
 
-Lemma unsuccessful_round_internalP (w : World) r : unsuccessful_round w r = unsuccessful_round_internal [w.blocks] r.
+Lemma unsuccessful_round_internalP (w : World) r :
+  unsuccessful_round w r = unsuccessful_round_internal [w.blocks] r.
   by rewrite /unsuccessful_round/unsuccessful_round_internal.
 Qed.
 
@@ -1111,22 +1099,23 @@ Definition uniquely_successful_round (w : World) (r : nat) :=
       (hash_round  == r) && (~~ is_corrupt))
       (BlockMap_records (world_block_history w))) == 1.
 
-Lemma uniquely_successful_roundP w r : uniquely_successful_round w r -> successful_round w r.
+Lemma uniquely_successful_roundP w r :
+  uniquely_successful_round w r -> successful_round w r.
 Proof.
-  by rewrite /successful_round/successful_round_internal/uniquely_successful_round => /eqP ->.
+    by rewrite
+         /successful_round/successful_round_internal/uniquely_successful_round
+    => /eqP ->.
 Qed.
 
 
 Definition bounded_successful_round_internal (bh : BlockMap) (r : nat) :=
-  (* (forallb (r' : nat), (r' < r) && (r' >= r - delta) -> unsuccessful_round w r') &&   *)
-  (all (fun r' => unsuccessful_round_internal bh r') (itoj (r + 1 - delta ) (r))) &&  
-    successful_round_internal bh r.
+  (all (fun r' => unsuccessful_round_internal bh r') (itoj (r + 1 - delta ) (r)))
+    && successful_round_internal bh r.
 
 
 Definition bounded_successful_round (w : World) (r : nat) :=
-  (* (forallb (r' : nat), (r' < r) && (r' >= r - delta) -> unsuccessful_round w r') &&   *)
-  (all (fun r' => unsuccessful_round w r') (itoj (r + 1 - delta ) (r))) &&  
-    successful_round w r.
+  (all (fun r' => unsuccessful_round w r') (itoj (r + 1 - delta ) (r)))
+    && successful_round w r.
 
 Lemma bounded_successful_round_internalP (w : World) (r : nat) :
   bounded_successful_round w r = bounded_successful_round_internal [w.blocks] r.
@@ -1135,7 +1124,8 @@ Proof.
 Qed.
 
 Lemma bounded_successful_round_forall w r :
-  bounded_successful_round w r -> forall r', ((r - delta).+1 <= r' < r) -> unsuccessful_round w r'.
+  bounded_successful_round w r -> forall r',
+    ((r - delta).+1 <= r' < r) -> unsuccessful_round w r'.
 Proof.
   case Heqn: (delta == 0).
     move/eqP: Heqn => ->.
@@ -1174,7 +1164,8 @@ Proof.
   by rewrite -subn_eq0 => /eqP ->.
 Qed.
 
-Lemma bounded_successful_round_rangeP w r : (r >= N_rounds) -> ~~ bounded_successful_round w r.
+Lemma bounded_successful_round_rangeP w r :
+  (r >= N_rounds) -> ~~ bounded_successful_round w r.
   move=> Hltn.
   rewrite /bounded_successful_round negb_and.
   by apply/orP; right; apply successful_round_rangeP.
@@ -1184,7 +1175,8 @@ Qed.
 
 
 Lemma bounded_successful_round_exists w r :
-    (exists r', ((r - delta).+1 <= r' < r) && successful_round w r') -> ~~ bounded_successful_round w r.
+  (exists r', ((r - delta).+1 <= r' < r) && successful_round w r') ->
+  ~~ bounded_successful_round w r.
 Proof.
   move=> [r' /andP [ /andP [Hltr Hgt] Hsuc]].
   rewrite /bounded_successful_round.
@@ -1213,7 +1205,8 @@ Qed.
 
 
 
-Lemma bounded_successful_round_lim_base w : bounded_successful_round w 0 -> forall r', (0 < r' < delta) -> ~~ bounded_successful_round w r'.
+Lemma bounded_successful_round_lim_base w : bounded_successful_round w 0 -> forall r',
+      (0 < r' < delta) -> ~~ bounded_successful_round w r'.
 Proof.
   move=> /andP [_ Hsuc] r'.
   move=>/andP [Hgt0 Hltd].
@@ -1241,7 +1234,8 @@ Qed.
 
  
 Lemma bounded_successful_round_lim w r : 
-  bounded_successful_round w r -> forall r', (r < r') && (r' < r + delta) -> ~~ bounded_successful_round w r'.
+  bounded_successful_round w r -> forall r',
+    (r < r') && (r' < r + delta) -> ~~ bounded_successful_round w r'.
 Proof.
   case Hrvld : (0 < r); last first.
   move/negP/negP: Hrvld.
@@ -1267,9 +1261,9 @@ Qed.
 
 
 Definition bounded_uniquely_successful_round (w : World) (r : nat) :=
-  (* (forall (r' : nat), ((r' <= r + delta) && (r' >= r - delta) && (r' != r)) -> unsuccessful_round w r') /\ *)
-  (all (fun r' => (unsuccessful_round w r') || (r' == r)) (itoj (r - delta + 1) (r + delta))) &&
-    (uniquely_successful_round w r).
+  (all (fun r' => (unsuccessful_round w r') || (r' == r))
+       (itoj (r - delta + 1) (r + delta)))
+    && (uniquely_successful_round w r).
 
 
 Definition adversarial_block_count (w : World) (r : nat) :=
@@ -1286,7 +1280,8 @@ Definition nth_block_is_honest (c : BlockChain) (n : nat) (w : World) :=
   end.
 
 
-Definition nth_block_hashed_in_a_uniquely_successful_round (w : World) (chain : BlockChain) (n : nat) :=
+Definition nth_block_hashed_in_a_uniquely_successful_round
+           (w : World) (chain : BlockChain) (n : nat) :=
       let: o_block := (fixlist_get_nth chain n) in
       match o_block with
         | None => None 
@@ -1303,7 +1298,8 @@ Definition nth_block_is_adversarial (w : World) (chain : BlockChain) (n : nat) :
         end.
  
 
-Definition nth_block_equals (w : World) (chain : BlockChain) (n : nat) (block : option Block) :=
+Definition nth_block_equals
+           (w : World) (chain : BlockChain) (n : nat) (block : option Block) :=
       let: o_block := (fixlist_get_nth chain n) in
       o_block == block.
       
@@ -1313,7 +1309,8 @@ Definition nth_block (w : World) (chain : BlockChain) (n : nat) :=
 
 
 Definition actor_n_chain_length (w : World) (n : 'I_n_max_actors) : nat :=
-  let: (actor, is_corrupted) := tnth (global_local_states (world_global_state w)) n in
+  let: (actor, is_corrupted) :=
+     tnth (global_local_states (world_global_state w)) n in
   fixlist_length (honest_current_chain actor) .
 
 Definition world_round (w : World) : nat := 
@@ -1322,7 +1319,10 @@ Definition world_round (w : World) : nat :=
 
 
 Definition actor_n_is_corrupt_internal_unwrap
-           (actors : n_max_actors.-tuple [eqType of ([eqType of LocalState] * [eqType of bool])])
+           (actors : n_max_actors.-tuple
+                                 [eqType of
+                                         ([eqType of LocalState] *
+                                          [eqType of bool])])
            (n: 'I_n_max_actors) : bool :=
   let: (actor, is_corrupted) := tnth  actors n in
   is_corrupted.
@@ -1334,14 +1334,17 @@ Definition actor_n_is_corrupt_internal
 
 
 Lemma actor_n_is_corrupt_unwrapP (gs:GlobalState) (n:'I_n_max_actors) :
-    actor_n_is_corrupt_internal gs n = actor_n_is_corrupt_internal_unwrap [gs.actors] n.
+  actor_n_is_corrupt_internal gs n =
+  actor_n_is_corrupt_internal_unwrap [gs.actors] n.
 Proof.
   by rewrite/actor_n_is_corrupt_internal//=.
 Qed.
 
 
 Definition actor_n_is_corrupt (w:World) (n:'I_n_max_actors) : bool :=
-  let: (actor, is_corrupted) := tnth  (global_local_states (world_global_state w)) n in
+  let: (actor, is_corrupted) := tnth
+                                  (global_local_states
+                                     (world_global_state w)) n in
   is_corrupted.
 
 Lemma actor_n_is_corrupt_internalP (w:World) (n:'I_n_max_actors) :
@@ -1352,13 +1355,16 @@ Qed.
 
 
 Definition actor_n_is_honest_internal_unwrap
-           (actors : n_max_actors.-tuple [eqType of ([eqType of LocalState] * [eqType of bool])])
+           (actors :
+              n_max_actors.-tuple
+                          [eqType of ([eqType of LocalState] * [eqType of bool])])
            (n: nat) : bool :=
   let b := n < n_max_actors in
   let H : (n < n_max_actors) = b := erefl b in
     (if b as b0 return ((n < n_max_actors) = b0 -> bool)
      then fun H0 : (n < n_max_actors) = true =>
-            ~~ actor_n_is_corrupt_internal_unwrap actors (Ordinal (n:=n_max_actors) (m:=n) H0)
+            ~~ actor_n_is_corrupt_internal_unwrap actors
+               (Ordinal (n:=n_max_actors) (m:=n) H0)
     else xpred0) H.
 
 
@@ -1366,11 +1372,14 @@ Definition actor_n_is_honest_internal (gs: GlobalState) (n: nat) : bool :=
   let b := n < n_max_actors in
   let H : (n < n_max_actors) = b := erefl b in
     (if b as b0 return ((n < n_max_actors) = b0 -> bool)
-    then fun H0 : (n < n_max_actors) = true => ~~ actor_n_is_corrupt_internal gs (Ordinal (n:=n_max_actors) (m:=n) H0)
+     then fun H0 : (n < n_max_actors) = true =>
+            ~~ actor_n_is_corrupt_internal gs
+               (Ordinal (n:=n_max_actors) (m:=n) H0)
     else xpred0) H.
 
 Lemma actor_n_is_honest_unwrapP (gs: GlobalState) (n: nat) :
-  actor_n_is_honest_internal gs n = actor_n_is_honest_internal_unwrap [gs.actors] n.
+  actor_n_is_honest_internal gs n =
+  actor_n_is_honest_internal_unwrap [gs.actors] n.
 Proof.
   by rewrite /actor_n_is_honest_internal//=.
 Qed.
@@ -1379,7 +1388,8 @@ Definition actor_n_is_honest (w: World) (n: nat) : bool :=
   let b := n < n_max_actors in
   let H : (n < n_max_actors) = b := erefl b in
     (if b as b0 return ((n < n_max_actors) = b0 -> bool)
-    then fun H0 : (n < n_max_actors) = true => ~~ actor_n_is_corrupt w (Ordinal (n:=n_max_actors) (m:=n) H0)
+     then fun H0 : (n < n_max_actors) = true =>
+            ~~ actor_n_is_corrupt w (Ordinal (n:=n_max_actors) (m:=n) H0)
     else xpred0) H.
 
 
@@ -1392,7 +1402,11 @@ Qed.
 
 
 
-Definition is_uncorrputed_actor (actors: n_max_actors.-tuple [eqType of ([eqType of LocalState] * [eqType of bool])]) (addr: Addr) : option ('I_n_max_actors* LocalState).
+Definition is_uncorrputed_actor
+           (actors: n_max_actors.-tuple
+                                [eqType of
+                                        ([eqType of LocalState] * [eqType of bool])])
+           (addr: Addr) : option ('I_n_max_actors* LocalState).
   case addr eqn:Haddr.
     case (m < n_max_actors) eqn: H.
       case (tnth actors (Ordinal H)) => actor is_corrupt.
@@ -1407,7 +1421,8 @@ Defined.
 
 
 
-Definition adopt_at_round (w' : World) (w : World) (bc : BlockChain) (agent: Addr) (r : nat) :=
+Definition adopt_at_round
+           (w' : World) (w : World) (bc : BlockChain) (agent: Addr) (r : nat) :=
   match r with
     | 0 => false
     | r'.+1 => 
@@ -1420,8 +1435,10 @@ Definition adopt_at_round (w' : World) (w : World) (bc : BlockChain) (agent: Add
         (* If the agent has been activated in both rounds *)
         (world_current_addr w  >= agent) &&
         (world_current_addr w'  >= agent) 
-        then let: (w_state, w_is_corrupt) := (nth (initLocalState, true) (world_actors w) agent) in
-             let: (w'_state, w'_is_corrupt) := (nth (initLocalState, true) (world_actors w') agent) in
+      then let: (w_state, w_is_corrupt) :=
+              (nth (initLocalState, true) (world_actors w) agent) in
+           let: (w'_state, w'_is_corrupt) :=
+              (nth (initLocalState, true) (world_actors w') agent) in
               (~~ w_is_corrupt) && (~~ w'_is_corrupt) && 
               (honest_current_chain w'_state != bc) &&
               (honest_current_chain w_state == bc)
@@ -1429,28 +1446,13 @@ Definition adopt_at_round (w' : World) (w : World) (bc : BlockChain) (agent: Add
     end.
 
 
-Definition chain_quality_property (w : World) (l u : nat) (agent : 'I_n_max_actors) := 
-  (* states that... *)
-    let: (actor, is_corrupt) := tnth (world_actors w) agent in
-    let: current_chain := honest_current_chain actor in
-       (* the current actor is not corrupt *)
-      (~~ is_corrupt) &&
-       (* the length of the actors chain is longer than length *)
-      (fixlist_length current_chain > l) &&
-      (* all consecutive sequences of length l, have fewer than u adversarial blocks*)
-      (all_consecutive_sequences current_chain l (fun blocks => 
-        length (filter (fun block => match block_is_adversarial block w with 
-          | Some (is_adv) => is_adv
-          | None => false
-          end) (flatten (map (fun x => match x with Some x' => [:: x'] | None => [::] end) blocks)))  <= u)).
-
-
 
 
 Definition no_adversarial_blocks' (w: World) (from to : nat) : nat:= 
   foldr (fun round acc => acc + adversarial_block_count w round) 0 (itoj from to).
 
-Definition no_adversarial_blocks (w: World) (from to : nat) : 'I_(N_rounds * n_max_actors). 
+Definition no_adversarial_blocks
+           (w: World) (from to : nat) : 'I_(N_rounds * n_max_actors).
   case ((no_adversarial_blocks' w from to) < (N_rounds * n_max_actors)) eqn: H.
   exact (Ordinal H).
   exact (Ordinal valid_N_rounds_mul_n_max_actors).
@@ -1464,7 +1466,8 @@ Definition no_successful_rounds' (w : World) (from : nat) (to : nat) : nat :=
 
 Definition no_successful_rounds (w: World) (from to : nat) : 'I_N_rounds :=
   let b := no_successful_rounds' w from to < N_rounds in
-    (if b as b0 return ((no_successful_rounds' w from to < N_rounds) = b0 -> 'I_N_rounds)
+  (if b as b0
+      return ((no_successful_rounds' w from to < N_rounds) = b0 -> 'I_N_rounds)
       then fun H => Ordinal H
       else fun _ => Ordinal valid_N_rounds) (erefl b).
 
@@ -1483,7 +1486,8 @@ Definition no_bounded_successful_rounds' (w : World) (from : nat) (to : nat) : n
     (itoj from to)).
 
 Lemma no_bounded_successful_rounds'_internalP (w : World) from to :
-  no_bounded_successful_rounds' w from to = no_bounded_successful_rounds'_internal [w.blocks] from to.
+  no_bounded_successful_rounds' w from to =
+  no_bounded_successful_rounds'_internal [w.blocks] from to.
 Proof.
   by rewrite/no_bounded_successful_rounds'//=.
 Qed.
@@ -1491,9 +1495,12 @@ Qed.
 Lemma valid_Sn n : n > 0 -> n.+1 > 0. by []. Qed.
 
 
-Definition no_bounded_successful_rounds_internal (bm: BlockMap) (from to : nat) : 'I_N_rounds.+1 :=
+Definition no_bounded_successful_rounds_internal
+           (bm: BlockMap) (from to : nat) : 'I_N_rounds.+1 :=
   let b := ((no_bounded_successful_rounds'_internal bm from to) < N_rounds.+1 ) in
-   (if b as b0 return (((no_bounded_successful_rounds'_internal bm from to) < N_rounds.+1 ) = b0 -> 'I_N_rounds.+1)
+  (if b as b0
+      return (((no_bounded_successful_rounds'_internal bm from to) < N_rounds.+1 ) =
+              b0 -> 'I_N_rounds.+1)
       then fun H => Ordinal H
       else fun _ => Ordinal (valid_Sn _ valid_N_rounds)) (erefl b).
 
@@ -1501,25 +1508,22 @@ Definition no_bounded_successful_rounds_internal (bm: BlockMap) (from to : nat) 
 
 Definition no_bounded_successful_rounds (w: World) (from to : nat) : 'I_N_rounds.+1 :=
   let b := ((no_bounded_successful_rounds' w from to) < N_rounds.+1 ) in
-   (if b as b0 return (((no_bounded_successful_rounds' w from to) < N_rounds.+1 ) = b0 -> 'I_N_rounds.+1)
+  (if b as b0 return (((no_bounded_successful_rounds' w from to) < N_rounds.+1 ) =
+                      b0 -> 'I_N_rounds.+1)
       then fun H => Ordinal H
       else fun _ => Ordinal (valid_Sn _ valid_N_rounds)) (erefl b).
 
 
 Lemma no_bounded_successful_rounds_internalP (w : World) from to :
-  no_bounded_successful_rounds w from to = no_bounded_successful_rounds_internal [w.blocks] from to.
+  no_bounded_successful_rounds w from to =
+  no_bounded_successful_rounds_internal [w.blocks] from to.
 Proof.
   by rewrite/no_bounded_successful_rounds'//=.
 Qed.
 
 
-
-
-
-
-
-
-Lemma count_bounded_successful_rounds'_rangeP_weak w from to : from >= N_rounds -> count [eta bounded_successful_round w] (iota from to) = 0.
+Lemma count_bounded_successful_rounds'_rangeP_weak w from to :
+  from >= N_rounds -> count [eta bounded_successful_round w] (iota from to) = 0.
   move=> Hrlt.
   apply has_countPn.
   apply/hasPn => r' .
@@ -1530,7 +1534,8 @@ Lemma count_bounded_successful_rounds'_rangeP_weak w from to : from >= N_rounds 
 Qed.
 
 
-Lemma no_bounded_successful_rounds'_rangeP_weak w from to : from >= N_rounds -> no_bounded_successful_rounds' w from to = 0.
+Lemma no_bounded_successful_rounds'_rangeP_weak w from to :
+  from >= N_rounds -> no_bounded_successful_rounds' w from to = 0.
 Proof.
   move=> Hrlt.
   rewrite/no_bounded_successful_rounds'.
@@ -1538,80 +1543,15 @@ Proof.
   by apply count_bounded_successful_rounds'_rangeP_weak.
 Qed.
 
-Lemma no_bounded_successful_rounds'_rangeP_alt w from to : no_bounded_successful_rounds' w from to <= to - from.
+Lemma no_bounded_successful_rounds'_rangeP_alt w from to :
+  no_bounded_successful_rounds' w from to <= to - from.
 Proof.
   rewrite /no_bounded_successful_rounds' -length_sizeP size_filter /itoj.
   by apply (leq_trans (count_size _ _)); rewrite size_iota //=.
 Qed.
 
-
-Lemma leq_exists  a b : a <= b -> exists c, a + c = b.
-Proof.
-  rewrite leq_eqVlt => /orP [/eqP -> | ]. by exists 0.
-  move: a.
-  elim: b => //= b IHb a.
-  rewrite ltnS leq_eqVlt => /orP [/eqP -> | ]. by exists 1; rewrite addn1.
-  by move=> /IHb [c' Heqn]; exists (c'.+1); rewrite addnS Heqn.
-Qed.
-
-
-Lemma addn_ltn_eqn' a b c : a > 0 -> a + c = b -> c < b.
-
-Proof.
-  move=> Hgt0a Heqn.
-  rewrite -subn_eq0.
-  rewrite -Heqn.
-  rewrite subnDA.
-  rewrite subnAC.
-  rewrite subSn //= subnn.
-  move: Hgt0a.
-  by case a .
-Qed.
-
-Lemma ltn_exists a b : a > 0  -> a < b -> exists c, c < b /\ a + c = b.
-Proof.
-    move: a; elim: b => //= b IHb a Hltn0.
-    rewrite leq_eqVlt => /orP [ /eqP [] Heq0 | ].
-    by move: Hltn0; rewrite Heq0 => Hlnt0; exists 1; split => //=; rewrite addn1.
-    rewrite -{1}(addn1 a) -{1}(addn1 b). rewrite ltn_add2r.
-    move=> /IHb Hltn.
-    move: (Hltn Hltn0) => [b' [Hb'ltb Hb'eqb]].
-    exists (b'.+1); split.
-    by rewrite -{1}(addn1 b) -{1}(addn1 b'); rewrite ltn_add2r.
-    by rewrite addnS Hb'eqb.
-Qed.
-
-Lemma ltn_exists_multi a b : a > 0 -> a < b -> exists c d, c + d = b /\ c < a.
-Proof.
-  move: a; elim: b => //= b IHb'' a Ha0vld.
-  move: (Ha0vld) => /IHb'' IHb' . clear IHb''.
-  rewrite leq_eqVlt => /orP [ /eqP [] Haeqb | ].
-  rewrite Haeqb.
-  rewrite Haeqb in Ha0vld.
-  exists b.-1.
-  exists 2.
-  split; last first.
-  by apply ltnn_subS; move: Ha0vld.
-  by rewrite addn2 -addn1 prednK //= addn1.
-  rewrite -{1}(addn1 a).
-  rewrite -{1}(addn1 b).
-  rewrite ltn_add2r => /IHb' [c' [d' [Heqn Hlt]]].
-  exists c'.
-  exists d'.+1.
-  by split; [rewrite addnS Heqn | ].
-Qed.
-
-Lemma leqn_eq0 a b : a > 0 -> (a <= a - b) -> b == 0 .
-Proof.
-  move: b.
-  case: a => //= a b.
-  case: b => //= b _ .
-  rewrite subSS.
-  move=> /ltn_subn_pr.
-  by rewrite ltnn.
-Qed.
-
-Lemma no_bounded_successful_rounds'_rangeP w from to : 0 < from ->  no_bounded_successful_rounds' w from to < N_rounds.
+Lemma no_bounded_successful_rounds'_rangeP w from to :
+  0 < from ->  no_bounded_successful_rounds' w from to < N_rounds.
 Proof.
   move=> Hfrmvld.
   move: (no_bounded_successful_rounds'_rangeP_alt w from to) => Hrng.
@@ -1651,10 +1591,13 @@ Proof.
   by [].
 Qed.
 
-Lemma no_bounded_successful_rounds'_rangeSP w from to : no_bounded_successful_rounds' w from to < N_rounds.+1.
+Lemma no_bounded_successful_rounds'_rangeSP w from to :
+  no_bounded_successful_rounds' w from to < N_rounds.+1.
 Proof.
   case Hfltr: (0 < from).
-    by apply (ltn_trans (no_bounded_successful_rounds'_rangeP w from to Hfltr)) => //=.
+    by
+      apply (ltn_trans (no_bounded_successful_rounds'_rangeP w from to Hfltr))
+      => //=.
   move: (no_bounded_successful_rounds'_rangeP_alt w from to) => Hrng.
   move/negP/negP: Hfltr.
   rewrite -eqn0Ngt => /eqP Heq0.
@@ -1691,7 +1634,9 @@ Qed.
 
 Lemma no_bounded_successful_roundsP (P : 'I_N_rounds.+1 -> Prop) w from to : 
   P (Ordinal  (valid_Sn _ valid_N_rounds)) ->
-  (forall prf : ((no_bounded_successful_rounds' w from to < N_rounds.+1) = true), P (Ordinal prf )) ->
+  (forall prf :
+       ((no_bounded_successful_rounds' w from to < N_rounds.+1) = true),
+      P (Ordinal prf )) ->
   P (no_bounded_successful_rounds w from to).
 Proof.
   move=> H0 Hind.
@@ -1751,47 +1696,10 @@ Qed.
 
 
 
-Lemma iota_predn r s : iota r s.+1 = iota r s ++ [:: r + s].
-Proof.
-  move: r.
-  elim: s => [//=| s IHs   ] r.
-  by rewrite addn0.
-  rewrite -{1}(addn1 ).
-  rewrite iota_add .
-  have: (iota (r + s.+1) 1 = [:: r + s.+1]). by [].
-  by move=> ->.
-Qed.
-
- 
-Lemma size_iota_rcons (P : nat -> bool) r s : ~~ P (r + s.-1) -> size (filter P (iota r s)) = size (filter P (iota r s.-1)).
-Proof.
-  elim: s => [//=|] s' IHs Hs'.
-  rewrite iota_predn.
-  rewrite -pred_Sn.
-  rewrite -pred_Sn in Hs'.
-  rewrite filter_cat.
-  have: ([seq x <- [:: r + s'] | P x] = [::]).
-  move=> //=.
-  by apply ifN.
-  move=> ->.
-  by rewrite cats0.
-Qed.
-
-Lemma subn_eq0_eq a b : (a - b == 0) -> (b - a == 0) -> a == b.
-Proof.
-  move: a; elim: b => //= [a| b IHn a].
-  by rewrite subn0 sub0n => /eqP ->.
-  rewrite !subn_eq0.
-  rewrite leq_eqVlt => /orP [/eqP -> //=| ].
-  elim: a => //= a Heqn.
-  rewrite -{1}(addn1 a).
-  move=> /ltn_weaken.
-  by move=>/ltnSn_eq H /H /eqP ->.
-Qed.
-
 Lemma no_bounded_successful_rounds'_excl w s r :
         (~~ bounded_successful_round w s) ->
-          no_bounded_successful_rounds' w r s = no_bounded_successful_rounds' w r s.+1.
+        no_bounded_successful_rounds' w r s =
+        no_bounded_successful_rounds' w r s.+1.
 Proof.
   move=> Hbnd.
   rewrite /no_bounded_successful_rounds';
@@ -1812,7 +1720,8 @@ Qed.
 
 Lemma no_bounded_successful_rounds_excl w s r :
         (~~ bounded_successful_round w s) ->
-          no_bounded_successful_rounds w r s = no_bounded_successful_rounds w r s.+1.
+        no_bounded_successful_rounds w r s =
+        no_bounded_successful_rounds w r s.+1.
 Proof.
   move=> Hsb.
   rewrite /no_bounded_successful_rounds.
@@ -1820,26 +1729,11 @@ Proof.
 Qed.
 
 
-Lemma subn_eqQ a b : a - b = a -> a = 0 \/ b = 0.
-Proof.
-  case: a => //= [ | a]. by move=> _; left.
-  case Hltn: (b <= a).
-  rewrite subSn //= => [] [].
-  move=>/(f_equal (fun x => x + b)).
-  rewrite addnC.
-  rewrite subnKC //=.
-  move=>/(f_equal (fun x => x - a)).
-  rewrite subnn.
-  rewrite addnC.
-  by rewrite -addnBA //= subnn addn0 => Hbeqn0; right.
-  move/negP/negP: Hltn.
-  by rewrite -ltnNge -subn_eq0 => /eqP ->.
-Qed.
-
 
 Lemma no_bounded_successful_rounds'_lim_gen w s r: 0 < delta ->
   bounded_successful_round w s ->
-      no_bounded_successful_rounds' w r s = no_bounded_successful_rounds' w r (s.+1 - delta).
+  no_bounded_successful_rounds' w r s =
+  no_bounded_successful_rounds' w r (s.+1 - delta).
 Proof.
   move=> Hdelta Hbounded_success; move: (Hbounded_success).
   rewrite/bounded_successful_round => /andP [] //= /allP Hall Hsucc.
@@ -1963,8 +1857,10 @@ Lemma no_bounded_successful_rounds_lim w s r :
   r <= s - delta ->
   ((no_bounded_successful_rounds' w r (s.+1 - 2 * delta)) + 1) < N_rounds.+1 ->
   bounded_successful_round w (s - delta) ->
-                (nat_of_ord (no_bounded_successful_rounds w r (s.+1 - delta))%nat) =
-               (nat_of_ord (no_bounded_successful_rounds w r (s.+1 - 2 * delta)) + 1)%nat.
+  (nat_of_ord (no_bounded_successful_rounds w r
+                                            (s.+1 - delta))%nat) =
+  (nat_of_ord (no_bounded_successful_rounds w r
+                                            (s.+1 - 2 * delta)) + 1)%nat.
 Proof.
   move=> Hdlta0 Hdltas Hrbnd Hbound.
   rewrite /no_bounded_successful_rounds => Hbounded_succ.
@@ -1978,17 +1874,22 @@ Proof.
   by rewrite {2 4}Hbound' => prf prf' H1 H2; rewrite /nat_of_ord //=.
 Qed.
 
-Lemma bounded_successful_round_init round : ~~  bounded_successful_round initWorld round .
+Lemma bounded_successful_round_init round :
+  ~~  bounded_successful_round initWorld round .
 Proof.
   rewrite /bounded_successful_round//=.
   rewrite negb_and; apply/orP; right.
   rewrite /successful_round/initWorld//=.
   rewrite /BlockMap_records/BlockMap_new//=.
-  by move: (fixlist_empty_is_empty [finType of BlockMap_keytype * BlockMap_valuetype] BlockHistory_size);
+    by move:
+         (fixlist_empty_is_empty
+            [finType of BlockMap_keytype * BlockMap_valuetype]
+            BlockHistory_size);
     rewrite /fixlist_is_empty => /eqP -> //=.
 Qed.
 
-Lemma no_bounded_successful_rounds'_init r s : no_bounded_successful_rounds' initWorld r s = 0.
+Lemma no_bounded_successful_rounds'_init r s :
+  no_bounded_successful_rounds' initWorld r s = 0.
 Proof.
   rewrite/no_bounded_successful_rounds'//=/initWorldAdoptionHistory //=.
   rewrite /itoj -length_sizeP size_filter;
@@ -1999,7 +1900,8 @@ Qed.
 
 
 
-Lemma no_bounded_successful_rounds_init r s : nat_of_ord (no_bounded_successful_rounds initWorld r s) = 0.
+Lemma no_bounded_successful_rounds_init r s :
+  nat_of_ord (no_bounded_successful_rounds initWorld r s) = 0.
 Proof.
   by rewrite/no_bounded_successful_rounds no_bounded_successful_rounds'_init //=.
 Qed.
@@ -2009,14 +1911,18 @@ Qed.
 
 
 
-Definition no_bounded_uniquely_successful_rounds' (w : World) (from : nat) (to : nat) : nat :=
+Definition no_bounded_uniquely_successful_rounds'
+           (w : World) (from : nat) (to : nat) : nat :=
   length(filter
     (fun round => bounded_uniquely_successful_round w round)
     (itoj from to)).
 
-Definition no_bounded_uniquely_successful_rounds (w: World) (from to : nat) : 'I_N_rounds :=
+Definition no_bounded_uniquely_successful_rounds
+           (w: World) (from to : nat) : 'I_N_rounds :=
   let b := ((no_bounded_uniquely_successful_rounds' w from to) < N_rounds ) in
-   (if b as b0 return (((no_bounded_uniquely_successful_rounds' w from to) < N_rounds ) = b0 -> 'I_N_rounds)
+  (if b as b0
+      return (((no_bounded_uniquely_successful_rounds' w from to) < N_rounds ) =
+              b0 -> 'I_N_rounds)
       then fun H => Ordinal H
       else fun _ => Ordinal valid_N_rounds) (erefl b).
 
@@ -2048,7 +1954,8 @@ Definition insertion_occurred (w : World) (from to : nat)  : bool :=
           let: (b3, ( is_adv, r3))  := pr3 in
           (* given three blocks, such that *)
           [&&
-            (* root -> .. -> [b1] -> [b2] -> .... -> head*) (* block 1 was hashed first *) (r1 < r2), 
+             (* root -> .. -> [b1] -> [b2] -> .... -> head*)
+             (* block 1 was hashed first *) (r1 < r2),
             (* block 2 was hashed second *)
             (* block 3 was hashed last *)
             (r2 < r3), 
@@ -2124,8 +2031,9 @@ Definition prediction_occurred (w : World) (from to : nat)  : bool :=
     )
     (BlockMap_pairs (world_block_history w)).
 
-(* TODO: Move this into protocol *)
-Lemma honest_activation_simplify w' addr : honest_activation [w'.state] = Some addr -> nat_of_ord [[w'.state].#active] = nat_of_ord addr.
+Lemma honest_activation_simplify w' addr :
+  honest_activation [w'.state] = Some addr ->
+  nat_of_ord [[w'.state].#active] = nat_of_ord addr.
 Proof.
   rewrite /honest_activation.
   case: w'=> [ wgs wtp wif wmp whsh wblh wch wadvm wadvtx whontx wadopt ]//=.
@@ -2135,7 +2043,9 @@ Proof.
   by case: ((tnth _ _).2) => //= [] [] <- //=.
 Qed.
 
-Lemma actor_n_is_honestP w r : forall prf, actor_n_is_honest w r = ~~ actor_n_is_corrupt w (Ordinal (n:=n_max_actors) (m:=r) prf).
+Lemma actor_n_is_honestP w r : forall prf,
+    actor_n_is_honest w r =
+    ~~ actor_n_is_corrupt w (Ordinal (n:=n_max_actors) (m:=r) prf).
 Proof.
   move=> prf.
   rewrite /actor_n_is_honest; move: (erefl _).
@@ -2145,3 +2055,216 @@ Proof.
   by rewrite {1}prf.
 Qed.
 
+
+
+
+Lemma local_state_base_nth addr : tnth initLocalStates addr = (initLocalState, false).
+Proof.
+  rewrite (tnth_nth (initLocalState, false)).
+  rewrite /initLocalStates.
+  destruct addr as [m Hm].
+  rewrite /tnth/ncons/ssrnat.iter//=. move: m Hm.
+  elim n_max_actors => //=.
+  move=> n IHn m .
+  case m => //=.
+Qed.
+
+
+Definition honest_actor_has_chain_at_round w addr c r : bool := 
+   (has
+      (* there is a record *)
+      (fun pr => 
+         let: (rec_chain, rec_round, rec_actr)  := pr in 
+         [&&
+            (* of the block adopting/broadcasting the chain *)
+            (rec_chain  == c),
+          (* at round r or earlier *)
+          (nat_of_ord rec_round <= r)%nat &
+          (* by the actor *) 
+          (nat_of_ord rec_actr == addr) ])
+      (fixlist_unwrap (world_adoption_history w))
+   )
+.
+
+Definition actor_n_has_chain_length_at_round_internal
+           (ah: fixlist [eqType of BlockChain * 'I_N_rounds * 'I_n_max_actors] (n_max_actors * N_rounds))
+           l addr r : bool :=
+   (has
+      (* there is a record *)
+      (fun pr => 
+         let: (rec_chain, rec_round, rec_actr)  := pr in 
+         [&&
+          (* of the block adopting/broadcasting the chain *)
+          (fixlist_length rec_chain  == l),
+          (* at round r *)
+          (eq_op ( rec_round) ( r)) &
+          (* by the actor *) 
+          (nat_of_ord rec_actr == addr) ])
+      (fixlist_unwrap ah)
+   )
+   ||
+   (* or - implicit in the starting conditions, every actor has a chain length of 0 at round 0 *)
+   ((eq_op (nat_of_ord r) 0%nat)%nat && (eq_op l 0)%nat).
+
+
+
+
+Definition actor_n_has_chain_length_at_round w l addr r : bool :=
+   (has
+      (* there is a record *)
+      (fun pr => 
+         let: (rec_chain, rec_round, rec_actr)  := pr in 
+         [&&
+          (* of the block adopting/broadcasting the chain *)
+          (fixlist_length rec_chain  == l),
+          (* at round r *)
+          (eq_op ( rec_round) ( r)) &
+          (* by the actor *) 
+          (nat_of_ord rec_actr == addr) ])
+      (fixlist_unwrap (world_adoption_history w))
+   )
+   ||
+   (* or - implicit in the starting conditions, every actor has a chain length of 0 at round 0 *)
+   ((eq_op (nat_of_ord r) 0%nat)%nat && (eq_op l 0)%nat).
+
+Lemma actor_n_has_chain_length_at_round_internalP w l addr r :
+  actor_n_has_chain_length_at_round w l addr r =
+  actor_n_has_chain_length_at_round_internal [w.adopt_history] l addr r.
+Proof.
+  by rewrite /actor_n_has_chain_length_at_round//=.
+Qed.
+
+Definition actor_n_has_chain_length_ge_at_round_internal
+           (ah: fixlist [eqType of BlockChain * 'I_N_rounds * 'I_n_max_actors] (n_max_actors * N_rounds))
+           l addr (r : 'I_N_rounds) : bool :=
+   (has
+      (* then there is a record *)
+      (fun pr => 
+         let: (rec_chain, rec_round, rec_actr)  := pr in 
+         [&&
+          (* of the block adopting/broadcasting a chain of at least length l *)
+          (fixlist_length rec_chain >= l)%nat,
+          (* at round r or earlier *)
+          (nat_of_ord rec_round <= nat_of_ord r)%nat &
+          (* by the actor *) 
+          (nat_of_ord rec_actr == addr) ])
+      (fixlist_unwrap ah)
+   )
+   ||
+   (* or - implicit in the starting conditions, every actor has a chain length of 0 at round 0 *)
+   ((eq_op l 0)%nat).
+
+
+
+
+Definition actor_n_has_chain_length_ge_at_round w l addr (r : 'I_N_rounds) : bool :=
+   (has
+      (* then there is a record *)
+      (fun pr => 
+         let: (rec_chain, rec_round, rec_actr)  := pr in 
+         [&&
+          (* of the block adopting/broadcasting a chain of at least length l *)
+          (fixlist_length rec_chain >= l)%nat,
+          (* at round r or earlier *)
+          (nat_of_ord rec_round <= nat_of_ord r)%nat &
+          (* by the actor *) 
+          (nat_of_ord rec_actr == addr) ])
+      (fixlist_unwrap (world_adoption_history w))
+   )
+   ||
+   (* or - implicit in the starting conditions, every actor has a chain length of 0 at round 0 *)
+   ((eq_op l 0)%nat).
+
+
+Lemma actor_n_has_chain_length_ge_at_round_internalP w l addr r :
+  actor_n_has_chain_length_ge_at_round w l addr r =
+  actor_n_has_chain_length_ge_at_round_internal [w.adopt_history] l addr r.
+Proof.
+  by rewrite /actor_n_has_chain_length_ge_at_round//=.
+Qed.
+
+
+Lemma no_bounded_successful_rounds'_eq0 : forall w r s, (s < r \/ (eq_op r s /\ eq_op r 0))%nat -> (no_bounded_successful_rounds' w r s) = 0%nat.
+Proof.
+  move=> w r s Hrs; rewrite /no_bounded_successful_rounds/no_bounded_successful_rounds'; apply/eqP => //=.
+  destruct Hrs .
+  by rewrite itoj_eq_0 => //=.
+  by move: H => [/eqP -> /eqP ->] //=.
+Qed.
+
+
+
+
+Lemma no_bounded_successful_rounds_eq0 : forall w r s, (s < r \/ (eq_op r s ))%nat -> nat_of_ord (no_bounded_successful_rounds w r s) = 0%nat.
+Proof.
+  move=> w r s Hrs; rewrite /no_bounded_successful_rounds/no_bounded_successful_rounds'; apply/eqP => //=.
+  destruct Hrs .
+  by rewrite itoj_eq_0 => //=.
+  rewrite /itoj.
+  by move/eqP: (H) ->; rewrite subnn //=.
+Qed.
+
+Lemma actor_has_chain_length_generalize  w l o_addr s :
+  actor_n_has_chain_length_at_round w l o_addr s ->
+  actor_n_has_chain_length_ge_at_round w l o_addr s.
+Proof.
+  have blt0 (x:bool) : (x > 0)%nat = x. by case x.
+  rewrite /actor_n_has_chain_length_ge_at_round/actor_n_has_chain_length_at_round !has_count.
+  move=> /orP [ | /andP [/eqP Hseq  Hleq]]; last first.
+  by apply/orP; right.
+  move=> H; apply/orP; left; move: H.
+  elim (fixlist_unwrap _) => //= [[[c r] addr] xs] IHn.
+  rewrite add_lt0; move=>/orP; case => //=.
+  by rewrite blt0; move=>/andP; case; [move=>/andP [/eqP -> /andP [/eqP -> /eqP ->]]] => _; rewrite !leqnn eq_refl.
+  move=>/IHn Hbase.
+  by rewrite add_lt0; apply/orP; right.
+Qed.  
+
+
+
+Lemma  actor_has_chain_length_weaken w l o_addr s l':
+  (l' <= l)%nat ->
+  actor_n_has_chain_length_ge_at_round w l o_addr s ->  
+  actor_n_has_chain_length_ge_at_round w l' o_addr s.
+Proof.
+  rewrite /actor_n_has_chain_length_ge_at_round !has_count.
+  rewrite leq_eqVlt; move=>/orP[/eqP -> |] //=.
+  move=>  Hvalid.  
+  induction (fixlist_unwrap _) => //=.
+    by move=>/eqP Heq; move: Hvalid; rewrite Heq ltn0.
+  move=> /orP [ | /eqP  Heq]; last first.
+    by move: Hvalid; rewrite Heq ltn0.
+  rewrite !add_lt0; move=>/orP; case => //= ;last first.
+  move=> /(@or_introl _ (is_true (eq_op l 0)%nat))/orP/IHl0 => /orP [ Hlt |  Hleq0]; last first.
+    by apply/orP; right.
+    by apply/orP; left; apply/orP; right.
+  move=>/andP [ Hgt0  Hlt0] //=.
+  apply/orP.
+  left .
+  apply/orP; left.
+  apply/andP;split.
+  move: Hgt0.
+  have bool_gt0 (b : bool) : (0 < b)%nat = b. by case b.
+  move: a => [[b r] a].
+  rewrite !bool_gt0 //=.
+  move=>/andP [l_leq /andP [rs eq_addr]].
+  apply/andP; split; [|apply/andP] => //=.
+  have Hlt_trans x y z : (x <= y)%nat -> (y <= z)%nat  -> (x <= z)%nat.
+    by move=>/leq_trans Himpl; move=> /Himpl.
+  by apply (Hlt_trans l' l); [apply ltnW | ] .
+  move: Hlt0.
+  rewrite leq_eqVlt ; move=>/orP[/eqP |] //=.
+Qed.
+
+
+Definition world_executed_to_max_round w :=
+  foldl (fun acc x =>
+           let: (rec_chain, rec_round, rec_actr) := x in
+           max (nat_of_ord rec_round) acc) 0%nat (fixlist_unwrap (world_adoption_history w)).
+
+
+Definition world_executed_to_round w r : bool :=
+  (r <= (global_current_round (world_global_state w)) )%nat.
+
+
+ 
