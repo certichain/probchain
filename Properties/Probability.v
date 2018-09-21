@@ -1600,6 +1600,9 @@ Proof.
 
     (* honest mint case  *)
     move=> IHw' Hprw' .
+    move/Rlt_not_eq/nesym: (Hprw') => Hprw''.
+    move: (world_step_adoption_history_top_heavy _ _ Hprw'') => Hithw'.
+    move: (world_step_adoption_history_overflow_safe _ _ Hprw'') => Hosw'.
 
     move=> Hhon Htnth Hretr Hfind Hhash_pr.
     apply/(@honest_mint_stepP (fun w =>
@@ -1656,7 +1659,8 @@ Proof.
       move=> s r Hr_is_valid Hs_eq_rdelta Hexecuted_to_s.
       move/eqP: Heqn; move: Hwactive Hprf_ltn  H_has_chain_length_l_at_r'.
 
-      (* now - let's eradicate a_addr, and replace all instaces with w_addr *)
+      (* we need to do some rewrite to neaten things up.
+         first let's eradicate a_addr, and replace all instaces with w_addr *)
       case Hcurr_round_value: ([[w'.state].#active])
       => [w_state_active Hw_state_prf] //= Haddr_eq.
       move: Hactive_state_eq Hactive_hlink Hnew_blockcontents Hmaxvld 
@@ -1666,6 +1670,8 @@ Proof.
       move: Ha_addr.
       rewrite -Hweq => //=.
       clear Hweq a_addr.
+      (* no a_addr is no longer used, let's also break up some of our structures,
+         so we have more rewrite flexibility*)
       case Hw_round_eq: ([[w'.state].#round]) => [w_state_round Hwstatrnd] //=.
       move: Hs_eq_rdelta Hr_is_valid.
       case: s => [s Hsvld]; case: r => [r Hrvld] //=.
@@ -1674,33 +1680,58 @@ Proof.
       move=> Hnxt_active_ltn Ho_addr_honest Ho_addr_has_chain.
       (* we also need to clean up the context and drop some of the lemmas we don't care for *)
       clear Hcurr_round_value.
+      (* finally we're ready to rumble *)
+      (* first, lets' solve the case when the length is 0 *)
       move: Ho_addr_has_chain;
       rewrite /honest_mint_failed_no_update
               /actor_n_has_chain_length_at_round => //= /eqP/orP [Ho_addr_has_chain | /andP [_ Hleq]]; last first.
         by apply/orP; right.
       clear Hltn.
+      (* now if the length is not 0 *)
       move: Ho_addr_has_chain.
-      rewrite fixlist_insert_rewrite.
-      rewrite  has_rcons =>
+      (* to prove the goal, we need to consider 2 cases of our assumption.
+         1. where the newly inserted record meets the conditions - i.e
+               the current chain's length is equal to l
+               the current round is r'
+               the  currently active node is the known addr's actor
+         2. where somewhere in the contents of the world chain history there is a
+            record of a chain of length l, being adopted at round r' by the known_addr's actor*)
+      rewrite fixlist_insert_rewrite //= has_rcons =>
       /orP [/andP [Hlen_eq /andP [/eqP Hcurrent_round_eq /eqP Ho_addr_eq_active ]] | Ho_addr_has_chain].
-      move: Hw_round_eq.
-      rewrite Hcurrent_round_eq => Heq.
-      move: Hr_is_valid.
-      rewrite Heq => //=.
-      move: (Hexecuted_to_s).
-      have Hrlts: (r <= s)%nat.
-      rewrite -Hs_eq_rdelta.
-      by apply leq_addr.
-          by move=> /leq_trans H /H; clear H;
-              move: (Hrlts); move=> /ltnSn_eq H /H; clear H => /eqP Hseqr;
-              move: Hs_eq_rdelta; rewrite Hseqr => /eqP/addn_eq0/eqP Hdlta //=; move: delta_valid;
-              rewrite Hdlta ltnn.
+      (* in both cases to prove the goal, we have two options, either
+           1. prove the new record meets the conditions - i.e
+                the currently active chain's length is greater than l
+                the currently active round is less than s
+                the currently active node is o_addr
+           2. prove that there is a record in the prior record meeting the conditions
+                (in which the induction hypothesis can be used)
+       *)
+      (* case where the new record meets the conditions *)
+        (* we know that as r' <= r and r' == current round, the current_round <= r *)
+        move: Hw_round_eq; rewrite Hcurrent_round_eq => Heq; move: Hr_is_valid; rewrite Heq => //=.
+        (* we also know that we have executed to round s - i.e s <= current_round *)
+        move: (Hexecuted_to_s).
+        (* we also know that r <= s, as s = r + delta *)
+        have Hrlts: (r <= s)%nat.
+          rewrite -Hs_eq_rdelta.
+          by apply leq_addr.
+        (* this all means that r == s, *)
+        move=> /leq_trans H /H; clear H; move: (Hrlts); move=> /ltnSn_eq H /H; clear H => /eqP Hseqr.
+        (* however r + delta == s, thus delta must be 0 *)
+        move: Hs_eq_rdelta; rewrite Hseqr => /eqP/addn_eq0/eqP Hdlta //=.
+        (* hoever, we are operating within the bounded delay model, which requires that delta must be
+          greater than 0 *)
+        by move: delta_valid; rewrite Hdlta ltnn.
 
-      rewrite fixlist_insert_rewrite.
-      rewrite has_rcons.
-      rewrite -orb_assoc; apply/orP; right.
+      (* now for the case where there exists a prior record meeting the conditions - this case is trivial
+         as we have all the parameters of the induction hypothesis in our context, albeit in slightly
+         different forms *)
+      (* we will prove the statement by using the induction hypothesis *)
+      rewrite fixlist_insert_rewrite //= has_rcons -orb_assoc; apply/orP; right.
       apply IHw' with (s := (Ordinal Hsvld)) (r := (Ordinal Hrvld)) => //=.
         by apply/orP; left.
+      (* the remaining cases simply revolve around showing that the terms in the hypothesis are indeed
+         the parameters to the induction hypothesis *)
       have Hwtoord: (eq_op w_state_active (Ordinal Hwstt_prf)).  by[].
       case Heq_active : (eq_op w_state_active  o_addr);
         move: Hwtoord Ho_addr_honest;
@@ -1710,13 +1741,8 @@ Proof.
         by move/eqP: Heq_active => ->.
       rewrite tnth_set_nth_neq //=. 
         by move/eqP: Heq_active =>/nesym/eqP.
-
       by rewrite Hw_round_eq //=.
-      by move/Rlt_not_eq/nesym/world_step_adoption_history_top_heavy:Hprw'. 
-      by move/Rlt_not_eq/nesym/world_step_adoption_history_overflow_safe: Hprw'.
-      by move/Rlt_not_eq/nesym/world_step_adoption_history_top_heavy:Hprw'. 
-      by move/Rlt_not_eq/nesym/world_step_adoption_history_overflow_safe: Hprw'.
-
+    (* the other cases all use the same exact logic *)
     (* failed attempt with non-last entry with update *)
       move=> H_has_chain_length_l_at_r' .
       move=> s r Hr_is_valid Hs_eq_rdelta Hexecuted_to_s.
@@ -1957,6 +1983,7 @@ Proof.
   (* round end case *)
     move=> IHw' Hprw' Hrndend Hacthaschain Hhon  s [new_round Hnew_round].
     move: o_addr IHw' s => [o_addr Ho_addr] IHw' s.
+    (* if r + delta <= [[w'.state].#round] we can just use the induction hypothesis to prove the goal*)
     case Hltn: (new_round <= nat_of_ord [[w'.state].#round])%nat.
       rewrite !actor_n_has_chain_length_ge_at_round_internalP.
       rewrite /round_end_step/world_executed_to_round//=.
@@ -1968,36 +1995,80 @@ Proof.
       move: (erefl _ ).
       case: {2 3 7}((o_addr < n_max_actors)%nat) => //= prf'.
       by move=> /deliver_messages_preserves_honest .
+    (* this means that r + delta > current round *)
     move/negP/negP:Hltn; rewrite -ltnNge => Hnexec.
     move=> //= [r Hr_valid] //= Hrltr' Hrdlta .
 
-
+    (* on other cases this would be grounds for failure as the assumptioon that the world
+       has executed to round (r + delta) means that we are assuming (r + delta) <= current round,
+       which is clearly a contradiction. 
+       However, as this is a round end case, we obtain a statement of the form (r + delta) <= current_round.+1
+     *)
     rewrite/world_executed_to_round//= deliver_messages_update_round_preserves_round/next_round.
-    move: Hacthaschain Hhon s.
-    move: Hnexec Hrndend ; rewrite/round_ended addn1 .
+    move: Hacthaschain Hhon s; move: Hnexec Hrndend ; rewrite/round_ended addn1 .
     case Hw_state: [w'.state] => //= [gact gadv gca gcr] //= Hnexec /andP [Hgca_eqn Hrvld] Hupd .
-    rewrite Hgca_eqn => //=.
-    move: (erefl _ ) => //=.
-    case: {2 3} (gcr.+1 < N_rounds)%nat => //=; last first.
-      move=>/negP/negP; rewrite -leqNgt => Heqn Hchl .
-      by move=> Hchln  Htmp; move: Htmp Hnexec => /leq_ltn_trans H /H; rewrite ltnn.
-    move=> prf Hchl Hhon.
+    rewrite Hgca_eqn => //=; move: Hrvld (erefl _); rewrite addn1 => {2 3}-> //= prf Hchl Hhon.
+    (* if the new_round is strictly less than the current round.+1, the proof is trivial (as
+       discussed above) *)
     rewrite leq_eqVlt =>/orP [/eqP Hneq | ]; last first.
       by rewrite ltnS; move=> /leq_ltn_trans Ht; move: (Ht new_round Hnexec); rewrite ltnn.
+    (* if not, we know that the new_round == current round.+1 *)
+    (* aside: we can simplify the corrupt case a little*)
+    move: Hhon; rewrite /round_end_step !actor_n_is_honest_internalP /actor_n_is_honest_internal //=.
+    move: (erefl _); rewrite {2 3 }Ho_addr /actor_n_is_corrupt_internal //= => Htmp.
+    rewrite (proof_irrelevance _ Htmp Ho_addr) => //= Hncorrupt; clear Htmp.
+    have Hcorrupt: actor_n_is_honest w' (Ordinal (n:=n_max_actors) (m:=o_addr) Ho_addr).
+      rewrite/actor_n_is_honest//=;move: (erefl _); rewrite {2 3}Ho_addr => Htmp.
+      rewrite (proof_irrelevance _ Htmp Ho_addr); rewrite/actor_n_is_corrupt//=.
+      by move/deliver_messages_preserves_honest:  Hncorrupt.
+    clear Hncorrupt.
+
+    (* first, if r' < r *)
+    move: Hrltr'; rewrite leq_eqVlt => /orP [/eqP Hreq | Hrltr']; last first.
     move: Hnew_round.
     rewrite Hneq => Hgcr.
-    move: (@actor_has_chain_length_round_end w' l new_pool msgs o_addr ).
+    (* however, this means our goal is:
+       prove actor o_addr in a world that has just ended a round has a chain length greater
+       than l at round current_round .+1
 
-    rewrite Hw_state //=.
-    move=> Hweaken; move: (Hweaken Hgcr); clear Hweaken => Hweaken.
+        this is actually equivalent to proving that the in the
+       actual current round, before the round end, the actor had a chain of length l *)
+    move: (@actor_has_chain_length_round_end w' l new_pool msgs o_addr ).
+    rewrite Hw_state //=; move=> Hweaken; move: (Hweaken Hgcr); clear Hweaken => Hweaken.
     apply Hweaken.
-    apply IHw' with (r:= (Ordinal Hr_valid)) => //=.
-    move: Hhon; rewrite /round_end_step !actor_n_is_honest_internalP /actor_n_is_honest_internal //=.
-    move: (erefl _); rewrite {2 3 7}Ho_addr /actor_n_is_corrupt_internal //= => Htmp.
-    rewrite (proof_irrelevance _ Htmp Ho_addr) => //=.
-    by move=> /deliver_messages_preserves_honest.
-    admit. (* note: r should be r.-1, and then rearrange to show *)
-    rewrite /world_executed_to_round Hw_state//=.
+    (* which means we can use the induction hypothesis *)
+    move: (Hr_valid) => /(ltn_subl _ _ 1); rewrite subn1 => HPrvld.
+      apply IHw' with (r:= (Ordinal HPrvld)) => //=.
+      (* firstly r' < r.-1 is provable using our definitions  *)
+      by rewrite -ltnS prednK //=; move: Hrltr'; case r.
+      (* and finally r.-1 + delta  = gcr *)
+      move:  Hrdlta Hneq => <- Hgcreq.
+      rewrite -subn1 addnC addnBA.
+      by rewrite addnC Hgcreq subn1 -pred_Sn //=.
+        by move: Hrltr'; case r.
+      by rewrite /world_executed_to_round Hw_state//=.
+    (* if r' = r *)
+    move: Hnew_round; rewrite Hneq => Hgcr.
+    move: (@actor_has_chain_length_round_end w' l new_pool msgs o_addr ).
+    rewrite Hw_state //=; move=> Hweaken; move: (Hweaken Hgcr); clear Hweaken => Hweaken.
+    apply Hweaken.
+    (* we can't use the induction hypothesis in this case, so we might as well drop it*)
+    clear IHw' Hweaken.
+    move: new_round Hrdlta Hnexec Hneq => [//=| new_round].
+    move: gcr Hw_state prf Hgcr => [gcr H_gcr].
+    move=> Hw_state prf Hgcr .
+    move=> <- Hrdlta_gcr /(f_equal (fun x => x.-1)); rewrite -pred_Sn => //= Hrdlta_eq_gcr.
+    move: H_gcr Hw_state prf Hgcr Hrdlta_gcr.
+    rewrite -Hrdlta_eq_gcr //= -Hreq; move=> H_gcr Hw_state prf Hgcr Hrdlta_gcr //=.
+    move: Hchl.
+
+    move: H_gcr Hw_state.
+    elim Hdlta: delta =>  [] d'.
+    (* this is probably where the main meat of the proof occurs *)
+    admit.
+    admit.
+
+
   (* adversary end case *)
     move=> IHw' Hprw' Hacthaschain Hhon  s Hpradv.
     rewrite /adversary_end_step/actor_n_has_chain_length_ge_at_round.
