@@ -515,7 +515,8 @@ Canonical world_of_finType := Eval hnf in [finType of World].
 (* A round is complete if the currently_active index is one greater
   than the length of the actors array *)
 Definition round_ended (w: World) :=
- nat_of_ord (global_currently_active (world_global_state w)) == n_max_actors + 1. 
+ (nat_of_ord (global_currently_active (world_global_state w)) == n_max_actors + 1) && 
+  ((global_current_round (world_global_state w)) + 1 < N_rounds).
 
 Definition world_current_addr (w : World) :=
   global_currently_active (world_global_state w).
@@ -1873,6 +1874,8 @@ Proof.
   move/ltn_weaken: (Hbound) => Hbound'.
   by rewrite {2 4}Hbound' => prf prf' H1 H2; rewrite /nat_of_ord //=.
 Qed.
+
+
 
 Lemma bounded_successful_round_init round :
   ~~  bounded_successful_round initWorld round .
