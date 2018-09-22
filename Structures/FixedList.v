@@ -1361,6 +1361,37 @@ Definition fixlist n := n.-tuple (option A).
   Qed.
 
 
+  (* A couple of nicer forms of the lemmas for use in the main proof *)
+
+  Lemma fixlist_get_nthP_base (P : option A -> Prop) m (ls ls' : fixlist m)  a :
+    m > 0 ->
+    ls' = (fixlist_enqueue (Some a) ls).1 ->
+    P (Some a) ->
+    P (fixlist_get_nth ls' 0).
+  Proof.
+    move=> Hmvld -> Hbase .
+    by rewrite fixlist_get_nth_base //=.
+  Qed.
+
+  Lemma fixlist_get_nthP_increment (P : option A -> Prop) m (ls ls' : fixlist m) n k x :
+    n.+1 < m ->
+    k = n.+1 ->
+    ls' = (fixlist_enqueue x ls).1 ->
+    P (fixlist_get_nth ls n) ->
+    P (fixlist_get_nth ls' k).
+  Proof.
+    by move=> Hnvld -> -> Hbase; rewrite -fixlist_get_nth_increment.
+  Qed.
+
+  Lemma fixlist_get_nthP_final (P : option A -> Prop) m (ls : fixlist m) n x a :
+    0 < m -> 
+    n = m.-1 ->
+    a = (fixlist_enqueue x ls).2 ->
+    P (fixlist_get_nth ls n) ->
+    P (a).
+  Proof.
+    by move=> Hnvld -> -> Hbase; rewrite -fixlist_get_nth_final.
+  Qed.
 
 
 End fixlist.
