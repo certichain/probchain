@@ -1884,6 +1884,17 @@ Qed.
 
 
 
+Lemma contains_broadcast :
+  actor_n_has_chain_length_at_round (round_end_step msgs new_pool w') l addr r' ->
+  actor_n_has_chain_length_ge_at_round (round_end_step msgs new_pool w') l o_addr
+    (Ordinal (n:=N_rounds) (m:=r' + delta) Hgcr)
+
+
+
+.
+
+
+
 (*
   If an honest party has a chain of length l,
   then by round r + delta -1, every other party will have a chain of length at least l
@@ -2004,7 +2015,7 @@ Proof.
        which is clearly a contradiction. 
        However, as this is a round end case, we obtain a statement of the form (r + delta) <= current_round.+1
      *)
-    rewrite/world_executed_to_round//= deliver_messages_update_round_preserves_round/next_round.
+    rewrite/world_executed_to_round//= deliver_messages_update_round_preserves_round.
     move: Hacthaschain Hhon s; move: Hnexec Hrndend ; rewrite/round_ended addn1 .
     case Hw_state: [w'.state] => //= [gact gadv gca gcr] //= Hnexec /andP [Hgca_eqn Hrvld] Hupd .
     rewrite Hgca_eqn => //=; move: Hrvld (erefl _); rewrite addn1 => {2 3}-> //= prf Hchl Hhon.
@@ -2013,18 +2024,19 @@ Proof.
     rewrite leq_eqVlt =>/orP [/eqP Hneq | ]; last first.
       by rewrite ltnS; move=> /leq_ltn_trans Ht; move: (Ht new_round Hnexec); rewrite ltnn.
     (* if not, we know that the new_round == current round.+1 *)
-    (* aside: we can simplify the corrupt case a little*)
-    move: Hhon; rewrite /round_end_step !actor_n_is_honest_internalP /actor_n_is_honest_internal //=.
-    move: (erefl _); rewrite {2 3 }Ho_addr /actor_n_is_corrupt_internal //= => Htmp.
-    rewrite (proof_irrelevance _ Htmp Ho_addr) => //= Hncorrupt; clear Htmp.
-    have Hcorrupt: actor_n_is_honest w' (Ordinal (n:=n_max_actors) (m:=o_addr) Ho_addr).
-      rewrite/actor_n_is_honest//=;move: (erefl _); rewrite {2 3}Ho_addr => Htmp.
-      rewrite (proof_irrelevance _ Htmp Ho_addr); rewrite/actor_n_is_corrupt//=.
-      by move/deliver_messages_preserves_honest:  Hncorrupt.
-    clear Hncorrupt.
 
     (* first, if r' < r *)
     move: Hrltr'; rewrite leq_eqVlt => /orP [/eqP Hreq | Hrltr']; last first.
+
+    (* aside: we can simplify the corrupt case a little*)
+      move: Hhon; rewrite /round_end_step !actor_n_is_honest_internalP /actor_n_is_honest_internal //=.
+      move: (erefl _); rewrite {2 3 }Ho_addr /actor_n_is_corrupt_internal //= => Htmp.
+      rewrite (proof_irrelevance _ Htmp Ho_addr) => //= Hncorrupt; clear Htmp.
+      have Hcorrupt: actor_n_is_honest w' (Ordinal (n:=n_max_actors) (m:=o_addr) Ho_addr).
+        rewrite/actor_n_is_honest//=;move: (erefl _); rewrite {2 3}Ho_addr => Htmp.
+        rewrite (proof_irrelevance _ Htmp Ho_addr); rewrite/actor_n_is_corrupt//=.
+        by move/deliver_messages_preserves_honest:  Hncorrupt.
+      clear Hncorrupt.
     move: Hnew_round.
     rewrite Hneq => Hgcr.
     (* however, this means our goal is:
@@ -2049,21 +2061,25 @@ Proof.
       by rewrite /world_executed_to_round Hw_state//=.
     (* if r' = r *)
     move: Hnew_round; rewrite Hneq => Hgcr.
-    move: (@actor_has_chain_length_round_end w' l new_pool msgs o_addr ).
-    rewrite Hw_state //=; move=> Hweaken; move: (Hweaken Hgcr); clear Hweaken => Hweaken.
-    apply Hweaken.
-    (* we can't use the induction hypothesis in this case, so we might as well drop it*)
-    clear IHw' Hweaken.
+
     move: new_round Hrdlta Hnexec Hneq => [//=| new_round].
     move: gcr Hw_state prf Hgcr => [gcr H_gcr].
     move=> Hw_state prf Hgcr .
     move=> <- Hrdlta_gcr /(f_equal (fun x => x.-1)); rewrite -pred_Sn => //= Hrdlta_eq_gcr.
-    move: H_gcr Hw_state prf Hgcr Hrdlta_gcr.
+    move:  H_gcr Hgcr Hw_state prf Hrdlta_gcr .
+    rewrite -Hrdlta_eq_gcr -Hreq  => H_gcr Hgcr Hw_state prf Hrdlta_gcr.
+    move: Hgcr.
+    rewrite  prednK//= ; last first. apply ltn_addl; exact delta_valid.
+    move=> Hgcr.
+    move: Hchl.
+    fail.
+
     rewrite -Hrdlta_eq_gcr //= -Hreq; move=> H_gcr Hw_state prf Hgcr Hrdlta_gcr //=.
     move: Hchl.
 
     move: H_gcr Hw_state.
-    elim Hdlta: delta =>  [] d'.
+    elim : {-2}delta.
+    =>  [] d'.
     (* this is probably where the main meat of the proof occurs *)
     admit.
     admit.
@@ -2597,6 +2613,7 @@ Proof.
       move=> /allP Hall .
       rewrite -length_sizeP /BlockMap_records size_filter -has_count fixlist_insert_rewrite //= .
       move=>/hasP [ [ block_iscrpt block_round] Heqn /andP [Heq_round Hcrpt]].
+      rewrite /no_bounded_successful_rounds_internal.
       move: Heqn; rewrite map_rcons //= -cats1 mem_cat => /orP [ | //=]; last first.
       (* because we just inserted a block, there are 2 cases - either
           - when there was a previous round which was bounded successful

@@ -8,6 +8,9 @@ Require Import tuple.
 Require Import Coq.Logic.FunctionalExtensionality.
 Require Import Coq.Logic.ProofIrrelevance.
 
+From Probchain Require Import InvMisc.
+
+
 
 
 Set Implicit Arguments.
@@ -130,7 +133,6 @@ Definition fixlist n := n.-tuple (option A).
                                 end
             end. *)
 
-    Eval compute in (nat_of_ord (@inord 0 3)).
 
     Definition fixlist_insert {m : nat} (list : fixlist m)  :=
       nat_rect (fun m0 : nat => fixlist m0 -> A -> fixlist m0) (fun (list0 : fixlist 0) (_ : A) => list0)
@@ -260,20 +262,16 @@ Definition fixlist n := n.-tuple (option A).
             exact default.
     Defined.
 
-    Definition fixlist_get_nth (m : nat)  (list : fixlist m)  (n : nat) : option A.
+    Definition fixlist_get_nth (m : nat)  (list : fixlist m)  (n : nat) : option A .
     Proof.
         case (n < m) eqn: H; last first.
             exact None.
-        
-        apply ltn_addr with (p := 1) in H .
-        case m eqn: H1.
-            exact None.
-        move: (Ordinal (ltn0Sn n0))=> ind.
+        move: (Ordinal H)=> ind.
         case (tnth list ind) eqn: isSome.
-            exact (Some s).
-            exact None.
-    Defined.
-
+          exact (Some s).
+          exact None.
+   Defined.
+        
 
     (* Fixpoint fixlist_length' (m : nat) (list : fixlist  m.+1) : nat :=
         match m with 
@@ -294,6 +292,12 @@ Definition fixlist n := n.-tuple (option A).
     Definition fixlist_is_empty (m : nat) (list: fixlist m) : bool :=
       (fixlist_unwrap list) == [::].
 
+    Definition fixlist_is_full (m : nat) (list : fixlist m) : bool :=
+      fixlist_length list == m .
+
+
+
+
     (* a fixed list is top heavy if all the empty spaces are at the tail of the list*)
     Definition fixlist_is_top_heavy (m : nat) (list : fixlist m) : bool :=
       nat_rect (fun m0 : nat => fixlist m0 -> bool) xpredT
@@ -305,6 +309,8 @@ Definition fixlist n := n.-tuple (option A).
           | None => fun _ : thead list0 = None => fixlist_is_empty [tuple of behead list0]
           end H) m list
       .
+
+
 
     (* Proof. *)
     (*   move: list. *)
@@ -382,6 +388,17 @@ Definition fixlist n := n.-tuple (option A).
         case (@fixlist_enqueue _ (ntuple_head list) (ntuple_tail list)) => shifted_tail output.
         exact ([tuple of a :: shifted_tail], output).
     Defined.
+
+    Definition option_rcons B (ls : seq.seq B) (a : option B) :=
+      if a is Some v
+      then rcons ls v
+      else ls.
+
+    Definition option_cons B  (a : option B) (ls : seq.seq B) :=
+      if a is Some v
+      then cons v ls 
+      else ls.
+
 
     Definition fixlist_shiftl (m : nat) (list: fixlist m) : fixlist m :=
         let: (result, output) := fixlist_enqueue None list in
@@ -1037,10 +1054,217 @@ Definition fixlist n := n.-tuple (option A).
 
     Qed.
 
+  Lemma option_rcons_coerce B (xs : seq.seq B) x y : option_rcons (x :: xs) y = x :: (option_rcons xs y).
+  Proof.
+    by case: y =>//=.
+  Qed.
+  Lemma fixlist_unwrap_eq (m : nat)  (xs ys : fixlist m) :
+      tval xs = tval ys ->
+      fixlist_unwrap xs = fixlist_unwrap ys.
+  Proof.
+    move: xs ys => [xs Hxs] [ys Hys]; move: xs ys Hxs Hys.
+    elim: m => //= [ [ |  //= ] [ | //= ] Hxs Hys _ | m IHm [ //= | x xs] [ //= | y ys] Hxs Hys ].
+    by rewrite (proof_irrelevance _ Hxs Hys).
+    by move=> Heq; move: Hxs Hys; rewrite Heq => Hxs Hys; rewrite (proof_irrelevance _ Hxs Hys).
+  Qed.
+
+  Lemma option_cons_ident B (ls : seq.seq B) : ls = option_cons None ls.
+  Proof.
+      by [].
+  Qed.
+
+  Lemma option_rcons_ident B (ls : seq.seq B) : ls = option_rcons ls None .
+  Proof.
+      by [].
+  Qed.
+
+
+  Lemma fixlist_length_bounds (m : nat) (ls : fixlist m) : fixlist_length ls  < m.+1.
+  Proof.
+    move: ls => []; elim: m => [ | m IHm ] [//= | ] x xs Hxs.
+    by move: Hxs => //=.
+    case: x Hxs => [ x | ] Hxs.
+      move: Hxs (Hxs) => /eqP  Heqxs Hxs.
+      move: Heqxs => //= []/eqP Heqxs.
+      rewrite /fixlist_length fixlist_coerce_some//= -(addn1 (fixlist_length _)) -(addn1 m.+1).
+      by rewrite ltn_add2r; apply IHm.
+    rewrite /fixlist_length fixlist_coerce_none -(addn1 m.+1); apply ltn_addr.
+    by apply IHm.
+  Qed.
+
+
+  Lemma fixlist_enqueue_unwrap' (m : nat) (a : option A) (list : fixlist m) :
+    m > 0 ->
+    let: (list', result) := fixlist_enqueue (a) list  in 
+        option_rcons (fixlist_unwrap list') result = option_cons a (fixlist_unwrap list).
+  Proof.
+    case Henq: (fixlist_enqueue (a) list) => [[n_ls Hn_ls] result].
+    move: list a n_ls Hn_ls result  Henq => [].
+    elim: m => //= m IHm  [//= | x xs] Hxs a [//=| y ys] Hys result .
+    rewrite /ntuple_head/thead (tnth_nth x) //=.
+    case Henq_eq : (fixlist_enqueue _ ) => [[xs' Hxs''] x'] [Hay Hxs' Hx'].
+    move: Henq_eq.
+    rewrite /ntuple_tail; move: (behead_tupleP _) => //= Hlenq.
+    move: Hys.
+    rewrite -Hx' -Hay -Hxs' => Hys Henq .
+    rewrite ltnS leq_eqVlt => /orP [/eqP Hmeq0 | Hmlt ].
+    move: (Hlenq); rewrite -{1}Hmeq0 => /eqP/size0nil Hnil.
+    move: Hxs Hlenq Henq ; rewrite Hnil //= => Hxs Hleqn .
+    move:  Hleqn (Hleqn) IHm xs Hnil xs' Hxs'' Hxs' Hys Hmeq0 Hxs => /eqP <- //=.
+    move=>  Hleqn IHm xs Hnil [ | x0 xs0] .
+      move=> Hxs'' _ Hys _ Hxs [] -> //=.
+      have Hprf: (size [:: Some a] == 1). by[].
+      rewrite /fixlist_unwrap/option_rcons/option_cons//=.
+      by case: x' Hx' => //=; case: a Hay Hprf => //=.
+    by move=> Hxs'' Hys0 Hys _ Hxs [] //=.
+
+    move: Hys (Hys) => /eqP [] /eqP Hlx' Hys.
+    case: a Hay Hys => [a Hay Hys | Hay Hys] .
+      rewrite fixlist_coerce_some.
+      rewrite option_rcons_coerce.
+      rewrite (@IHm xs _ x xs') //=; last first.
+        by rewrite Henq (proof_irrelevance _ Hxs'' Hlx').
+
+      case: x Hxs Henq => [ x | ] Hxs Henq.
+        by rewrite fixlist_coerce_some //=.
+      by rewrite fixlist_coerce_none //=.
+    rewrite fixlist_coerce_none.
+    case: x Hxs Henq => [ x | ] Hxs Henq; last first.
+    rewrite fixlist_coerce_none.
+    rewrite -(IHm _ _ _ xs' _ x') //=.
+    by rewrite Henq (proof_irrelevance _ Hxs'' Hlx').
+    rewrite fixlist_coerce_some /option_cons.
+    by rewrite (IHm xs _ (Some x)) => //=; rewrite Henq (proof_irrelevance _ Hxs'' Hlx').
+  Qed.
+
+  Lemma fixlist_enqueue_unwrap (m : nat) (a result: option A) (list : fixlist m) list' :
+    m > 0 ->
+      (list', result) = fixlist_enqueue (a) list -> 
+        option_rcons (fixlist_unwrap list') result = option_cons a (fixlist_unwrap list).
+  Proof.
+    move=>/fixlist_enqueue_unwrap' H Heqn.
+    move: (H a list).
+    by rewrite -Heqn => //=.
+  Qed.
 
 
 
 
+  Lemma fixlist_enqueue_unwrap_some (m : nat) (a : A) (list list': fixlist m) result :
+    m > 0 ->
+      (list', result) = fixlist_enqueue (Some a) list  ->
+        option_rcons (fixlist_unwrap list') result = a :: (fixlist_unwrap list).
+  Proof.
+    move=> Hlvd Henq.
+    by rewrite (@fixlist_enqueue_unwrap _ (Some a) _ list) => //=.
+  Qed.
+
+
+  Lemma fixlist_enqueue_preserves_full (m : nat) (a : A) (list list': fixlist m) :
+    m > 0 -> 
+    fixlist_is_full list ->
+    fst (fixlist_enqueue (Some a) list) = list' ->
+    fixlist_is_full list'.
+  Proof.
+    move: list list' => [xs Hxs] [ys Hys]; move: a xs ys Hxs Hys.
+    elim: m => //= m IHm a [ //= | x xs] [ //= | y ys] Hxs Hys.
+      rewrite ltnS leq_eqVlt => /orP [].
+      move=>/eqP Hm0.
+      rewrite /fixlist_is_full //=.
+      move: Hxs Hys; rewrite -Hm0 => Hxs Hys; rewrite /fixlist_length //=.
+      case: x Hxs => //= [x | ] Hxs.
+          move=>/eqP [] => His_empty.
+          rewrite/tuple //=/ntuple_tail; move: (behead_tupleP _) => //= Hln; move: Hln (Hln).
+          move=>/eqP/size0nil-> //= Hlen.
+          move: (valP _) => //= Hlen'.
+          by move=> []  => <- Heqn; move: Hys; rewrite -Heqn => //=.
+      rewrite fixlist_coerce_none //= => H1.
+      move=> [Hay Hxn].
+      move: Hys; rewrite -Hay -Hxn => Hys //=.
+      move: H1; rewrite /fixlist_unwrap //=.
+      by move: Hxs => /eqP [] /size0nil -> //=.
+    move=> Hmltn; rewrite /fixlist_is_full/fixlist_length.
+    case: x Hxs => [x|] Hxs.
+      move: Hxs (Hxs) => /eqP [] /eqP Hx'eqn Hxs.
+      rewrite fixlist_coerce_some //= => /eqP [] /eqP Hlen.
+      rewrite /ntuple_head/thead (tnth_nth (some x)) //=.
+      rewrite /ntuple_tail//=; move: (behead_tupleP _) => //= Hxs_sz.
+      case Henq: (fixlist_enqueue _) => [[result Hresult] output] => [[ Hay Hres]].
+      move: Hys; rewrite -Hay => Hys; move: Hys (Hys) => /eqP [] /eqP Hybeq Hys; rewrite fixlist_coerce_some //=.
+      apply/eqP/f_equal/eqP.
+      apply IHm with (xs:= xs) (Hxs:= Hxs_sz) (a:=x) => //=.
+      rewrite Henq //=; clear Henq.
+      move: Hresult; rewrite Hres => Hresult.
+      by rewrite (proof_irrelevance _ Hresult Hybeq).
+    move: Hxs (Hxs) => /eqP [] /eqP Hxs_len Hxs.
+    rewrite fixlist_coerce_none => Hxslen.
+    move: (fixlist_length_bounds (Tuple (n:=m) (tval:=xs) Hxs_len)) .
+    rewrite ltn_neqAle => /andP [/negP Hlt Hlen].
+    by move: (Hlt Hxslen).
+  Qed.
+
+  Lemma tnth_tuple_cons B m n (x : B) xs : forall prf0 prf1 prf2 prf3,
+    tnth (Tuple (n:=m.+1) (tval:=x :: xs) prf0) (Ordinal (n:=m.+1) (m:=n.+1) prf1) =
+    tnth (Tuple (n:=m) (tval:=xs) prf2) (Ordinal (n:=m) (m:=n) prf3).
+  Proof.
+    move: n; elim: m => [//=|] m IHm n.
+    move=> Hprf0 Hprf1 Hprf2 Hprf3.
+    rewrite (tnth_nth x) //=.
+    rewrite (tnth_nth x) //=.
+  Qed.
+
+
+  Lemma fixlist_get_nth_coerce m (xs : fixlist m) x n : forall Hxxs Hxs,
+    fixlist_get_nth (Tuple (n:=m.+1) (tval:=x :: xs) Hxxs) n.+1 =
+    fixlist_get_nth (Tuple (n:=m) (tval:=xs) Hxs) n.
+  Proof.
+    move=> Hxxs Hxs.
+    rewrite /fixlist_get_nth//=.
+    move:  {1}(erefl (_ < _)).
+    case Hnlm: {2 3}(n.+1 < m.+1); move: Hnlm;
+    rewrite -{1}(addn1 m) -{1}(addn1 n) {1}ltn_add2r => Hlmn;
+    move: (erefl ( _ < _)); rewrite {2 3}Hlmn => Htmp //=.
+    move: xs x Hxxs Hxs => [xs Hxxslen] x Hxxs //= Hxs.
+    rewrite (proof_irrelevance _ Hxs Hxxslen); clear Hxs.
+    rewrite (proof_irrelevance _ Htmp Hlmn); clear Htmp => Hprf.
+    move: {1}(erefl _); case Htnth_eq: (tnth _) => [v] _.
+      move: Htnth_eq => //= <-.
+      rewrite (@tnth_tuple_cons _ _ _ _ _ Hxxs Hprf  Hxxslen Hlmn) //=.
+      by move: (erefl _); case Htnth_eq: (tnth _).
+    move: Htnth_eq => {1}<- .
+    rewrite (@tnth_tuple_cons _ _ _ _ _ Hxxs Hprf  Hxxslen Hlmn) //=.
+    by move: (erefl _); case Htnth_eq: (tnth _).
+  Qed.
+
+  Lemma fixlist_get_nth_full_succeed m (ls:fixlist m) n :
+    n < m ->
+    fixlist_is_full ls ->
+    exists a, (fixlist_get_nth ls n) = Some a.
+  Proof.
+    move: ls n => []; elim: m =>  [//= | ] m IHm [//= | x xs] Hxs n .
+    move: x xs Hxs.
+    elim: n =>  [//= | n IHn ] x xs Hxs.
+      case: x Hxs => [x | ] Hxs.
+        by move=> Hlen; exists x; rewrite /fixlist_get_nth //=.
+      rewrite /fixlist_is_full//= /fixlist_length fixlist_coerce_none=> _ Hxslen.
+      move: (fixlist_length_bounds (Tuple (n:=m) (tval:=xs) Hxs)) .
+      rewrite ltn_neqAle => /andP [/negP Hlt Hlen].
+      by move: (Hlt Hxslen).
+    move: Hxs (Hxs) => /eqP [] /eqP Hxs' Hxs.
+    case: xs Hxs Hxs' => [ //=  | x0 xs] Hxs Hxs'.
+      case: n IHn => //= n IHn.
+      by move: IHn; move/eqP: (Hxs) => {1}<-; rewrite ltnn.
+      by move/eqP: (Hxs) => {1}<- //=.
+    move/eqP: (Hxs) =>  [] Hxlen.
+    have Hxlen': (size (x0 :: xs) == m). by [].
+    rewrite -{1}(addn1 n) -{1}(addn1 m) ltn_add2r => Hnltm Hfful.
+    move: (IHm (x0 :: xs) Hxlen' n Hnltm) => [].
+    move: (fixlist_length_bounds (Tuple Hxlen')).
+    move: Hfful; rewrite /fixlist_is_full/fixlist_length//=.
+    by case x=> //=; rewrite fixlist_coerce_none => /eqP ->; rewrite ltnn.
+    move=> x' Hgnth; exists x'.
+    by rewrite (@fixlist_get_nth_coerce m (Tuple Hxs') x n) => //=.
+  Qed.
 
 
 

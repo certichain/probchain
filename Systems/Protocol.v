@@ -1832,9 +1832,18 @@ Proof.
 Qed.
 
 
+Print BlockMap.
+About fixlist_insert_rewrite.
 
-
-
+Lemma no_bounded_successful_rounds'_internal_insert bm hr s r bl :
+  [length bm] < BlockHistory_size  ->
+  fixlist_is_top_heavy bm ->
+  no_bounded_successful_rounds'_internal
+    (fixlist_insert bm ((bl), (false, hr))) s r =
+  no_bounded_successful_rounds'_internal
+    bm s r.
+Proof.
+ fail.
 
 
 Lemma no_bounded_successful_rounds'_lim w s r :
