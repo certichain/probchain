@@ -1266,6 +1266,100 @@ Definition fixlist n := n.-tuple (option A).
     by rewrite (@fixlist_get_nth_coerce m (Tuple Hxs') x n) => //=.
   Qed.
 
+  Lemma fixlist_get_nth_base m (ls : fixlist m) a :
+    m > 0 ->
+    fixlist_get_nth (fixlist_enqueue (Some a) ls).1 0 = Some a.
+  Proof.
+    move: ls a => []; elim: m => [//=| ] m IHm [//= | x xs] Hxxs a.
+    rewrite ltnS leq_eqVlt => /orP [/eqP Hm0 | H0ltm].
+      by move: Hxxs; rewrite -Hm0 => //= .
+    rewrite /fixlist_enqueue/ntuple_tail/ntuple_head/thead//=.
+    rewrite -/fixlist_enqueue (tnth_nth x) //=.
+    move: (behead_tupleP _) => //= Hlen.
+    rewrite /fixlist_get_nth //=.
+    move: (erefl (tnth  _ _)) => //=.
+    by case: (fixlist_enqueue _) => //=.
+  Qed.
+
+
+  Lemma fixlist_get_nth_increment m (ls : fixlist m) n x :
+    n.+1 < m ->
+    fixlist_get_nth ls n = fixlist_get_nth (fixlist_enqueue x ls).1 n.+1.
+  Proof.
+    move: ls x n => []; elim: m => [//= | ] m IHm [//= | y ys] Hys x n Hltn.
+    move: Hltn (Hltn); rewrite -{1}(addn1 n) -{1}(addn1 m) ltn_add2r => Hltnm Hltn.
+    case: n Hltnm Hltn => [ | n ]//= Hltnm Htln .
+      rewrite /ntuple_head/ntuple_tail/thead//= (tnth_nth y) //=.
+      move: (behead_tupleP _) => //= Hlen.
+      case Henq: (fixlist_enqueue _) => //= [[ls Hls] l].
+      rewrite fixlist_get_nth_coerce//=.
+      rewrite {2}/fixlist_get_nth //=.
+      move: (erefl _).
+      rewrite {2 3}Hltnm => //= Htmp.
+      rewrite (proof_irrelevance _ Htmp Hltnm); clear Htmp.
+      case: ls Hls Henq => [ | k ks].
+        by move=> //= Hls; move: Hls (Hls) => /eqP Hm0;  move: Hltnm (Hltnm); rewrite -{1}Hm0.
+      move=> Hls Henq.
+      rewrite (tnth_nth k) => //=.
+      have: (match k as o return (k = o -> option A) with
+                | Some s => fun _ : k = Some s => Some s
+                | None => fun _ : k = None => None
+              end (erefl k)) = k. by case k => //=.
+      move=> ->.
+      have Hsm: (0 < m.+1). by[].
+      rewrite /fixlist_get_nth//=; move:(erefl _) => Hprf.
+      rewrite (tnth_nth y) //=.
+      have: (match y as o return (y = o -> option A) with
+              | Some s => fun _ : y = Some s => Some s
+              | None => fun _ : y = None => None
+            end (erefl y)) = y. by case y => //=.
+      move=> ->.
+      move: Henq; rewrite /fixlist_enqueue.
+      rewrite /ntuple_head/thead /ntuple_tail//=.
+      case: m Hlen Hls Hsm Hprf Hltnm Htln IHm Hys => //=.
+      move=> m Hlen Hls Hsm Hprf Hltnm Htln IHm Hys .
+      rewrite -/fixlist_enqueue.
+      by case: (fixlist_enqueue _) => //= ls0 ls1 [].
+    have Hyspred: size ys == m. by move: Hys => //=.
+    rewrite (@fixlist_get_nth_coerce m (Tuple Hyspred)) //=.
+    rewrite (IHm _ _ y) => //=.
+    rewrite /ntuple_head/thead/ntuple_tail //= (tnth_nth y) //=.
+    move: (behead_tupleP _) => //= Htmp; rewrite (proof_irrelevance _ Htmp Hyspred).
+    case: (fixlist_enqueue _) => //= [[ls Hls]].
+    by rewrite fixlist_get_nth_coerce //=.
+  Qed.
+
+  Lemma fixlist_get_nth_final m (ls : fixlist m)  x :
+    0 < m -> 
+    fixlist_get_nth ls (m.-1) = (fixlist_enqueue x ls).2.
+  Proof.
+    move: ls x => []; elim: m => [//=  | m IHm [//=| y ys] ] Hprf x .
+    rewrite ltnS leq_eqVlt => /orP [/eqP Hme0 | Hmlt].
+      move: Hprf; rewrite -Hme0 => //= Hprf.
+      move: Hprf (Hprf) => /eqP [] /size0nil Hy0 Hprf.
+      rewrite /fixlist_get_nth/ntuple_head//=/thead !(tnth_nth y) //=.
+      by move: (erefl _); case: y => //=.
+    case: m Hmlt Hprf IHm => [//= | m ] Hmlt Hprf IHm.
+    move: Hprf.
+    have: (m.+2.-1 = m.+1.-1.+1). by [].
+    move=> -> Hprf.
+    have Hys: size ys == m.+1. by move: Hprf => //=.
+    move: (@fixlist_get_nth_coerce m.+1 (Tuple Hys) y m.+1.-1) => //= ->.
+    have: m = m.+1.-1. by [].
+    move=> {3}->.
+    rewrite (IHm _ _ x) => //=.
+    rewrite /ntuple_head/ntuple_tail/thead //= .
+    move: (behead_tupleP _) => //=  Hsize.
+    move: (behead_tupleP _) => //= Hsize'.
+    move: (behead_tupleP _) => //= Hsize''.
+    rewrite (@tnth_nth m.+2 _ y) //=.
+    case: ys Hprf Hys Hsize Hsize' Hsize'' => //= y' ys.
+    move=> Hprf Hys Hsize Hsize' Hsize'' .
+    rewrite (proof_irrelevance _ Hsize' Hys); clear Hsize'.
+    rewrite (proof_irrelevance _ Hsize'' Hsize); clear Hsize''.
+    by case: (fixlist_enqueue _ ) => //=.
+  Qed.
+
 
 
 
