@@ -1051,6 +1051,7 @@ Lemma successful_round_rangeP w r : (r >= N_rounds) -> ~~ successful_round w r.
 Qed.
 
 
+
 Definition unsuccessful_round_internal (bh : BlockMap) (r : nat) :=
   length
     (filter
@@ -1496,6 +1497,8 @@ Qed.
 Lemma valid_Sn n : n > 0 -> n.+1 > 0. by []. Qed.
 
 
+
+
 Definition no_bounded_successful_rounds_internal
            (bm: BlockMap) (from to : nat) : 'I_N_rounds.+1 :=
   let b := ((no_bounded_successful_rounds'_internal bm from to) < N_rounds.+1 ) in
@@ -1831,9 +1834,10 @@ Proof.
   by rewrite addnBA //= (addnC r) -addnBA //= subnn addn0 addn0 Hbound //=.
 Qed.
 
-
-Print BlockMap.
-About fixlist_insert_rewrite.
+Lemma length_rcons A (x : A) (xs : seq.seq A) : length (rcons xs x) = (length xs).+1.
+Proof.
+  by rewrite -!length_sizeP size_rcons.
+Qed.
 
 Lemma no_bounded_successful_rounds'_internal_insert bm hr s r bl :
   [length bm] < BlockHistory_size  ->
@@ -1843,7 +1847,23 @@ Lemma no_bounded_successful_rounds'_internal_insert bm hr s r bl :
   no_bounded_successful_rounds'_internal
     bm s r.
 Proof.
- fail.
+  move=> Hlen Hith.
+  rewrite /no_bounded_successful_rounds'_internal/bounded_successful_round_internal//=.
+  rewrite /successful_round_internal/unsuccessful_round_internal/BlockMap_records//=.
+  rewrite fixlist_insert_rewrite //= .
+  rewrite !map_rcons //= .
+  suff: (fun r' : nat =>
+            length
+              [seq block_pair <- [seq (let '(_, (b, or)) := pair in (b, nat_of_ord or)) | pair <- [unwrap bm]] <::<
+                                 (false, nat_of_ord hr)
+                 | let '(is_corrupt, hash_round) := block_pair in (hash_round == r') && ~~ is_corrupt] == 0) =
+    (fun r' : nat =>
+                (length
+                   [seq block_pair <- [seq (let '(_, (b, or)) := pair in (b, nat_of_ord or)) | pair <- [unwrap bm]]                     | let '(is_corrupt, hash_round) := block_pair in (hash_round == r') && ~~ is_corrupt]) +
+                (if (r' ==  nat_of_ord hr) then 1 else 0)
+                == 0).
+  move=> ->.
+  Admitted.
 
 
 Lemma no_bounded_successful_rounds'_lim w s r :
