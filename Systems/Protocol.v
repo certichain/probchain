@@ -1839,30 +1839,48 @@ Proof.
   by rewrite -!length_sizeP size_rcons.
 Qed.
 
-Lemma no_bounded_successful_rounds'_internal_insert bm hr s r bl :
+Lemma unsuccessful_round_internal_insert_adversarial bm bl hr :
+    fixlist_is_top_heavy bm ->
+    [length bm] < BlockHistory_size ->
+    [eta unsuccessful_round_internal [bm <- (bl, (true, hr))]]  = 
+    [eta unsuccessful_round_internal bm].
+Proof.
+  move=> Hith Hlen.
+  apply: functional_extensionality=> x.
+  rewrite /unsuccessful_round_internal/BlockMap_records//=.
+  rewrite fixlist_insert_rewrite //=.
+  rewrite map_rcons filter_rcons //=.
+  by rewrite Bool.andb_false_r //=.
+Qed.
+
+
+Lemma successful_round_internal_insert_adversarial bm bl hr round :
+    fixlist_is_top_heavy bm ->
+    [length bm] < BlockHistory_size ->
+    successful_round_internal [bm <- (bl, (true, hr))] round  = 
+    successful_round_internal bm round.
+Proof.
+  move=> Hith Hlen.
+  rewrite /successful_round_internal/BlockMap_records//=.
+  rewrite fixlist_insert_rewrite //=.
+  rewrite map_rcons filter_rcons //=.
+  by rewrite Bool.andb_false_r //=.
+Qed.
+
+
+
+
+Lemma no_bounded_successful_rounds'_internal_insert_adversarial bm hr s r bl :
   [length bm] < BlockHistory_size  ->
   fixlist_is_top_heavy bm ->
   no_bounded_successful_rounds'_internal
-    (fixlist_insert bm ((bl), (false, hr))) s r =
+    (fixlist_insert bm ((bl), (true, hr))) s r =
   no_bounded_successful_rounds'_internal
     bm s r.
 Proof.
   move=> Hlen Hith.
   rewrite /no_bounded_successful_rounds'_internal/bounded_successful_round_internal//=.
-  rewrite /successful_round_internal/unsuccessful_round_internal/BlockMap_records//=.
-  rewrite fixlist_insert_rewrite //= .
-  rewrite !map_rcons //= .
-  suff: (fun r' : nat =>
-            length
-              [seq block_pair <- [seq (let '(_, (b, or)) := pair in (b, nat_of_ord or)) | pair <- [unwrap bm]] <::<
-                                 (false, nat_of_ord hr)
-                 | let '(is_corrupt, hash_round) := block_pair in (hash_round == r') && ~~ is_corrupt] == 0) =
-    (fun r' : nat =>
-                (length
-                   [seq block_pair <- [seq (let '(_, (b, or)) := pair in (b, nat_of_ord or)) | pair <- [unwrap bm]]                     | let '(is_corrupt, hash_round) := block_pair in (hash_round == r') && ~~ is_corrupt]) +
-                (if (r' ==  nat_of_ord hr) then 1 else 0)
-                == 0).
-  move=> ->.
+  rewrite unsuccessful_round_internal_insert_adversarial //=.
   Admitted.
 
 
