@@ -1935,25 +1935,46 @@ Proof.
   by rewrite successful_round_internal_insert_adversarial //=.
 Qed.
 
+Lemma all_neq_itoj hr x :
+  (hr == x) ->
+  all (fun x0 : nat => (hr) != x0) (itoj (x + 1 - delta) x) = true.
+Proof.
+  move=>/eqP ->; apply/allP => x'; rewrite mem_iota => /andP [].
+  rewrite subnKC.
+    by rewrite neq_ltn => Hxdltx' Hx'ltx; apply/orP; right.
+  move: delta_valid;  case: delta => //= delta _ ; rewrite addn1 subSS.
+  apply leq_subr.
+Qed.
+
+
+
+
 
 Lemma no_bounded_successful_rounds'_internal_insert_honest bm hr s r bl :
   [length bm] < BlockHistory_size  ->
   fixlist_is_top_heavy bm ->
+    all (fun x : nat => x <= nat_of_ord hr) (itoj 0 r) ->
   no_bounded_successful_rounds'_internal
     (fixlist_insert bm ((bl), (false, hr))) s r =
   no_bounded_successful_rounds'_internal
     bm s r.
 Proof.
-  move=> Hlen Hith.
+  move=> Hlen Hith Hleq.
   rewrite /no_bounded_successful_rounds'_internal/bounded_successful_round_internal//=.
-  rewrite -!length_sizeP !size_filter.
-  apply: eq_count.
-  rewrite /eqfun => x .
+  rewrite -!length_sizeP !size_filter .
+  apply: eq_in_count.
+  rewrite /eqfun  => x .
+  rewrite mem_iota => /andP [].
+  case Hrlts: (r < s).
+    move: (Hrlts) => /(ltn_addr 1); rewrite addn1 -subn_eq0 subSS => /eqP ->; rewrite addn0.
+    by move=>/leq_ltn_trans H /H; rewrite ltnn.
+  move/negP/negP:Hrlts; rewrite -leqNgt => Hrlts; rewrite subnKC //= => Hsltx Hxltr.
   rewrite unsuccessful_round_internal_insert_honest => //=.
   rewrite successful_round_internal_insert_honest => //=.
   rewrite all_predI.
-  rewrite Bool.andb_orb_distrib_r.
-  rewrite -Bool.andb_assoc.
+  move/allP: Hleq => Hleq; move: (Hleq x); rewrite  mem_iota subnKC //=; clear Hleq .
+  move=> Hleq; move: (Hleq Hxltr); clear Hleq => Hleq.
+
 Admitted.
 
 
