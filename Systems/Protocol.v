@@ -1834,10 +1834,20 @@ Proof.
   by rewrite addnBA //= (addnC r) -addnBA //= subnn addn0 addn0 Hbound //=.
 Qed.
 
+(* todo: move to invmisc *)
 Lemma length_rcons A (x : A) (xs : seq.seq A) : length (rcons xs x) = (length xs).+1.
 Proof.
   by rewrite -!length_sizeP size_rcons.
 Qed.
+Lemma count_rcons T (P : pred T) (xs : seq T) x :
+  count P (rcons xs  x) = count P xs + nat_of_bool (P x).
+Proof.
+  move: x.
+  elim: xs => //= y ys IHx x .
+  by rewrite IHx addnA.
+Qed.
+
+
 
 Lemma unsuccessful_round_internal_insert_adversarial bm bl hr :
     fixlist_is_top_heavy bm ->
@@ -1851,6 +1861,25 @@ Proof.
   rewrite fixlist_insert_rewrite //=.
   rewrite map_rcons filter_rcons //=.
   by rewrite Bool.andb_false_r //=.
+Qed.
+
+Lemma unsuccessful_round_internal_insert_honest bm bl hr :
+    fixlist_is_top_heavy bm ->
+    [length bm] < BlockHistory_size ->
+    [eta unsuccessful_round_internal [bm <- (bl, (false, hr))]] =
+    predI [eta unsuccessful_round_internal bm]   (fun x=> ~~ (nat_of_ord hr == x)).
+Proof.
+  move=> Hith Hlen.
+  apply: functional_extensionality=> x.
+  rewrite /unsuccessful_round_internal/BlockMap_records//=.
+  rewrite -!length_sizeP !size_filter.
+  rewrite fixlist_insert_rewrite //=.
+  rewrite map_rcons count_rcons //=.
+  rewrite Bool.andb_true_r //=.
+  case: (_ == x) => //=.
+  have Haddn y : (y + 1 == 0) = false. by case: y => //=.
+  by rewrite Haddn Bool.andb_false_r.
+  by rewrite addn0 Bool.andb_true_r.
 Qed.
 
 
@@ -1867,6 +1896,24 @@ Proof.
   by rewrite Bool.andb_false_r //=.
 Qed.
 
+Lemma successful_round_internal_insert_honest bm bl hr round :
+    fixlist_is_top_heavy bm ->
+    [length bm] < BlockHistory_size ->
+    successful_round_internal [bm <- (bl, (false, hr))] round  = 
+    successful_round_internal bm round ||  (nat_of_ord hr == round).
+Proof.
+  move=> Hith Hlen.
+  rewrite /successful_round_internal/BlockMap_records//=.
+  rewrite fixlist_insert_rewrite //=.
+  rewrite map_rcons filter_rcons //=.
+  rewrite Bool.andb_true_r //=.
+  case: (_ == round) => //=.
+    by rewrite length_rcons //= ltn0Sn Bool.orb_true_r.
+  by rewrite  Bool.orb_false_r.
+Qed.
+
+
+
 
 
 
@@ -1881,7 +1928,37 @@ Proof.
   move=> Hlen Hith.
   rewrite /no_bounded_successful_rounds'_internal/bounded_successful_round_internal//=.
   rewrite unsuccessful_round_internal_insert_adversarial //=.
-  Admitted.
+  rewrite -!length_sizeP.
+  rewrite !size_filter.
+  apply: eq_count.
+  rewrite /eqfun => x .
+  by rewrite successful_round_internal_insert_adversarial //=.
+Qed.
+
+
+Lemma no_bounded_successful_rounds'_internal_insert_honest bm hr s r bl :
+  [length bm] < BlockHistory_size  ->
+  fixlist_is_top_heavy bm ->
+  no_bounded_successful_rounds'_internal
+    (fixlist_insert bm ((bl), (false, hr))) s r =
+  no_bounded_successful_rounds'_internal
+    bm s r.
+Proof.
+  move=> Hlen Hith.
+  rewrite /no_bounded_successful_rounds'_internal/bounded_successful_round_internal//=.
+  rewrite -!length_sizeP !size_filter.
+  apply: eq_count.
+  rewrite /eqfun => x .
+  rewrite unsuccessful_round_internal_insert_honest => //=.
+  rewrite successful_round_internal_insert_honest => //=.
+  rewrite all_predI.
+  rewrite Bool.andb_orb_distrib_r.
+  rewrite -Bool.andb_assoc.
+Admitted.
+
+
+
+
 
 
 Lemma no_bounded_successful_rounds'_lim w s r :
