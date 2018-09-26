@@ -224,6 +224,7 @@ Definition world_step_internal (w: World) (h: RndGen) : Comp [finType of (option
                     (Ordinal valid_Honest_max_Transaction_sends) 
                     
                   (world_adoption_history w) 
+                  (fixlist_insert (world_message_trace w) (old_inflight_pool, new_message_pool, messages_to_be_delivered) )
                     in
                     ret (Some w')
               else 
@@ -261,6 +262,7 @@ Definition world_step_internal (w: World) (h: RndGen) : Comp [finType of (option
                             (world_adversary_transaction_quota w)
                             (mod_incr _ valid_Honest_max_Transaction_sends (world_honest_transaction_quota w))
                             (world_adoption_history w) 
+                            (world_message_trace w)
                             in
                             ret (Some w')
                       else 
@@ -293,6 +295,7 @@ Definition world_step_internal (w: World) (h: RndGen) : Comp [finType of (option
                   (world_adversary_transaction_quota w)
                   (world_honest_transaction_quota w) 
                   (world_adoption_history w) 
+                  (world_message_trace w)
                   in
                   ret (Some w')
             else 
@@ -341,6 +344,7 @@ Definition world_step_internal (w: World) (h: RndGen) : Comp [finType of (option
                           (* put honest on success will *) 
                           (record_actor_current_chain old_chain new_chain round real_addr (world_adoption_history w)) 
                           (* (world_adoption_history w) *)
+                          (world_message_trace w)
                           ;
                           ret (Some w')
                     else
@@ -380,7 +384,8 @@ Definition world_step_internal (w: World) (h: RndGen) : Comp [finType of (option
                             (world_adversary_message_quota w)
                             (world_adversary_transaction_quota w)
                             (world_honest_transaction_quota w)
-                            (world_adoption_history w));
+                            (world_adoption_history w)
+                            (world_message_trace w));
                             ret (Some w')
                 else
                 (* it is an invalid schedule to allow the adversary to hash a block multiple times in a round *)
@@ -430,6 +435,7 @@ Definition world_step_internal (w: World) (h: RndGen) : Comp [finType of (option
                     (mod_incr _ (valid_Adversary_max_Transaction_sends) (world_adversary_transaction_quota w))
                     (world_honest_transaction_quota w) 
                     (world_adoption_history w) 
+                    (world_message_trace w)
                     in
                       ret (Some w')
               else
@@ -464,6 +470,7 @@ Definition world_step_internal (w: World) (h: RndGen) : Comp [finType of (option
                         (world_adversary_transaction_quota w)
                         (world_honest_transaction_quota w)
                         (world_adoption_history w) 
+                        (world_message_trace w)
                         in
                           ret (Some w')
                   else
@@ -517,6 +524,7 @@ Definition world_step_internal (w: World) (h: RndGen) : Comp [finType of (option
                       (world_adversary_transaction_quota w)
                       (world_honest_transaction_quota w)
                       (world_adoption_history w) 
+                      (world_message_trace w)
                       in
                       ret (Some w')
                 else
@@ -541,6 +549,7 @@ Definition world_step_internal (w: World) (h: RndGen) : Comp [finType of (option
                         (world_adversary_transaction_quota w)
                         (world_honest_transaction_quota w)
                       (world_adoption_history w) 
+                      (world_message_trace w)
                         in
                       ret (Some w')
 

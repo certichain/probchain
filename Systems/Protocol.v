@@ -399,6 +399,12 @@ Record World := mkWorld {
     fixlist
       [eqType of (BlockChain * ordinal N_rounds * 'I_n_max_actors)]
       (n_max_actors * N_rounds);
+  (* contains a trace of the message_pool queue - contains
+            the inflight pool at the end of round,
+            the message queue after insertion,
+            the messages delivered
+   *)
+  world_message_trace :  fixlist [eqType of (MessagePool * (fixlist [eqType of MessagePool] delta) * MessagePool)] N_rounds.+1
 }.
 
 
@@ -413,9 +419,10 @@ Notation "[ w '.#adv_msgs]'" := (world_adversary_message_quota w).
 Notation "[ w '.#adv_tx]'" := (world_adversary_transaction_quota w).
 Notation "[ w '.#hon_tx]'" := (world_honest_transaction_quota w).
 Notation "[ w '.adopt_history]'" := (world_adoption_history w).
+Notation "[ w '.msg_trace]'" := (world_message_trace w).
 
 
-
+Definition initMessagePool := (fixlist_empty [eqType of Message] MessagePool_length).
 Definition initWorldMessagePool := (fixlist_empty [eqType of MessagePool] delta).
 Definition initWorldChainHistory :=
   (fixlist_empty [eqType of BlockChain] ChainHistory_size).
@@ -423,6 +430,13 @@ Definition initWorldAdoptionHistory :=
   (fixlist_empty
      [eqType of (BlockChain * ordinal N_rounds * 'I_n_max_actors)]
      (n_max_actors * N_rounds)).
+
+Definition initMessageTrace :=
+  (fixlist_empty
+
+     [eqType of (MessagePool * (fixlist [eqType of MessagePool] delta) * MessagePool) ]
+     N_rounds.+1).
+
 
 Definition initWorld := 
     mkWorld   
@@ -436,7 +450,8 @@ Definition initWorld :=
        (Ordinal valid_Adversary_max_Message_sends)
        (Ordinal valid_Adversary_max_Transaction_sends)
        (Ordinal valid_Honest_max_Transaction_sends)
-       initWorldAdoptionHistory.
+       initWorldAdoptionHistory
+       initMessageTrace.
 
 Definition World_prod w :=
   (world_global_state w,
@@ -449,7 +464,8 @@ Definition World_prod w :=
   world_adversary_message_quota w,
   world_adversary_transaction_quota w,
   world_honest_transaction_quota w,
-  world_adoption_history w).
+  world_adoption_history w,
+  world_message_trace w).
 
 
 Definition prod_World pair :=
@@ -463,7 +479,8 @@ Definition prod_World pair :=
   world_adversary_message_quota,
   world_adversary_transaction_quota,
   world_honest_transaction_quota,
-  world_adoption_history) := pair in
+  world_adoption_history,
+  world_message_trace) := pair in
     mkWorld
       world_global_state
       world_transaction_pool
@@ -475,7 +492,8 @@ Definition prod_World pair :=
       world_adversary_message_quota
       world_adversary_transaction_quota
       world_honest_transaction_quota
-      world_adoption_history.
+      world_adoption_history
+      world_message_trace.
 
 
 
@@ -750,7 +768,7 @@ Definition broadcast_message
 
 (* for each message in messages, send to corresponding actor *)
 Definition deliver_messages
-  (messages : seq Message) 
+  (messages : MessagePool) 
   (state : GlobalState) :  GlobalState :=
   foldr 
     (fun (msg : Message) (st: GlobalState) => 
@@ -759,7 +777,7 @@ Definition deliver_messages
       | BroadcastMsg bc => broadcast_message bc st 
       end) 
     state 
-    messages.
+    (fixlist_unwrap messages).
 
 
 Definition update_message_pool_queue
@@ -767,12 +785,12 @@ Definition update_message_pool_queue
               fixlist
                 [eqType of MessagePool] delta)
            (new_message_list : MessagePool)
-  : (seq Message * (fixlist [eqType of MessagePool] delta)) :=
+  : (MessagePool * (fixlist [eqType of MessagePool] delta)) :=
   let: (new_message_list, oldest_message_list) :=
      @fixlist_enqueue _ _ (Some new_message_list) message_list_queue in
   match oldest_message_list with
-    | None => ([::], new_message_list)
-    | Some message_list => (fixlist_unwrap message_list, new_message_list)
+    | None => (initMessagePool, new_message_list)
+    | Some message_list => (message_list, new_message_list)
   end.
 
 
@@ -2187,7 +2205,7 @@ Proof.
   case: w'=> [ wgs wtp wif wmp whsh wblh wch wadvm wadvtx whontx wadopt ]//=.
   case: wgs => [gls ga gca gcr].
   move: (erefl _).
-  case: {2 3 }(gca < n_max_actors)%nat => //= prf'.
+  case: {2 3 }(gca < n_max_actors)%nat => //= prf' Htrace.
   by case: ((tnth _ _).2) => //= [] [] <- //=.
 Qed.
 
@@ -2233,6 +2251,9 @@ Definition honest_actor_has_chain_at_round w addr c r : bool :=
       (fixlist_unwrap (world_adoption_history w))
    )
 .
+
+
+
 
 Definition actor_n_has_chain_length_at_round_internal
            (ah: fixlist [eqType of BlockChain * 'I_N_rounds * 'I_n_max_actors] (n_max_actors * N_rounds))
@@ -2282,6 +2303,20 @@ Proof.
   by rewrite /actor_n_has_chain_length_at_round//=.
 Qed.
 
+
+Definition actor_n_has_chain_length_at_round_nat (w : World) (l addr round : nat)  : bool.
+  case Hltn: (round < N_rounds).
+    exact ((actor_n_has_chain_length_at_round w l addr (Ordinal Hltn))).
+    exact false.
+Defined.
+
+
+
+Definition actor_n_first_has_chain_length_at_round w l addr r : bool :=
+  actor_n_has_chain_length_at_round w l addr r &&
+  all (fun round => ~~ actor_n_has_chain_length_at_round_nat w l addr round) (iota 0 r).
+  
+
 Definition actor_n_has_chain_length_ge_at_round_internal
            (ah: fixlist [eqType of BlockChain * 'I_N_rounds * 'I_n_max_actors] (n_max_actors * N_rounds))
            l addr (r : 'I_N_rounds) : bool :=
@@ -2330,6 +2365,24 @@ Lemma actor_n_has_chain_length_ge_at_round_internalP w l addr r :
 Proof.
   by rewrite /actor_n_has_chain_length_ge_at_round//=.
 Qed.
+
+
+Definition actor_n_has_chain_length_ge_at_round_nat (w : World) (l addr round : nat)  : bool.
+  case Hltn: (round < N_rounds).
+    exact ((actor_n_has_chain_length_ge_at_round w l addr (Ordinal Hltn))).
+    exact false.
+Defined.
+
+
+
+
+Definition actor_n_first_has_chain_length_ge_at_round w l addr r : bool :=
+  actor_n_has_chain_length_ge_at_round w l addr r &&
+  all (fun round => ~~ actor_n_has_chain_length_ge_at_round_nat w l addr round) (iota 0 r).
+ 
+                                   
+
+
 
 
 Lemma no_bounded_successful_rounds'_eq0 : forall w r s, (s < r \/ (eq_op r s /\ eq_op r 0))%nat -> (no_bounded_successful_rounds' w r s) = 0%nat.
@@ -2433,7 +2486,37 @@ Definition honest_message_has_chain_length_ge l (msg: Message)  :=
 Definition message_pool_contains_chain_of_length (ls : MessagePool) l :=
   has (honest_message_has_chain_length l) (fixlist_unwrap ls).
 
-Definition message_pool_contains_chain_ge_of_length (ls : MessagePool) l :=
+
+Definition message_pool_contains_chain_of_length_ge (ls : MessagePool) l :=
   has (honest_message_has_chain_length_ge l) (fixlist_unwrap ls).
 
+Definition o_message_pool_contains_chain_of_length_ge (ls : option MessagePool) l :=
+  match ls with
+    | None => false
+    | Some msgs  => message_pool_contains_chain_of_length_ge msgs l
+  end.
+
+
+
+
+Definition actor_recieved_chain_of_length (stt : LocalState) l :=
+  has (fun chain => l == fixlist_length chain) (fixlist_unwrap (honest_local_message_pool  stt)).
+
+Definition actor_recieved_chain_of_length_ge (stt : LocalState) l :=
+  has (fun chain => l <= fixlist_length chain) (fixlist_unwrap (honest_local_message_pool  stt)).
+
+Definition actor_n_recieved_chain_of_length (w : World) addr l :=
+  actor_recieved_chain_of_length (tnth [[w.state].actors] addr).1 l.
+
+Definition actor_n_recieved_chain_of_length_ge (w : World) addr l :=
+  actor_recieved_chain_of_length_ge (tnth [[w.state].actors] addr).1 l.
+
+Definition message_queue_at_round (ms : fixlist [eqType of MessagePool * fixlist [eqType of MessagePool] delta *
+               MessagePool]  N_rounds.+1) r :=
+  (@nth _
+        (initMessagePool , (fixlist_empty [eqType of MessagePool] delta), initMessagePool)
+        (fixlist_unwrap ms) r).
+
+Definition world_message_queue_at_round (w : World) r :=
+  message_queue_at_round ([w.msg_trace]) r.
 

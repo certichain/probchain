@@ -1391,6 +1391,27 @@ Definition fixlist n := n.-tuple (option A).
     P (a).
   Proof.
     by move=> Hnvld -> -> Hbase; rewrite -fixlist_get_nth_final.
+
+  Qed.
+
+
+  Lemma fixlist_get_nth_empty m  n  :
+    fixlist_get_nth (fixlist_empty m) n = None.
+  Proof.
+    rewrite /fixlist_empty.
+    rewrite /fixlist_get_nth//=.
+    case: {2 3}(n < m) (erefl _) => //= Hltn.
+    case Htnth: (tnth _) (erefl _)=> [res]//=.
+    elim: n Hltn Htnth => //= [ | n ].
+      by case: m => //=.
+    
+    case: m => //= m  IHn Hltn.
+    rewrite !(tnth_nth None) //=.
+    have Hobv (a b : nat) : nth None (ncons a None [::]) b =  None.
+      elim: a b => [//= | //= a IHa b].
+        by case => //=.
+      by case: b => //=.
+    by rewrite Hobv.
   Qed.
 
 

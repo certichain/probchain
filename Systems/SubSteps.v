@@ -104,7 +104,10 @@ Definition honest_step_world  (w w' : World) lclstt iscrpt addr result blk_rcd h
     world_adversary_transaction_quota := world_adversary_transaction_quota w';
     world_honest_transaction_quota := world_honest_transaction_quota w';
     world_adoption_history := record_actor_current_chain (honest_current_chain lclstt) new_chain
-                                (global_current_round (world_global_state w')) addr (world_adoption_history w') |}).
+                                                         (global_current_round (world_global_state w')) addr (world_adoption_history w');
+
+    world_message_trace := (world_message_trace w')
+    |}).
 
 
 Definition honest_mint_failed_no_update iscrpt addr lclstt os w gca := {|
@@ -133,7 +136,8 @@ Definition honest_mint_failed_no_update iscrpt addr lclstt os w gca := {|
     world_adversary_transaction_quota := world_adversary_transaction_quota w;
     world_honest_transaction_quota := world_honest_transaction_quota w;
     world_adoption_history := fixlist_insert (world_adoption_history w)
-                                (honest_current_chain lclstt, global_current_round (world_global_state w), addr) |}.
+                                             (honest_current_chain lclstt, global_current_round (world_global_state w), addr);
+    world_message_trace := (world_message_trace w) |}.
 
 Definition honest_mint_failed_update iscrpt addr lclstt os w gca := {|
     world_global_state := {|
@@ -165,7 +169,8 @@ Definition honest_mint_failed_update iscrpt addr lclstt os w gca := {|
     world_adversary_transaction_quota := world_adversary_transaction_quota w;
     world_honest_transaction_quota := world_honest_transaction_quota w;
     world_adoption_history := fixlist_insert (world_adoption_history w)
-                                (honest_current_chain lclstt, global_current_round (world_global_state w), addr) |}.
+                                             (honest_current_chain lclstt, global_current_round (world_global_state w), addr);
+    world_message_trace := (world_message_trace w)|}.
 
 
 Definition honest_mint_succeed_update iscrpt addr lclstt os blc_rcd hashed nonce gca w := (let
@@ -200,7 +205,9 @@ Definition honest_mint_succeed_update iscrpt addr lclstt os blc_rcd hashed nonce
       world_adversary_transaction_quota := world_adversary_transaction_quota w;
       world_honest_transaction_quota := world_honest_transaction_quota w;
       world_adoption_history := record_actor_current_chain (honest_current_chain lclstt) new_chain
-                                  (global_current_round (world_global_state w)) addr (world_adoption_history w) |}).
+                                  (global_current_round (world_global_state w)) addr (world_adoption_history w);
+
+    world_message_trace := (world_message_trace w)|}).
 
 
 
@@ -217,8 +224,8 @@ Definition transaction_gen_step w' tx  := {|
     world_adversary_transaction_quota := world_adversary_transaction_quota w';
     world_honest_transaction_quota := mod_incr Honest_max_Transaction_sends valid_Honest_max_Transaction_sends
                                         (world_honest_transaction_quota w');
-    world_adoption_history := world_adoption_history w'
-  |}.
+    world_adoption_history := world_adoption_history w';
+    world_message_trace := (world_message_trace w')|}.
 
 
 Definition transaction_drop_step w' rem_ind:= {|
@@ -232,7 +239,8 @@ Definition transaction_drop_step w' rem_ind:= {|
     world_adversary_message_quota := world_adversary_message_quota w';
     world_adversary_transaction_quota := world_adversary_transaction_quota w';
     world_honest_transaction_quota := world_honest_transaction_quota w';
-    world_adoption_history := world_adoption_history w' |}.
+    world_adoption_history := world_adoption_history w';
+    world_message_trace := (world_message_trace w')|}.
 
 Definition honest_mint_step iscrpt os hash_value hash_vl blc_rcd addr lclstt result w' :=
 (let
@@ -317,7 +325,9 @@ Definition honest_mint_step iscrpt os hash_value hash_vl blc_rcd addr lclstt res
       world_adversary_transaction_quota := world_adversary_transaction_quota w';
       world_honest_transaction_quota := world_honest_transaction_quota w';
       world_adoption_history := record_actor_current_chain (honest_current_chain lclstt) new_chain
-                                  (global_current_round (world_global_state w')) addr (world_adoption_history w') |}).
+                                  (global_current_round (world_global_state w')) addr (world_adoption_history w'); 
+
+    world_message_trace := (world_message_trace w')|}).
 
 
 Definition update_adversary_state w':=
@@ -431,7 +441,8 @@ Definition adversary_mint_player_step
       world_adversary_message_quota := world_adversary_message_quota w';
       world_adversary_transaction_quota := world_adversary_transaction_quota w';
       world_honest_transaction_quota := world_honest_transaction_quota w';
-      world_adoption_history := world_adoption_history w' |}).
+      world_adoption_history := world_adoption_history w';
+      world_message_trace := (world_message_trace w') |}).
 
 
 
@@ -453,7 +464,9 @@ Definition adversary_mint_global_step adv_state w' :=
       world_adversary_message_quota := world_adversary_message_quota w';
       world_adversary_transaction_quota := world_adversary_transaction_quota w';
       world_honest_transaction_quota := world_honest_transaction_quota w';
-      world_adoption_history := world_adoption_history w' |}).
+      world_adoption_history := world_adoption_history w';
+      world_message_trace := (world_message_trace w')
+      |}).
 
 
 Definition retrieve_address addr w' :=
@@ -487,7 +500,8 @@ Definition adversary_corrupt_step  actr addr w' :=
     world_adversary_message_quota := world_adversary_message_quota w';
     world_adversary_transaction_quota := world_adversary_transaction_quota w';
     world_honest_transaction_quota := world_honest_transaction_quota w';
-    world_adoption_history := world_adoption_history w' |}.
+    world_adoption_history := world_adoption_history w';
+      world_message_trace := (world_message_trace w') |}.
 
 
 Definition broadcast_step nwadvst chain addrlist w' := {|
@@ -528,7 +542,8 @@ Definition broadcast_step nwadvst chain addrlist w' := {|
                                        (world_adversary_message_quota w');
     world_adversary_transaction_quota := world_adversary_transaction_quota w';
     world_honest_transaction_quota := world_honest_transaction_quota w';
-    world_adoption_history := world_adoption_history w' |}.
+    world_adoption_history := world_adoption_history w';
+      world_message_trace := (world_message_trace w') |}.
 
 Definition adversary_transaction_step adv_state tx addrlist w' :=
 {|
@@ -570,7 +585,8 @@ Definition adversary_transaction_step adv_state tx addrlist w' :=
                                            valid_Adversary_max_Transaction_sends
                                            (world_adversary_transaction_quota w');
     world_honest_transaction_quota := world_honest_transaction_quota w';
-    world_adoption_history := world_adoption_history w' |}.
+    world_adoption_history := world_adoption_history w';
+      world_message_trace := (world_message_trace w') |}.
 
 
 Definition round_end_step msgs new_pool w' :=
@@ -588,7 +604,10 @@ Definition round_end_step msgs new_pool w' :=
                                            valid_Adversary_max_Transaction_sends;
     world_honest_transaction_quota := Ordinal (n:=Honest_max_Transaction_sends) (m:=0)
                                         valid_Honest_max_Transaction_sends;
-    world_adoption_history := world_adoption_history w' |}.
+    world_adoption_history := world_adoption_history w' ;
+    world_message_trace := (fixlist_insert (world_message_trace w') ((world_inflight_pool w'),  new_pool, msgs))
+|}.
+
 
 Definition adversary_end_step w' := {|
     world_global_state := update_round (world_global_state w');
@@ -601,7 +620,8 @@ Definition adversary_end_step w' := {|
     world_adversary_message_quota := world_adversary_message_quota w';
     world_adversary_transaction_quota := world_adversary_transaction_quota w';
     world_honest_transaction_quota := world_honest_transaction_quota w';
-    world_adoption_history := world_adoption_history w' |}.
+    world_adoption_history := world_adoption_history w' ;
+    world_message_trace := (world_message_trace w') |}.
 
 Lemma actor_has_chain_length_round_end w' l new_pool msgs o_addr : forall (prf: ([[w'.state].#round].+1 < N_rounds)%nat),
   actor_n_has_chain_length_ge_at_round w' l o_addr [[w'.state].#round] -> 
