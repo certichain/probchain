@@ -2412,7 +2412,28 @@ Definition world_executed_to_max_round w :=
 
 
 Definition world_executed_to_round w r : bool :=
-  (r <= (global_current_round (world_global_state w)) )%nat.
+  (r < (global_current_round (world_global_state w)) )%nat.
 
 
  
+Definition honest_message_has_chain_length l (msg: Message)  :=
+  match msg with
+    (* selective messages are only sent by parties with malicious intentions *)
+    | MulticastMsg _ chain =>  false
+    | BroadcastMsg chain =>  fixlist_length chain == l
+  end.
+
+Definition honest_message_has_chain_length_ge l (msg: Message)  :=
+  match msg with
+    (* selective messages are only sent by parties with malicious intentions *)
+    | MulticastMsg _ chain =>  false
+    | BroadcastMsg chain =>  l <= fixlist_length chain 
+  end.
+
+Definition message_pool_contains_chain_of_length (ls : MessagePool) l :=
+  has (honest_message_has_chain_length l) (fixlist_unwrap ls).
+
+Definition message_pool_contains_chain_ge_of_length (ls : MessagePool) l :=
+  has (honest_message_has_chain_length_ge l) (fixlist_unwrap ls).
+
+
