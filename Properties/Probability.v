@@ -220,6 +220,7 @@ Definition chain_growth_pred w :=
       forall l : 'I_Maximum_blockchain_length,
           forall addr: 'I_n_max_actors,
               (* if there is an actor with a chain of length l at round r *)
+              (actor_n_is_honest w addr) ==>
               actor_n_has_chain_length_at_round w (nat_of_ord l) (nat_of_ord addr) r
               ==>
               (*then*)
@@ -2279,6 +2280,7 @@ Proof.
       rewrite (proof_irrelevance _ Htmp Ho_addr); clear Htmp; rewrite /actor_n_is_corrupt.
       by rewrite Ho_addr_stt.
       apply actor_has_chain_length_ext with (sc:= xs) (s':= [[w'.state].#round]) => //=.
+      by apply ltnW.
       apply/ (actor_n_has_chain_at_round_current w' xs (Ordinal Ho_addr)) => //=.
       by rewrite /actor_n_chain_length Ho_addr_stt.
 
@@ -2335,6 +2337,7 @@ Proof.
       rewrite (proof_irrelevance _ Htmp Ho_addr); clear Htmp; rewrite /actor_n_is_corrupt.
       by rewrite Ho_addr_stt.
       apply actor_has_chain_length_ext with (sc:= xs) (s':= [[w'.state].#round]) => //=.
+      by apply ltnW.
       apply/ (actor_n_has_chain_at_round_current w' xs (Ordinal Ho_addr)) => //=.
       by rewrite /actor_n_chain_length Ho_addr_stt.
    (* honest mint succeed case *)
@@ -2814,12 +2817,10 @@ Proof.
   by elim v => //=.
   
   rewrite Hfixlist_empty //=.
+  apply/implyP => Hhon.
   apply/implyP => /andP [/eqP Heqr /eqP Heql]; apply/forallP => [[s Hsvld]].
   apply/implyP.
   by rewrite Heqr //= add0n => Htn0; apply/implyP => Hwexec.
-  (* move: (@fixlist_empty_is_empty [eqType of BlockChain * 'I_N_rounds * 'I_n_max_actors] (n_max_actors * N_rounds)%nat). *)
-  (* rewrite /fixlist_is_empty/world_executed_to_round/initWorld/initWorldAdoptionHistory//= => /eqP -> //=. *)
-
 
   
 
@@ -2856,7 +2857,7 @@ Proof.
   have H_INRP a :  a = false -> INR a = 0. by move=> ->.
   apply H_INRP; apply/negP/negP/forallP => r; apply/forallP => l.
   (* we can use the functions provided by fintype to convert this deterministic statement into a prop one *)
-  apply/forallP=>addr; apply/implyP=> H_holds_chain; apply/forallP=> s.
+  apply/forallP=>addr; apply/implyP => Haddrhon; apply/implyP=> H_holds_chain; apply/forallP=> s.
   apply/implyP=>H_valid_range.
   apply/implyP=>//=Hs'.
   apply/implyP=>H_world_exec.
@@ -2886,15 +2887,13 @@ Proof.
 
 
 
-  suff Hexist: (exists (addr0 : 'I_n_max_actors) (k : 'I_N_rounds),
-                   (k <= (Ordinal Hrvalid))%nat && actor_n_has_chain_length_at_round w l addr0 k).
-
   move=>  Hrdelta_eq1  o_addr Haddr_hon.
   
-  apply/(chain_growth_weak (x::xs) w l (Ordinal Hrvalid) Hpr_valid Hexist (Ordinal Hsvalid)) => //=.
+  apply:(chain_growth_weak (x::xs) w l (Ordinal Hrvalid) Hpr_valid _ (Ordinal Hsvalid)) => //=.
   exists addr.
   exists (Ordinal Hrvalid).
   apply/andP;split => //=.
+  apply/andP; split=> //=.
   by right.
   (* true inductive case *)
   move: (Hsvalid)  =>Hsvd.
