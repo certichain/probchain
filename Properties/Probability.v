@@ -2558,6 +2558,7 @@ Proof.
         by rewrite -ltnS => /(ltn_addr 1); rewrite addn1 => /ltn_trans H /H; rewrite ltnn.
    (* failed update casee *)
       move=> Hbound.
+      rewrite/honest_mint_failed_update/world_executed_to_round//= => Hwexec.
       rewrite /actor_n_is_honest_internal_unwrap //=.
       move: (erefl _); rewrite {2 3}Ho_addr => Htmp; rewrite (proof_irrelevance _ Htmp Ho_addr); clear Htmp.
       rewrite /actor_n_is_corrupt_internal_unwrap //= Ha_addr => Hhon (* to be dealt with later *).
@@ -2592,47 +2593,50 @@ Proof.
           by rewrite /actor_n_is_corrupt Ha_stt; move/eqP/negP: Hncrpt.
         move: (actor_n_has_chain_refl xs w' (Ordinal Ho_addr) Hth_base).
         rewrite /actor_n_has_chain_length_ge_at_round.
-        move: (Hbound) => /(bounded_success_impl_exec xs w' ) => Hwexec'.
-        move: (Hwexec' Hth_base) => Hwexec; clear Hwexec'.
-        move: Hround Hwexec.
+        have Hwexec': world_executed_to_round w' (s - delta).
+          rewrite /world_executed_to_round; move: Hwexec; rewrite -(addn2 s) => /(ltn_weaken).
+          by move=>/(subn_ltn_pr _ delta).
+        move: Hround Hwexec'.
         rewrite /world_executed_to_round.
         by move=> /leq_ltn_trans H /H; rewrite ltnn.
       rewrite {1 2}addn1 => Hlen; apply/orP; left; apply/orP; left; apply/andP; split=>//=;[apply/andP;split => //=].
-      by apply/(leq_trans Hround); rewrite -ltnS; apply /subn_ltn_pr.
+      move: Hround Hwexec .
+      move=>/leq_subn_pr.
+      by rewrite -ltnS => /(ltn_addr 1); rewrite addn1 => /ltn_trans H /H; rewrite ltnn.
     (* success case *)
-
-      move=> Hbound.
+      rewrite/honest_mint_succeed_update/world_executed_to_round//= .
+      rewrite bounded_successful_round_internalP.
+      case Henq: (fixlist_enqueue _) => [new_chain old_block] //= Hbound Hwexec.
       rewrite /actor_n_is_honest_internal_unwrap //=.
       move: (erefl _); rewrite {2 3}Ho_addr => Htmp; rewrite (proof_irrelevance _ Htmp Ho_addr).
       clear Htmp Htp Hhash_pr.
       move: Hbound.
       rewrite /honest_mint_succeed_update//=.
-      case Hhon_max_valid: (honest_max_valid _) => [chain_pool Hchain_pool] //=.
-      case Hupdated_chain: (fixlist_enqueue _ ) => [new_chain old_block] //=.
-      rewrite !bounded_successful_round_internalP //=.
+      move: Ha_hl Henq.
+      case Hhon_max_valid: (honest_max_valid _) => [chain_pool Hchain_pool] //= Ha_hl Henq Hbound.
       rewrite !no_bounded_successful_rounds_internalP //= => Hbound_succ Hcorrupt.
       move: (Hbound_succ).
-      rewrite /bounded_successful_round_internal => /andP [ ].
       rewrite/unsuccessful_round_internal/successful_round_internal //= => [].
-      move=> /allP Hall .
-      rewrite -length_sizeP /BlockMap_records size_filter -has_count fixlist_insert_rewrite //= .
-      move=>/hasP [ [ block_iscrpt block_round] Heqn /andP [Heq_round Hcrpt]].
-      rewrite /no_bounded_successful_rounds_internal.
-      move: Heqn; rewrite map_rcons //= -cats1 mem_cat => /orP [ | //=]; last first.
-      (* because we just inserted a block, there are 2 cases - either
-          - when there was a previous round which was bounded successful
-          - when the current round is s - delta
-        *)
-      (* when the current round is s - delta *)
-        rewrite /mem //= /in_mem //= => /orP [] //= .
-        move=>/eqP [/negP/negP Hflse Hround].
-        rewrite Hround in Heq_round.
-        rewrite {1}/actor_n_has_chain_length_ge_at_round_internal fixlist_insert_rewrite //= has_rcons => /orP [].
-        admit.
-        admit.
-        admit.
-        admit.
-        admit.
+      (* move=> /allP Hall . *)
+      (* rewrite -length_sizeP /BlockMap_records size_filter -has_count fixlist_insert_rewrite //= . *)
+      (* move=>/hasP [ [ block_iscrpt block_round] Heqn /andP [Heq_round Hcrpt]]. *)
+      (* rewrite /no_bounded_successful_rounds_internal. *)
+      (* move: Heqn; rewrite map_rcons //= -cats1 mem_cat => /orP [ | //=]; last first. *)
+      (* (* because we just inserted a block, there are 2 cases - either *)
+      (*     - when there was a previous round which was bounded successful *)
+      (*     - when the current round is s - delta *)
+      (*   *) *)
+      (* (* when the current round is s - delta *) *)
+      (*   rewrite /mem //= /in_mem //= => /orP [] //= . *)
+      (*   move=>/eqP [/negP/negP Hflse Hround]. *)
+      (*   rewrite Hround in Heq_round. *)
+      (*   rewrite {1}/actor_n_has_chain_length_ge_at_round_internal fixlist_insert_rewrite //= has_rcons => /orP []. *)
+      (*   admit. *)
+      (*   admit. *)
+      (*   admit. *)
+      (*   admit. *)
+      (*   admit. *)
+      admit.
 
   (* adversary player mint case *)
     move=> IHw' Hprw' Hadv Hupd Hhash_pr .
@@ -2643,7 +2647,9 @@ Proof.
     case Hdiff : (hash_res < T_Hashing_Difficulty)%nat ; last first.
       by case: (isSome _) => //=.
     case: (isSome _) => //= Hbs;
-    rewrite -!actor_n_is_honest_unwrapP -!actor_n_is_honest_internalP //= => Hhon.
+    rewrite -!actor_n_is_honest_unwrapP -!actor_n_is_honest_internalP //=;
+    rewrite/world_executed_to_round //= => Hwexec.
+    move=> Hhon Hchainge.
     admit. admit.
   (* adversary global mint case *)
     move: adv_state => [[adv_state os] oblock].
@@ -2688,7 +2694,10 @@ Proof.
     rewrite -!no_bounded_successful_rounds_internalP //= => Hact_has_chain.
     apply IHw => //=.
     move: Hhon; rewrite /actor_n_is_honest/actor_n_is_honest_internal/actor_n_is_corrupt.
-    rewrite/actor_n_is_corrupt_internal//=.
+    rewrite/actor_n_is_corrupt_internal//=/world_executed_to_round //=.
+    rewrite deliver_messages_update_round_preserves_round.
+    admit.
+    move: Hact_has_chain; rewrite /actor_n_is_honest_internal/actor_n_is_honest//=.
     move: (erefl _) => //=.
     rewrite {2 3 7}Ho_addr => //= Htmp; rewrite (proof_irrelevance _ Htmp Ho_addr); clear Htmp.
     by move=>/deliver_messages_preserves_honest.
@@ -2705,6 +2714,11 @@ Proof.
     move: Hhon; rewrite /actor_n_is_honest/actor_n_is_honest_internal.
     clear Hact_has_chain IHw.
     move: o_addr => [o_addr Ho_addr] => //=.
+    rewrite/world_executed_to_round/update_round //=.
+    case: [w'.state] =>[gls ga gca gcr] .
+    by case: {2 3}(eq_op _ _) (erefl _) => Hprf //=.
+    move: o_addr IHw  Hact_has_chain => [o_addr Ho_addr] IHw.
+    rewrite /actor_n_is_honest_internal/actor_n_is_honest.
     move: (erefl _) => //=; rewrite {2 3 7}Ho_addr => Htmp.
     rewrite /actor_n_is_corrupt_internal/actor_n_is_corrupt //=.
     by move=>/update_round_preserves_honest.
