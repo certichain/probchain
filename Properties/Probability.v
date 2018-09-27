@@ -2419,6 +2419,7 @@ Lemma chain_growth_direct_weaken sc w l (r : 'I_N_rounds) s : forall Hsvddelta H
   (P[ world_step initWorld sc === Some w] <> 0) ->
     (* and round s was a bounded successful round*) 
   bounded_successful_round w (s - delta) ->
+  world_executed_to_round w s.+2 ->
   (* and at round s - delta,
             every part actor has a chain longer than l + sum_{r .. s - 2 * delta + 1} *) 
   (forall o_addr : 'I_n_max_actors,
@@ -2435,9 +2436,9 @@ Lemma chain_growth_direct_weaken sc w l (r : 'I_N_rounds) s : forall Hsvddelta H
     (Ordinal (n:=N_rounds) (m:=s.+1) Hsvd)).
 Proof.
   (* first let's simplify a bit *)
-  move=> //= Hsdlta HSs Hpr Hbound Hall o_addr Hhon.
+  move=> //= Hsdlta HSs Hpr Hbound Hexec Hall o_addr Hhon.
   move: (Hall o_addr Hhon).
-  move: Hbound Hhon; clear Hall .
+  move: Hbound Hexec Hhon; clear Hall .
  (* now we have it in a nicer form:
     if a round is bounded successful (s - delta), and a node has a chain of length l + some value,
     at that round (s - delta0,
@@ -2447,13 +2448,14 @@ Proof.
             (fun w _ =>
 
           bounded_successful_round w (s - delta) ->
+          world_executed_to_round w s.+2 ->
           actor_n_is_honest w o_addr ->
           actor_n_has_chain_length_ge_at_round w (l + no_bounded_successful_rounds w r (s.+1 - 2 * delta))
             o_addr (Ordinal (n:=N_rounds) (m:=s - delta) Hsdlta) ->
           actor_n_has_chain_length_ge_at_round w
             (l + no_bounded_successful_rounds w r (s.+1 - 2 * delta) + 1) o_addr
             (Ordinal (n:=N_rounds) (m:=s.+1) HSs)
-            ) sc w) => //= [ |
+            ) sc w) => //= [ 
                           iscrpt  os  hash_value active_hash_link blc_rcd active_addr  active_state result
                           active_transaction_pool w'  xs  |
                           oracle_state  old_adv_state  blc_rcd nonce hash hash_res  w'  xs |
@@ -2461,13 +2463,6 @@ Proof.
                           addr0  actr  w'  xs |
                           msgs new_pool w' xs |
                           w'  xs ] //=.
-  (* initial world case *)
-    rewrite/initWorld  !bounded_successful_round_internalP //=;
-    rewrite/BlockMap_new/bounded_successful_round_internal/unsuccessful_round_internal//= => /andP [_ ];
-    rewrite/successful_round_internal/BlockMap_records/fixmap_empty//=.
-    by move: (@fixlist_empty_is_empty  [eqType of Block * (bool * 'I_N_rounds)] BlockHistory_size);
-    rewrite/fixlist_is_empty//= => /eqP-> //=. 
-
   (* honest mint case *)
     move: o_addr => [o_addr Ho_addr].
     move=> Hbase Hth_pr Hhonest_activation Hactive_state Ha_head_link Ha_txpool Hhash_pr Hbounded_success .
@@ -2479,6 +2474,7 @@ Proof.
     apply /(@honest_mint_stepP (fun w =>
 
   bounded_successful_round w (s - delta) ->
+  world_executed_to_round w s.+2 ->
   actor_n_is_honest w (Ordinal (n:=n_max_actors) (m:=o_addr) Ho_addr) ->
   actor_n_has_chain_length_ge_at_round w 
     (l + no_bounded_successful_rounds w r (s.+1 - 2 * delta))
@@ -2514,6 +2510,7 @@ Proof.
 
     (* Failed no update *)
       move=> Hbound.
+      rewrite/honest_mint_failed_no_update/world_executed_to_round//= => Hwexec.
       rewrite /actor_n_is_honest_internal_unwrap //=.
       move: (erefl _); rewrite {2 3}Ho_addr => Htmp; rewrite (proof_irrelevance _ Htmp Ho_addr).
       clear Htmp.
@@ -2549,14 +2546,16 @@ Proof.
           by rewrite /actor_n_is_corrupt Ha_stt; move/eqP/negP: Hncrpt.
         move: (actor_n_has_chain_refl xs w' (Ordinal Ho_addr) Hth_base).
         rewrite /actor_n_has_chain_length_ge_at_round.
-        move: (Hbound) => /(bounded_success_impl_exec xs w' ) => Hwexec'.
-        move: (Hwexec' Hth_base) => Hwexec; clear Hwexec'.
-        move: Hround Hwexec.
+        have Hwexec': world_executed_to_round w' (s - delta).
+          rewrite /world_executed_to_round; move: Hwexec; rewrite -(addn2 s) => /(ltn_weaken).
+          by move=>/(subn_ltn_pr _ delta).
+        move: Hround Hwexec'.
         rewrite /world_executed_to_round.
         by move=>/leq_ltn_trans H /H; rewrite ltnn.
-      rewrite {1 2}addn1 => Hlen; apply/orP; left; apply/orP; left; apply/andP; split=>//=;[apply/andP;split => //=].
-      by apply/(leq_trans Hround); rewrite -ltnS; apply /subn_ltn_pr.
-
+        rewrite {1 2}addn1 => Hlen.
+        move: Hround Hwexec .
+        move=>/leq_subn_pr.
+        by rewrite -ltnS => /(ltn_addr 1); rewrite addn1 => /ltn_trans H /H; rewrite ltnn.
    (* failed update casee *)
       move=> Hbound.
       rewrite /actor_n_is_honest_internal_unwrap //=.
@@ -2926,6 +2925,7 @@ Proof.
   move=> Hwexec.
   rewrite -subSn //=.
   rewrite (bounded_successful_exclusion (x::xs) w r s l ) //=.
+  move: (@chain_growth_direct_weaken (x::xs) w l (Ordinal Hrvalid) s) => //=.
   apply: (@chain_growth_direct_weaken (x::xs) w l (Ordinal Hrvalid) s) => //=.
   by rewrite subn_ltn_pr.
   move=> Hdelta.
