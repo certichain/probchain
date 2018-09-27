@@ -1890,6 +1890,37 @@ Lemma broadcast_propagates sc w r l o_addr n :
     (fixlist_get_nth
        ((world_message_queue_at_round w (r + n)).1).2
        n)  l.
+Proof.
+  move=> Hpr.
+  move: r l o_addr n => [r prf] //=; move: r prf.
+  apply/(world_stepP (fun w _ =>
+  forall (r : nat) (prf : (r < N_rounds)%nat) (l o_addr n : nat),
+  world_executed_to_round w (r + n).+1 ->
+  (n < delta)%nat ->
+  actor_n_first_has_chain_length_ge_at_round w l o_addr (Ordinal (n:=N_rounds) (m:=r) prf) ->
+  o_message_pool_contains_chain_of_length_ge (fixlist_get_nth (world_message_queue_at_round w (r + n)).1.2 n) l
+  ) sc w) => //=
+  [
+      iscrpt  os  hash_value hash_vl  blc_rcd addr0  lclstt  result  ltp w'  xs  |
+      oracle_state  old_adv_state  blc_rcd nonce hash hash_res  w'  xs |
+      adv_state  w' xs |
+      addr0  actr  w'  xs |
+      w' xs 
+  ] IHw' Hprw';
+  [
+    move=> Hhon_activation Hactive Hheadlink Hmaxsubset Hhashpr |
+    move=> Hadv_activation Hupdate Hhashpr |
+    move=> Hadv_activation Hlast_hashed Haddr_index Hadv_pr |
+    move=> Hroundend Hupd |
+    move=> Hadv_activation
+  ] => r prf l o_addr n.
+  
+  admit. admit. admit. admit.
+ 
+  
+  
+  
+
 Admitted.
 
 (* if a message reaches the end of the queue  then every actor will have a chain greater than it's length *)
@@ -2939,7 +2970,6 @@ Proof.
   move=> Hwexec.
   rewrite -subSn //=.
   rewrite (bounded_successful_exclusion (x::xs) w r s l ) //=.
-  move: (@chain_growth_direct_weaken (x::xs) w l (Ordinal Hrvalid) s) => //=.
   apply: (@chain_growth_direct_weaken (x::xs) w l (Ordinal Hrvalid) s) => //=.
   by rewrite subn_ltn_pr.
   move=> Hdelta.
