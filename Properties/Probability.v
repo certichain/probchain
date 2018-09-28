@@ -1878,6 +1878,60 @@ Lemma first_has_chain_length_implies_broadcast sc w (r: 'I_N_rounds)  l  o_addr 
   message_pool_contains_chain_of_length_ge ((world_message_queue_at_round w r.+1).1).1  l.
 Admitted.
 
+Lemma message_trace_eq_rounds sc w   :
+  (P[ world_step initWorld sc === Some w] <> 0) ->
+  [length [w.msg_trace]] = [[w.state].#round].
+Proof.
+  move=> Hpr'.
+  apply/(world_stepP (fun w _ =>
+    [length [w.msg_trace]] = [[w.state].#round]
+  ) sc w) => [ //=  | //=  | //= | //= | //= | //= | //= | //= | //= | //= | //= | | //= | //= ].
+  rewrite -fixlist_length_unwrap_ident /initMessageTrace.
+    by move: (fixlist_empty_is_empty
+                [eqType of (MessagePool * fixlist [eqType of MessagePool] delta * MessagePool)]
+                N_rounds.+1) => /eqP ->.
+  admit.
+
+  move=> new_os adv_state blc_rcd nonce hash_value hash_res w' xs Heq Hpr Hadv Hupd Hprw'.
+  rewrite/adversary_mint_player_step //=.
+  by case: (_ < _)%nat;
+  case: (isSome _) => //=.
+
+  by move=> [[new_adv os] block ] w' xs Heq Hprw' Hadv Hactiveround Haddr Hhashpr;
+  rewrite /adversary_mint_global_step //= /BlockMap_put_adversarial_on_success//= .
+
+  move=> msgs new_pool w' xs Heq Hlt Hrndend Hupd.
+  rewrite /round_end_step.
+  rewrite -fixlist_length_unwrap_ident fixlist_insert_rewrite .
+  rewrite -length_sizeP size_rcons length_sizeP fixlist_length_unwrap_ident Heq //=.
+  rewrite deliver_messages_update_round_preserves_round /next_round //=.
+  move: Hrndend; rewrite /round_ended => /andP []; rewrite !addn1.
+  case Hw_state_eq: [w'.state] => [gls gca ga gcr]//= => -> Hltn.
+  move: (erefl _); rewrite {2 3}Hltn => Htmp //=.
+  admit.
+  admit.
+
+  rewrite /adversary_activation /update_round.
+  move=> w' xs Heq Hpr.
+  case Hw_state_eq: [w'.state] => [gls gca ga gcr]//= .
+  case: {2 3}(_ < _)%nat (erefl (_ < _)%nat ) => Hltn.
+    have Hfalse: (eq_op (nat_of_ord ga) n_max_actors.+1) = false.
+      by case Hef: (eq_op (nat_of_ord ga) n_max_actors.+1);[
+        move: Hltn; move/eqP: Hef ->; rewrite -addn1 => /ltn_weaken; rewrite ltnn | ].
+    move: (erefl _); rewrite {2 3}Hfalse => Htmp; rewrite /ssr_suff//=.
+    by rewrite Heq Hw_state_eq//=.
+  case Hfeq: (eq_op _) => //= _.
+  have Hfalse: (eq_op (nat_of_ord ga) n_max_actors.+1) = false.
+    move/eqP:Hfeq <- => //=.
+    by apply/eqP => //=.
+  move: (erefl _); rewrite {2 3}Hfalse /ssr_suff //= => Htmp.
+  by rewrite Heq Hw_state_eq //=.
+Admitted.
+    
+
+
+
+
 (* if the nth entry in the fixlist queue contains a message of length l, then by the next round,
     the n.+1th entry contains a message of length l*)
 Lemma broadcast_propagates sc w r l o_addr n : 
@@ -2029,6 +2083,33 @@ Proof.
   apply:(IHw' r prf l o_addr n) => //=.
 
   (* round end step *)
+  move: IHw'.
+  move=> //=.
+  rewrite/world_message_queue_at_round{1 3}/round_end_step /message_queue_at_round => IHw'.
+  rewrite fixlist_insert_rewrite /world_executed_to_round //= .
+  rewrite deliver_messages_update_round_preserves_round/next_round.
+  case Hw_state: [w'.state] => [gls ga gca gcr] //=.
+  case: {2 3}(eq_op _) (erefl (eq_op _ _)) => //= Hlast; last first.
+     move=> Hround Hdlta Hchngt; rewrite nth_rcons.
+     Check [w'.msg_trace].
+     Search fixlist_length.
+     rewrite length_sizeP.
+     rewrite fixlist_length_unwrap_ident.
+  case: {2 3}(gcr.+1 < _ )%nat (erefl _) => Hltn //=; last first.
+  rewrite ltnS leq_eqVlt => /orP [].
+  rewrite nth_rcons.
+  case Hrnltn:  (r + n < _)%nat => //= IHw' Hwexec Hnvld Hhaschn.
+  apply: (IHw' r prf l o_addr n) => //=.
+  move: Hwexec; rewrite /world_executed_to_round deliver_messages_update_round_preserves_round /next_round //=.
+  About fixlist_enqueue.
+
+  rewrite -/fixlist_enqueue.
+  move=> //=.
+  move=> //=.
+  rewrite 
+  move=> //=.
+  move=> //=.
+  move=> //=.
   admit.
 
 
@@ -2047,8 +2128,7 @@ Proof.
      rewrite/ssr_suff //= => Hltn Hnvld Hhaschain; move: (IHw' r prf l o_addr n);
      rewrite /world_message_queue_at_round //= => H; apply H => //=; clear H;
      rewrite/world_executed_to_round Hw_state.
-  by case: {2 3 9 15}(eq_op _ ) (erefl _) => //= Htmp Hround Hndlta Hhaschain;
-     move: (IHw' r prf l o_addr n); rewrite /world_message_queue_at_round //= => H; apply H => //=; clear H;
+  by case: {2 3 9 15}(eq_op _ ) (erefl _) => //= Htmp Hround Hndlta Hhaschain; move: (IHw' r prf l o_addr n); rewrite /world_message_queue_at_round //= => H; apply H => //=; clear H;
      rewrite/world_executed_to_round Hw_state //=.
 Admitted.
 
