@@ -2010,20 +2010,51 @@ Proof.
     admit.
 
 
+  (* adversary mint player step *)
+  by rewrite /world_executed_to_round /adversary_mint_player_step //=;
+  case: (hash_res < T_Hashing_Difficulty)%nat => //=;
+  case: (isSome _) => //=;
+  move: IHw';
+  rewrite/actor_n_first_has_chain_length_ge_at_round !actor_n_has_chain_length_ge_at_round_internalP //=;
+  move=> IHw' Hround Hndlta Hbse;
+  apply:(IHw' r prf l o_addr n) => //=.
+
+
+  (* adversary mint global step *)
+  by move: adv_state Hadv_pr=> [[adv_state os] ob] Hadv_pr;
+  rewrite /world_executed_to_round /adversary_mint_global_step //=;
+  move: IHw';
+  rewrite/actor_n_first_has_chain_length_ge_at_round !actor_n_has_chain_length_ge_at_round_internalP //=;
+  move=> IHw' Hround Hndlta Hbse;
+  apply:(IHw' r prf l o_addr n) => //=.
+
+  (* round end step *)
+  admit.
 
 
 
-
- 
-  
-  
-  
-
+  (* adversary end step *)
+  rewrite /world_executed_to_round /adversary_end_step/update_round //= .
+  move: Hadv_activation; rewrite /adversary_activation.
+  case Hw_state: [w'.state] => [gls gca ga gr] //=.
+  move: (erefl (_ < _)%nat).
+  case: {2 3}(_ < _)%nat => //= => Hprf Hiscrpt.
+  have Hneq: (eq_op (nat_of_ord ga)  n_max_actors.+1)%nat = false.
+    case Heqn: (eq_op _ _ ).
+    by move/eqP: Heqn (Hprf) => ->; rewrite -addn1 => /ltn_weaken; rewrite ltnn.
+    by [].
+  by move: (erefl _); rewrite {2 3 9 15}Hneq => Htmp; rewrite (proof_irrelevance _ Htmp Hneq); clear Htmp;
+     rewrite/ssr_suff //= => Hltn Hnvld Hhaschain; move: (IHw' r prf l o_addr n);
+     rewrite /world_message_queue_at_round //= => H; apply H => //=; clear H;
+     rewrite/world_executed_to_round Hw_state.
+  by case: {2 3 9 15}(eq_op _ ) (erefl _) => //= Htmp Hround Hndlta Hhaschain;
+     move: (IHw' r prf l o_addr n); rewrite /world_message_queue_at_round //= => H; apply H => //=; clear H;
+     rewrite/world_executed_to_round Hw_state //=.
 Admitted.
 
 (* if a message reaches the end of the queue  then every actor will have a chain greater than it's length *)
 Lemma broadcast_terminates sc w r l : 
-  (P[ world_step initWorld sc === Some w] <> 0) ->
+(P[ world_step initWorld sc === Some w] <> 0) ->
   (world_executed_to_round w  (r + delta)) ->
   o_message_pool_contains_chain_of_length_ge
     (fixlist_get_nth
