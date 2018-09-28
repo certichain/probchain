@@ -2091,25 +2091,55 @@ Proof.
   case Hw_state: [w'.state] => [gls ga gca gcr] //=.
   case: {2 3}(eq_op _) (erefl (eq_op _ _)) => //= Hlast; last first.
      move=> Hround Hdlta Hchngt; rewrite nth_rcons.
-     Check [w'.msg_trace].
-     Search fixlist_length.
      rewrite length_sizeP.
      rewrite fixlist_length_unwrap_ident.
+     rewrite (message_trace_eq_rounds xs w') //=.
+     rewrite Hw_state //=.
+     have Hltn: (r + n < gcr)%nat.
+        by move: Hround; rewrite -addn1 => /ltn_weaken.
+     rewrite Hltn //=.
+     apply (IHw' r prf l o_addr n) => //=.
+     by rewrite /world_executed_to_round Hw_state //=.
+     by move/Rlt_not_eq/nesym: Hprw'.
   case: {2 3}(gcr.+1 < _ )%nat (erefl _) => Hltn //=; last first.
-  rewrite ltnS leq_eqVlt => /orP [].
+    move=> Hwexec Hnvld Hhaschn.
+    rewrite nth_rcons.
+    rewrite length_sizeP.
+    rewrite fixlist_length_unwrap_ident.
+    rewrite (message_trace_eq_rounds xs w') //=.
+    rewrite Hw_state //=.
+    have Hlt: (r + n < gcr)%nat.
+      by move: Hwexec; rewrite -addn1 => /ltn_weaken.
+    rewrite Hlt//=.
+    apply (IHw' r prf l o_addr n) => //=.
+    by rewrite /world_executed_to_round Hw_state //=.
+    by move/Rlt_not_eq/nesym: Hprw'.
+  rewrite ltnS leq_eqVlt => /orP []; last first.
+     move=> Hround Hdlta Hchngt; rewrite nth_rcons.
+     rewrite length_sizeP.
+     rewrite fixlist_length_unwrap_ident.
+     rewrite (message_trace_eq_rounds xs w') //=.
+     rewrite Hw_state //=.
+     have Hlt: (r + n < gcr)%nat.
+        by move: Hround; rewrite -addn1 => /ltn_weaken.
+     rewrite Hlt //=.
+     apply (IHw' r prf l o_addr n) => //=.
+     by rewrite /world_executed_to_round Hw_state //=.
+     by move/Rlt_not_eq/nesym: Hprw'.
   rewrite nth_rcons.
-  case Hrnltn:  (r + n < _)%nat => //= IHw' Hwexec Hnvld Hhaschn.
-  apply: (IHw' r prf l o_addr n) => //=.
-  move: Hwexec; rewrite /world_executed_to_round deliver_messages_update_round_preserves_round /next_round //=.
-  About fixlist_enqueue.
-
-  rewrite -/fixlist_enqueue.
-  move=> //=.
-  move=> //=.
-  rewrite 
-  move=> //=.
-  move=> //=.
-  move=> //=.
+  rewrite length_sizeP.
+  rewrite fixlist_length_unwrap_ident.
+  rewrite (message_trace_eq_rounds xs w') //=.
+  rewrite Hw_state //=.
+  move=> Hrneq; move: (Hrneq).
+  move=>/eqP -> //=; rewrite leqnn.
+  move=> Hnvld.
+  have Hobv: world_executed_to_round w' (r + n.-1).+1.
+  rewrite /world_executed_to_round Hw_state //=; move/eqP: Hrneq.
+  admit.
+  admit.
+  admit.
+  admit.
   admit.
 
 
