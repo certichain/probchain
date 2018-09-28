@@ -1914,8 +1914,106 @@ Proof.
     move=> Hroundend Hupd |
     move=> Hadv_activation
   ] => r prf l o_addr n.
-  
-  admit. admit. admit. admit.
+
+  apply:(@honest_mint_stepP (fun w =>
+          world_executed_to_round w (r + n).+1%nat -> (n < delta)%nat ->
+          actor_n_first_has_chain_length_ge_at_round w l o_addr (Ordinal (n:=N_rounds) (m:=r) prf) ->
+          o_message_pool_contains_chain_of_length_ge
+            (fixlist_get_nth (world_message_queue_at_round w (r + n)).1.2 n) l
+      ) w' iscrpt os hash_value hash_vl blc_rcd addr0 lclstt result ltp)=> //= [
+  a_iscrpt a_addr a_stt new_os a_blc_rcd hash_result a_pow head_link new_ltp |
+  a_iscrpt a_addr a_stt new_os a_blc_rcd hash_result a_pow head_link new_ltp Hincr_bounds |
+  a_iscrpt a_addr a_stt new_os a_blc_rcd hash_result a_pow head_link new_ltp |
+  a_iscrpt a_addr a_stt new_os a_blc_rcd hash_result a_pow head_link new_ltp Hincr_bounds |
+  a_iscrpt a_addr a_stt new_os a_pow head_link a_blc_rcd hash_result new_ltp | 
+  a_iscrpt a_addr a_stt new_os a_pow head_link a_blc_rcd hash_result new_ltp Hincr_bounds ];
+  clear sc w Hpr iscrpt os hash_value hash_vl blc_rcd addr0
+        lclstt result ltp Hhon_activation Hactive Hheadlink Hmaxsubset Hhashpr=>
+  Hactive_addr Hactive_stt Hheadlink Hmaxsubs Hhash_pr Hmaxvld
+  ; [move=> Hactive_last | |
+    move=> Hactive_last | |
+    move=> Hactive_last |
+    move=> Hnactive_last];
+  try (by destruct a_addr as [a_addr Ha_addr] => //=; move: (Ha_addr) (Ha_addr);
+  move: Hactive_last Hactive_addr =>/eqP -> //= <-; rewrite -{1}addn1 => /ltn_weaken; rewrite ltnn);
+  rewrite /world_executed_to_round //= => Hwexec Hnvld //= Hhaschain.
+(* honest mint failed no update *)
+  move: IHw'; rewrite /honest_mint_failed_no_update/world_message_queue_at_round //= => IHw'.
+  move: Hhaschain.
+  rewrite /actor_n_first_has_chain_length_ge_at_round//= => /andP [].
+  rewrite !actor_n_has_chain_length_ge_at_round_internalP //=.
+  rewrite /actor_n_has_chain_length_ge_at_round_internal !fixlist_insert_rewrite.
+  rewrite !has_rcons -orb_assoc.
+  move=>/orP [/andP [Hlen /andP [Hround Hactive]] | Hhaschain ] Hall; last first.
+    (* inductive hypothesis case *)
+    apply (IHw' r prf l o_addr n) => //=.
+    rewrite /actor_n_first_has_chain_length_ge_at_round; apply/andP; split => //=.
+    apply/allP => x Hin; move/allP: Hall => Hall; move: (Hall x Hin).
+    rewrite /actor_n_has_chain_length_ge_at_round_nat/honest_mint_failed_no_update//=.
+    move: (erefl _); case: {2 3 7}(_ < _)%nat => //= Hltx.
+    rewrite !actor_n_has_chain_length_ge_at_round_internalP //=.
+    rewrite/actor_n_has_chain_length_ge_at_round_internal fixlist_insert_rewrite//=.
+    by rewrite has_rcons -orb_assoc negb_or => /andP [].
+    admit.
+    admit.
+      by move: Hwexec; rewrite -addSn => /ltn_weaken;
+                                          move: Hround => //=; rewrite -ltnS => /ltn_trans H /H; rewrite ltnn.
+    admit.
+    admit.
+  (* honest mint failed update *)
+  move: IHw'; rewrite /honest_mint_failed_no_update/world_message_queue_at_round //= => IHw'.
+  move: Hhaschain.
+  rewrite /actor_n_first_has_chain_length_ge_at_round//= => /andP [].
+  rewrite !actor_n_has_chain_length_ge_at_round_internalP //=.
+  rewrite /actor_n_has_chain_length_ge_at_round_internal !fixlist_insert_rewrite.
+  rewrite !has_rcons -orb_assoc.
+  move=>/orP [/andP [Hlen /andP [Hround Hactive]] | Hhaschain ] Hall; last first.
+    (* inductive hypothesis case *)
+    apply (IHw' r prf l o_addr n) => //=.
+    rewrite /actor_n_first_has_chain_length_ge_at_round; apply/andP; split => //=.
+    apply/allP => x Hin; move/allP: Hall => Hall; move: (Hall x Hin).
+    rewrite /actor_n_has_chain_length_ge_at_round_nat/honest_mint_failed_no_update//=.
+    move: (erefl _); case: {2 3 7}(_ < _)%nat => //= Hltx.
+    rewrite !actor_n_has_chain_length_ge_at_round_internalP //=.
+    rewrite/actor_n_has_chain_length_ge_at_round_internal fixlist_insert_rewrite//=.
+    by rewrite has_rcons -orb_assoc negb_or => /andP [].
+    admit. (* skipping the obvious lemmas for overflows for now*)
+    admit.
+      by move: Hwexec; rewrite -addSn => /ltn_weaken;
+                                          move: Hround => //=; rewrite -ltnS => /ltn_trans H /H; rewrite ltnn.
+    admit.
+    admit.
+ (* honest mint succeed update *)
+  move: IHw' Hwexec; rewrite /honest_mint_succeed_update/world_message_queue_at_round //= => IHw' .
+  move: Hhaschain.
+  rewrite /actor_n_first_has_chain_length_ge_at_round//= => /andP [ Hlen Hall]; move: Hall Hlen .
+  rewrite !actor_n_has_chain_length_ge_at_round_internalP //=.
+  rewrite /honest_mint_succeed_update //= .
+  case: (fixlist_enqueue _) => [new_chain new_block] //= Hall.
+  rewrite /actor_n_has_chain_length_ge_at_round_internal !fixlist_insert_rewrite.
+  rewrite !has_rcons -orb_assoc.
+  move=>/orP [/andP [Hlen /andP [Hrnd Haddr]] | Hhaschain ] Hwexec; last first.
+    (* inductive hypothesis case *)
+    apply (IHw' r prf l o_addr n) => //=.
+    rewrite /actor_n_first_has_chain_length_ge_at_round; apply/andP; split => //=.
+    apply/allP => x Hin; move/allP: Hall => Hall; move: (Hall x Hin).
+    rewrite /actor_n_has_chain_length_ge_at_round_nat/honest_mint_failed_no_update//=.
+    move: (erefl _); case: {2 3 7}(_ < _)%nat => //= Hltx.
+    rewrite !actor_n_has_chain_length_ge_at_round_internalP/honest_mint_succeed_update //=.
+    rewrite/actor_n_has_chain_length_ge_at_round_internal fixlist_insert_rewrite//=.
+    by rewrite has_rcons -orb_assoc negb_or => /andP [].
+    admit.
+    admit.
+      by move: Hwexec; rewrite -addSn => /ltn_weaken;
+                                          move: Hrnd => //=; rewrite -ltnS => /ltn_trans H /H; rewrite ltnn.
+    admit.
+    admit.
+
+
+
+
+
+
  
   
   
