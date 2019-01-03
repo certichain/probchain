@@ -47,7 +47,7 @@ Section Comp.
                 )
             )
             (* | Repeat _ c P => (filter P (getSupport c)) *)
-            | Rnd A n _ => (flatten (map (fun x => match pickle_inv A x with 
+            | Rnd A n _ => (flatten (map (fun x => match pickle_inv x with 
                                                         | Some value => [:: value]
                                                         | None => [::]
                                                         end) (index_iota 0 n.+1)))
