@@ -26,6 +26,6 @@ infotheo/Makefile: infotheo/_CoqProject
 	cd infotheo && coq_makefile -f _CoqProject -o Makefile
 
 infotheo/_CoqProject:
-	git submodule update --recursive --remote --init .
+	git submodule update --recursive --init .
 
 .PHONY: all default quick install clean
